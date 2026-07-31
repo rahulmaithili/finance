@@ -2,12 +2,12 @@
 // Replace these placeholders with your actual Firebase Project Configuration details from Firebase Console.
 
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT_ID.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
+    apiKey: "AIzaSyC5Vj2DrewJ-rEQHDANjibtVYJ4Bk4xF2w",
+    authDomain: "finance-163ac.firebaseapp.com",
+    projectId: "finance-163ac",
+    storageBucket: "finance-163ac.firebasestorage.app",
+    messagingSenderId: "922717138410",
+    appId: "1:922717138410:web:9467f989b574e3fed1d693"
 };
 
 // Initialize Firebase (Compat mode)
