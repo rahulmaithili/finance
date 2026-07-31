@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bank Transfers - IEMS ERP</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.4.1/css/responsive.dataTables.min.css">
+    
+    <!-- Firebase SDK & Config -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    
+    <!-- Navigation Loader -->
+    <script src="nav-loader.js"></script>
+    
+    <!-- jQuery, DataTables & SweetAlert2 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/responsive/2.4.1/js/dataTables.responsive.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+
+    <div class="app-wrapper">
+        <!-- Main Panel Content -->
+        <div class="main-content">
+            <!-- Navbar -->
+            <div class="navbar">
+                <div class="page-title">Manage Account Transfers</div>
+            </div>
+            
+            <!-- Content Body -->
+            <div class="content-body">
+                <div class="module-grid">
+                    <!-- Left: Transfers Table -->
+                    <div>
+                        <div class="header-title-section" style="margin-bottom: 20px;">
+                            <h2>All Transfers Overview</h2>
+                            <p>Overview of funds moved from one cash/bank ledger to another.</p>
+                        </div>
+                        
+                        <div class="table-card">
+                            <div class="table-responsive">
+                                <table id="transfersTable" class="custom-table" style="width:100%;">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>From Account</th>
+                                            <th>To Account</th>
+                                            <th>Amount</th>
+                                            <th>Remarks</th>
+                                            <th>Recorded By</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="transfersTableBody">
+                                        <!-- Dynamic database rows -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right: Add / Edit Form -->
+                    <div class="desktop-form-panel">
+                        <div class="form-card">
+                            <div class="form-card-title">
+                                <span id="formTitle">Log Transfer</span>
+                                <button class="btn-icon" style="border: none; display:none;" id="cancelEditBtn" onclick="resetForm()">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
+                            
+                            <form id="transferForm" autocomplete="off">
+                                <input type="hidden" id="transferId">
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Source Account (Debit)</label>
+                                    <select id="from_account" class="form-control" style="padding-left:15px;" required>
+                                        <option value="" disabled selected>Select Source Account</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Destination Account (Credit)</label>
+                                    <select id="to_account" class="form-control" style="padding-left:15px;" required>
+                                        <option value="" disabled selected>Select Destination Account</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Amount (₹)</label>
+                                    <div class="input-icon-wrapper">
+                                        <input type="number" id="amount" class="form-control" placeholder="0.00" step="0.01" min="0.01" required>
+                                        <i class="fa-solid fa-indian-rupee-sign" style="left: 14px;"></i>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Transfer Date</label>
+                                    <div class="input-icon-wrapper">
+                                        <input type="date" id="transfer_date" class="form-control" required>
+                                        <i class="fa-solid fa-calendar-days" style="left: 14px;"></i>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Remarks</label>
+                                    <textarea id="remarks" class="form-control" style="height:70px; padding-left:14px; resize:none;" placeholder="Transfer notes..."></textarea>
+                                </div>
+                                
+                                <button type="submit" class="btn-primary" style="margin-top: 10px;" id="saveBtn">
+                                    <i class="fa-solid fa-plus" id="formSubmitIcon"></i>
+                                    <span id="formSubmitText">Execute Transfer</span>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile FAB -->
+    <button class="mobile-fab fab-transfer" id="mobileTransferBtn" title="Log Transfer" aria-label="Add Transfer">
+        <i class="fa-solid fa-plus"></i>
+    </button>
+
+    <!-- Mobile Bottom Sheet -->
+    <div class="bottom-sheet-overlay" id="sheetOverlay"></div>
+    <div class="bottom-sheet" id="bottomSheet">
+        <div class="sheet-stripe-transfer" style="height:4px; background:linear-gradient(90deg, #6366f1, #818cf8); border-radius:22px 22px 0 0;"></div>
+        <div class="bottom-sheet-handle"></div>
+        <div class="bottom-sheet-header">
+            <h3><i class="fa-solid fa-right-left" style="color:#6366f1; margin-right:8px;"></i><span id="sheetFormTitle">Log Transfer</span></h3>
+            <button class="bottom-sheet-close" id="sheetCloseBtn"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="bottom-sheet-body">
+            <form id="mobileTransferForm" autocomplete="off">
+                <div class="form-group">
+                    <label class="form-label">Source Account (Debit)</label>
+                    <select id="m_from_account" class="form-control" style="padding-left:14px;" required>
+                        <option value="" disabled selected>Select Source Account</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Destination Account (Credit)</label>
+                    <select id="m_to_account" class="form-control" style="padding-left:14px;" required>
+                        <option value="" disabled selected>Select Destination Account</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Amount (₹)</label>
+                    <div class="input-icon-wrapper">
+                        <input type="number" id="m_amount" class="form-control" placeholder="0.00" step="0.01" min="0.01" required>
+                        <i class="fa-solid fa-indian-rupee-sign" style="left:14px;"></i>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Transfer Date</label>
+                    <div class="input-icon-wrapper">
+                        <input type="date" id="m_transfer_date" class="form-control" required>
+                        <i class="fa-solid fa-calendar-days" style="left:14px;"></i>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Remarks</label>
+                    <textarea id="m_remarks" class="form-control" style="height:70px; padding-left:14px; resize:none;" placeholder="Transfer notes..."></textarea>
+                </div>
+
+                <button type="submit" class="btn-primary" style="margin-top:10px;" id="m_saveBtn">
+                    <i class="fa-solid fa-plus" id="m_formSubmitIcon"></i>
+                    <span id="m_formSubmitText">Execute Transfer</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- JS Logic -->
+    <script>
+        let editMode = false;
+        let activeEditId = null;
+        let activeAccountsMap = {};
+
+        // Default Date
+        document.getElementById('transfer_date').value = new Date().toISOString().split('T')[0];
+        document.getElementById('m_transfer_date').value = new Date().toISOString().split('T')[0];
+
+        // Bottom Sheet
+        const sheetOverlay = document.getElementById('sheetOverlay');
+        const bottomSheet = document.getElementById('bottomSheet');
+        const mobileTransferBtn = document.getElementById('mobileTransferBtn');
+        const sheetCloseBtn = document.getElementById('sheetCloseBtn');
+
+        function openSheet() {
+            sheetOverlay.classList.add('open');
+            bottomSheet.classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+        function closeSheet() {
+            sheetOverlay.classList.remove('open');
+            bottomSheet.classList.remove('open');
+            document.body.style.overflow = '';
+        }
+
+        if (mobileTransferBtn) mobileTransferBtn.addEventListener('click', () => {
+            resetForm();
+            openSheet();
+        });
+        if (sheetCloseBtn) sheetCloseBtn.addEventListener('click', closeSheet);
+        if (sheetOverlay) sheetOverlay.addEventListener('click', closeSheet);
+
+        // Fetch Accounts Callback from Auth loader
+        window.onNavigationLoaded = function (user, userData) {
+            loadAccountsList().then(() => {
+                loadTransfersTable(userData);
+            });
+        };
+
+        function loadAccountsList() {
+            const fromSels = [document.getElementById('from_account'), document.getElementById('m_from_account')];
+            const toSels = [document.getElementById('to_account'), document.getElementById('m_to_account')];
+            
+            return db.collection('bank_accounts').where('status', '==', 'active').get().then(snapshot => {
+                fromSels.forEach(sel => sel.innerHTML = '<option value="" disabled selected>Select Source Account</option>');
+                toSels.forEach(sel => sel.innerHTML = '<option value="" disabled selected>Select Destination Account</option>');
+                
+                snapshot.forEach(doc => {
+                    const acc = doc.data();
+                    const id = doc.id;
+                    activeAccountsMap[id] = acc.account_name;
+                    
+                    const optionHtml = `<option value="${id}">${acc.account_name} (${formatCurrency(acc.current_balance)})</option>`;
+                    fromSels.forEach(sel => sel.innerHTML += optionHtml);
+                    toSels.forEach(sel => sel.innerHTML += optionHtml);
+                });
+            });
+        }
+
+        function loadTransfersTable(currentUser) {
+            const tableBody = document.getElementById('transfersTableBody');
+            
+            if ($.fn.DataTable.isDataTable('#transfersTable')) {
+                $('#transfersTable').DataTable().destroy();
+            }
+
+            db.collection('transfers').orderBy('transfer_date', 'desc').onSnapshot(snapshot => {
+                tableBody.innerHTML = '';
+                snapshot.forEach(doc => {
+                    const tf = doc.data();
+                    const id = doc.id;
+                    const dateObj = new Date(tf.transfer_date);
+                    const formattedDate = dateObj.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+                    tableBody.innerHTML += `
+                    <tr>
+                        <td>${formattedDate}</td>
+                        <td>${activeAccountsMap[tf.from_account] || 'Unknown'}</td>
+                        <td>${activeAccountsMap[tf.to_account] || 'Unknown'}</td>
+                        <td style="font-weight:700; color:var(--primary);">${formatCurrency(tf.amount)}</td>
+                        <td>${tf.remarks || '—'}</td>
+                        <td>${tf.recorded_by_name || 'System'}</td>
+                        <td>
+                            <div style="display:flex; gap:6px;">
+                                <button class="bank-btn" onclick="editTransfer('${id}')" title="Edit Entry"><i class="fa-solid fa-pen"></i></button>
+                                <button class="bank-btn" onclick="deleteTransfer('${id}')" title="Delete Entry"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        </td>
+                    </tr>`;
+                });
+
+                $('#transfersTable').DataTable({
+                    order: [[0, 'desc']],
+                    responsive: true
+                });
+            });
+        }
+
+        // Save execution logic
+        document.getElementById('transferForm').addEventListener('submit', (e) => { e.preventDefault(); handleSave(false); });
+        document.getElementById('mobileTransferForm').addEventListener('submit', (e) => { e.preventDefault(); handleSave(true); });
+
+        function handleSave(isMobile) {
+            const prefix = isMobile ? 'm_' : '';
+            const saveBtn = document.getElementById(isMobile ? 'm_saveBtn' : 'saveBtn');
+            saveBtn.disabled = true;
+
+            const fromAcc = document.getElementById(prefix + 'from_account').value;
+            const toAcc = document.getElementById(prefix + 'to_account').value;
+            const amount = parseFloat(document.getElementById(prefix + 'amount').value);
+            const date = document.getElementById(prefix + 'transfer_date').value;
+            const remarks = document.getElementById(prefix + 'remarks').value.trim();
+
+            if (fromAcc === toAcc) {
+                Swal.fire({ icon: 'warning', title: 'Invalid Account Selection', text: 'Source account and destination account cannot be the same.' });
+                saveBtn.disabled = false;
+                return;
+            }
+
+            const currentUser = auth.currentUser;
+
+            db.collection('users').doc(currentUser.uid).get().then(userDoc => {
+                const uData = userDoc.data();
+                const recorderName = uData ? uData.full_name : currentUser.email.split('@')[0];
+
+                return db.runTransaction(transaction => {
+                    const fromAccRef = db.collection('bank_accounts').doc(fromAcc);
+                    const toAccRef = db.collection('bank_accounts').doc(toAcc);
+
+                    return transaction.get(fromAccRef).then(fromDoc => {
+                        if (!fromDoc.exists) throw "Source account does not exist!";
+                        
+                        const srcBal = parseFloat(fromDoc.data().current_balance || 0);
+
+                        if (editMode) {
+                            const tfRef = db.collection('transfers').doc(activeEditId);
+                            return transaction.get(tfRef).then(tfDoc => {
+                                if (!tfDoc.exists) throw "Original transfer not found.";
+                                const oldData = tfDoc.data();
+
+                                // Reverse the old transaction balances
+                                const oldFromRef = db.collection('bank_accounts').doc(oldData.from_account);
+                                const oldToRef = db.collection('bank_accounts').doc(oldData.to_account);
+
+                                return transaction.get(oldFromRef).then(oldFromDoc => {
+                                    return transaction.get(oldToRef).then(oldToDoc => {
+                                        const oldFromBal = parseFloat(oldFromDoc.data().current_balance || 0);
+                                        const oldToBal = parseFloat(oldToDoc.data().current_balance || 0);
+
+                                        // Apply reverse balances in transaction
+                                        transaction.update(oldFromRef, { current_balance: oldFromBal + parseFloat(oldData.amount) });
+                                        transaction.update(oldToRef, { current_balance: oldToBal - parseFloat(oldData.amount) });
+
+                                        // Read adjusted source balance
+                                        let adjustedSrcBal = srcBal;
+                                        if (fromAcc === oldData.from_account) {
+                                            adjustedSrcBal = srcBal + parseFloat(oldData.amount);
+                                        }
+
+                                        if (adjustedSrcBal < amount) {
+                                            throw `Insufficient funds. Adjusted source balance is ${formatCurrency(adjustedSrcBal)}`;
+                                        }
+
+                                        // Now apply the updated transfer balances
+                                        return transaction.get(toAccRef).then(toDoc => {
+                                            const destBal = parseFloat(toDoc.data().current_balance || 0);
+                                            
+                                            // Perform database update
+                                            let finalFromBal = adjustedSrcBal - amount;
+                                            let finalToBal = destBal + amount;
+                                            
+                                            // Handle cross-over logic adjustments if source and destinations were swapped
+                                            if (fromAcc === oldData.to_account) {
+                                                finalFromBal = (destBal - parseFloat(oldData.amount)) - amount;
+                                            }
+                                            if (toAcc === oldData.from_account) {
+                                                finalToBal = (oldFromBal + parseFloat(oldData.amount)) + amount;
+                                            }
+
+                                            transaction.update(fromAccRef, { current_balance: finalFromBal });
+                                            transaction.update(toAccRef, { current_balance: finalToBal });
+
+                                            transaction.update(tfRef, {
+                                                from_account: fromAcc,
+                                                to_account: toAcc,
+                                                amount: amount,
+                                                transfer_date: date,
+                                                remarks: remarks
+                                            });
+                                        });
+                                    });
+                                });
+                            });
+                        } else {
+                            // Create Mode: Check if balance is sufficient
+                            if (srcBal < amount) {
+                                throw `Insufficient funds in source account. Available balance: ${formatCurrency(srcBal)}`;
+                            }
+
+                            return transaction.get(toAccRef).then(toDoc => {
+                                const destBal = parseFloat(toDoc.data().current_balance || 0);
+                                
+                                transaction.update(fromAccRef, { current_balance: srcBal - amount });
+                                transaction.update(toAccRef, { current_balance: destBal + amount });
+
+                                transaction.set(db.collection('transfers').doc(), {
+                                    from_account: fromAcc,
+                                    to_account: toAcc,
+                                    amount: amount,
+                                    transfer_date: date,
+                                    remarks: remarks,
+                                    recorded_by_uid: currentUser.uid,
+                                    recorded_by_name: recorderName,
+                                    created_at: firebase.firestore.FieldValue.serverTimestamp()
+                                });
+                            });
+                        }
+                    });
+                });
+            }).then(() => {
+                Swal.fire({ icon: 'success', title: 'Transfer Completed Successfully', timer: 1500, showConfirmButton: false });
+                resetForm();
+                closeSheet();
+                loadAccountsList();
+            }).catch(err => {
+                console.error("Transfer transaction failed:", err);
+                Swal.fire({ icon: 'error', title: 'Transfer Failed', text: err.message || err });
+            }).finally(() => {
+                saveBtn.disabled = false;
+            });
+        }
+
+        function editTransfer(id) {
+            db.collection('transfers').doc(id).get().then(doc => {
+                if (doc.exists) {
+                    const data = doc.data();
+                    editMode = true;
+                    activeEditId = id;
+
+                    // Fill forms
+                    ['', 'm_'].forEach(prefix => {
+                        document.getElementById(prefix + 'from_account').value = data.from_account;
+                        document.getElementById(prefix + 'to_account').value = data.to_account;
+                        document.getElementById(prefix + 'amount').value = data.amount;
+                        document.getElementById(prefix + 'transfer_date').value = data.transfer_date;
+                        document.getElementById(prefix + 'remarks').value = data.remarks || '';
+                    });
+
+                    // Update UI Labels
+                    document.getElementById('formTitle').textContent = 'Edit Transfer';
+                    document.getElementById('formSubmitText').textContent = 'Save Changes';
+                    document.getElementById('formSubmitIcon').className = 'fa-solid fa-floppy-disk';
+                    document.getElementById('cancelEditBtn').style.display = 'inline-flex';
+
+                    document.getElementById('sheetFormTitle').textContent = 'Edit Transfer';
+                    document.getElementById('m_formSubmitText').textContent = 'Save Changes';
+                    document.getElementById('m_formSubmitIcon').className = 'fa-solid fa-floppy-disk';
+
+                    if (window.innerWidth <= 768) {
+                        openSheet();
+                    }
+                }
+            });
+        }
+
+        function deleteTransfer(id) {
+            Swal.fire({
+                title: 'Are you sure?',
+                text: "This transfer record will be deleted and account balances reversed.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#e11d48',
+                confirmButtonText: 'Yes, delete it!'
+            }).then(result => {
+                if (result.isConfirmed) {
+                    db.runTransaction(transaction => {
+                        const tfRef = db.collection('transfers').doc(id);
+                        return transaction.get(tfRef).then(tfDoc => {
+                            if (!tfDoc.exists) throw "Transfer record not found.";
+
+                            const data = tfDoc.data();
+                            const fromAccRef = db.collection('bank_accounts').doc(data.from_account);
+                            const toAccRef = db.collection('bank_accounts').doc(data.to_account);
+
+                            return transaction.get(fromAccRef).then(fromDoc => {
+                                return transaction.get(toAccRef).then(toDoc => {
+                                    const srcBal = parseFloat(fromDoc.data().current_balance || 0);
+                                    const destBal = parseFloat(toDoc.data().current_balance || 0);
+
+                                    // Reverse balances: add to source, subtract from destination
+                                    transaction.update(fromAccRef, { current_balance: srcBal + parseFloat(data.amount) });
+                                    transaction.update(toAccRef, { current_balance: destBal - parseFloat(data.amount) });
+                                    transaction.delete(tfRef);
+                                });
+                            });
+                        });
+                    }).then(() => {
+                        Swal.fire({ icon: 'success', title: 'Transfer Deleted and Reversed Successfully', timer: 1500, showConfirmButton: false });
+                        loadAccountsList();
+                    }).catch(err => {
+                        Swal.fire({ icon: 'error', title: 'Deletion Failed', text: err.message || err });
+                    });
+                }
+            });
+        }
+
+        function resetForm() {
+            editMode = false;
+            activeEditId = null;
+
+            document.getElementById('transferForm').reset();
+            document.getElementById('mobileTransferForm').reset();
+
+            document.getElementById('transfer_date').value = new Date().toISOString().split('T')[0];
+            document.getElementById('m_transfer_date').value = new Date().toISOString().split('T')[0];
+
+            document.getElementById('formTitle').textContent = 'Log Transfer';
+            document.getElementById('formSubmitText').textContent = 'Execute Transfer';
+            document.getElementById('formSubmitIcon').className = 'fa-solid fa-plus';
+            document.getElementById('cancelEditBtn').style.display = 'none';
+
+            document.getElementById('sheetFormTitle').textContent = 'Log Transfer';
+            document.getElementById('m_formSubmitText').textContent = 'Execute Transfer';
+            document.getElementById('m_formSubmitIcon').className = 'fa-solid fa-plus';
+        }
+    </script>
+</body>
+</html>

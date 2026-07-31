@@ -1,0 +1,8 @@
+# Ignore local configuration and scratch files
+.gemini/
+scratch/
+db_check.php
+test_request.php
+*verification_test.php
+*alter_db.php
+*add_attachments.php

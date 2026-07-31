@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Expense Entries - IEMS ERP</title>
+    <link class="styles" rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.4.1/css/responsive.dataTables.min.css">
+    
+    <!-- Firebase SDK & Config -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    
+    <!-- Navigation Loader -->
+    <script src="nav-loader.js"></script>
+    
+    <!-- jQuery, DataTables & SweetAlert2 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/responsive/2.4.1/js/dataTables.responsive.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+
+    <div class="app-wrapper">
+        <!-- Main Panel Content -->
+        <div class="main-content">
+            <!-- Navbar -->
+            <div class="navbar">
+                <div class="page-title">Manage Expense Entries</div>
+            </div>
+            
+            <!-- Content Body -->
+            <div class="content-body">
+                <div class="module-grid">
+                    <!-- Left: Expenses Table -->
+                    <div>
+                        <div class="header-title-section" style="margin-bottom: 20px;">
+                            <h2>All Expense Transactions</h2>
+                            <p>Complete historical list of expenditures and money paid out.</p>
+                        </div>
+                        
+                        <div class="table-card">
+                            <div class="table-responsive">
+                                <table id="expenseTable" class="custom-table" style="width:100%;">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Title</th>
+                                            <th>Category</th>
+                                            <th>Account</th>
+                                            <th>Method</th>
+                                            <th>Amount</th>
+                                            <th>Recorded By</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="expenseTableBody">
+                                        <!-- Real-time data will load here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right: Add / Edit Form -->
+                    <div class="desktop-form-panel">
+                        <div class="form-card">
+                            <div class="form-card-title">
+                                <span id="formTitle">Log Expense</span>
+                                <button class="btn-icon" style="border: none; display:none;" id="cancelEditBtn" onclick="resetForm()">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
+                            
+                            <form id="expenseForm" autocomplete="off">
+                                <input type="hidden" id="expenseId">
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Title / Recipient</label>
+                                    <div class="input-icon-wrapper">
+                                        <input type="text" id="title" class="form-control" placeholder="e.g. Electricity Bill Payment" required>
+                                        <i class="fa-solid fa-file-invoice" style="left: 14px;"></i>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Category</label>
+                                    <select id="category" class="form-control" style="padding-left:15px;" required>
+                                        <option value="" disabled selected>Select Category</option>
+                                        <option value="Office Rent">Office Rent</option>
+                                        <option value="Utilities (Electricity/Water)">Utilities (Electricity/Water)</option>
+                                        <option value="Internet / Subscriptions">Internet / Subscriptions</option>
+                                        <option value="Salaries / Wages">Salaries / Wages</option>
+                                        <option value="Tax / License Fees">Tax / License Fees</option>
+                                        <option value="Marketing / Ads">Marketing / Ads</option>
+                                        <option value="Inventory / Stock">Inventory / Stock</option>
+                                        <option value="Office Stationery">Office Stationery</option>
+                                        <option value="Travel / Fuel">Travel / Fuel</option>
+                                        <option value="Meals / Entertainment">Meals / Entertainment</option>
+                                        <option value="Repairs / Maintenance">Repairs / Maintenance</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Amount (₹)</label>
+                                    <div class="input-icon-wrapper">
+                                        <input type="number" id="amount" class="form-control" placeholder="0.00" step="0.01" min="0.01" required>
+                                        <i class="fa-solid fa-indian-rupee-sign" style="left: 14px;"></i>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Source Account</label>
+                                    <select id="account_id" class="form-control" style="padding-left:15px;" required>
+                                        <option value="" disabled selected>Select Bank Account</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Payment Method</label>
+                                    <select id="payment_method" class="form-control" style="padding-left:15px;" required>
+                                        <option value="cash">Cash</option>
+                                        <option value="bank">Bank Transfer</option>
+                                        <option value="upi">UPI / QR Code</option>
+                                        <option value="card">Card</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Expense Date</label>
+                                    <div class="input-icon-wrapper">
+                                        <input type="date" id="expense_date" class="form-control" required>
+                                        <i class="fa-solid fa-calendar-days" style="left: 14px;"></i>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Reference / Check No. (Optional)</label>
+                                    <div class="input-icon-wrapper">
+                                        <input type="text" id="reference_no" class="form-control" placeholder="e.g. Tx ID, Check No.">
+                                        <i class="fa-solid fa-signature" style="left: 14px;"></i>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Remarks</label>
+                                    <textarea id="description" class="form-control" style="height:70px; padding-left:14px; resize:none;" placeholder="Brief notes..."></textarea>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Receipt (PDF / Image)</label>
+                                    <input type="file" id="attachment" class="form-control" accept="image/*,application/pdf" style="padding-left:14px; height:auto; padding-top:10px; padding-bottom:10px;">
+                                    <input type="hidden" id="cameraPhotoInput">
+                                    <button type="button" class="btn-secondary" id="startCameraBtn" style="margin-top: 8px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px; font-weight:600;">
+                                        <i class="fa-solid fa-camera"></i> Live Photo Capture
+                                    </button>
+                                    <div id="cameraPreviewContainer" style="display:none; margin-top:10px; text-align:center;">
+                                        <img id="capturedPreviewImg" src="" alt="Captured receipt" style="max-width:100%; max-height:200px; border-radius:8px; border:2px dashed var(--border-color);">
+                                    </div>
+                                </div>
+                                
+                                <button type="submit" class="btn-primary" style="margin-top: 10px;" id="saveBtn">
+                                    <i class="fa-solid fa-plus" id="formSubmitIcon"></i>
+                                    <span id="formSubmitText">Save Expense</span>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile FAB Button -->
+    <button class="mobile-fab fab-expense" id="mobileExpenseBtn" title="Log Expense" aria-label="Add Expense">
+        <i class="fa-solid fa-plus"></i>
+    </button>
+
+    <!-- Mobile Bottom Sheet Panel -->
+    <div class="bottom-sheet-overlay" id="sheetOverlay"></div>
+    <div class="bottom-sheet" id="bottomSheet">
+        <div class="sheet-stripe-expense" style="height:4px; background:linear-gradient(90deg, #e11d48, #f43f5e); border-radius:22px 22px 0 0;"></div>
+        <div class="bottom-sheet-handle"></div>
+        <div class="bottom-sheet-header">
+            <h3><i class="fa-solid fa-circle-minus" style="color:#e11d48; margin-right:8px;"></i><span id="sheetFormTitle">Log Expense</span></h3>
+            <button class="bottom-sheet-close" id="sheetCloseBtn"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="bottom-sheet-body">
+            <form id="mobileExpenseForm" autocomplete="off">
+                <div class="form-group">
+                    <label class="form-label">Title / Recipient</label>
+                    <div class="input-icon-wrapper">
+                        <input type="text" id="m_title" class="form-control" placeholder="e.g. Electricity Bill Payment" required>
+                        <i class="fa-solid fa-file-invoice" style="left:14px;"></i>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <select id="m_category" class="form-control" style="padding-left:14px;" required>
+                        <option value="" disabled selected>Select Category</option>
+                        <option value="Office Rent">Office Rent</option>
+                        <option value="Utilities (Electricity/Water)">Utilities (Electricity/Water)</option>
+                        <option value="Internet / Subscriptions">Internet / Subscriptions</option>
+                        <option value="Salaries / Wages">Salaries / Wages</option>
+                        <option value="Tax / License Fees">Tax / License Fees</option>
+                        <option value="Marketing / Ads">Marketing / Ads</option>
+                        <option value="Inventory / Stock">Inventory / Stock</option>
+                        <option value="Office Stationery">Office Stationery</option>
+                        <option value="Travel / Fuel">Travel / Fuel</option>
+                        <option value="Meals / Entertainment">Meals / Entertainment</option>
+                        <option value="Repairs / Maintenance">Repairs / Maintenance</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Amount (₹)</label>
+                    <div class="input-icon-wrapper">
+                        <input type="number" id="m_amount" class="form-control" placeholder="0.00" step="0.01" min="0.01" required>
+                        <i class="fa-solid fa-indian-rupee-sign" style="left:14px;"></i>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Source Account</label>
+                    <select id="m_account_id" class="form-control" style="padding-left:14px;" required>
+                        <option value="" disabled selected>Select Bank Account</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Payment Method</label>
+                    <select id="m_payment_method" class="form-control" style="padding-left:14px;" required>
+                        <option value="cash">Cash</option>
+                        <option value="bank">Bank Transfer</option>
+                        <option value="upi">UPI / QR Code</option>
+                        <option value="card">Card</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Expense Date</label>
+                    <div class="input-icon-wrapper">
+                        <input type="date" id="m_expense_date" class="form-control" required>
+                        <i class="fa-solid fa-calendar-days" style="left:14px;"></i>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Reference / Check No. (Optional)</label>
+                    <div class="input-icon-wrapper">
+                        <input type="text" id="m_reference_no" class="form-control" placeholder="e.g. Tx ID, Check No.">
+                        <i class="fa-solid fa-signature" style="left:14px;"></i>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Remarks</label>
+                    <textarea id="m_description" class="form-control" style="height:70px; padding-left:14px; resize:none;" placeholder="Brief notes..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Receipt (PDF / Image)</label>
+                    <input type="file" id="m_attachment" class="form-control" accept="image/*,application/pdf" style="padding-left:14px; height:auto; padding-top:10px; padding-bottom:10px;">
+                    <input type="hidden" id="m_cameraPhotoInput">
+                    <button type="button" id="m_startCameraBtn" class="btn-secondary" style="margin-top:6px;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;font-weight:600;">
+                        <i class="fa-solid fa-camera"></i> Live Photo Capture
+                    </button>
+                    <div id="m_cameraPreviewContainer" style="display:none;margin-top:8px;text-align:center;">
+                        <img id="m_capturedPreviewImg" src="" alt="Captured receipt" style="max-width:100%; max-height:200px; border-radius:8px; border:2px dashed var(--border-color);">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-primary" style="margin-top:10px; background:linear-gradient(135deg, #e11d48, #be123c);" id="m_saveBtn">
+                    <i class="fa-solid fa-plus" id="m_formSubmitIcon"></i>
+                    <span id="m_formSubmitText">Save Expense</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Camera Capture Modal -->
+    <div id="cameraModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.9); z-index:20000; justify-content:center; align-items:center; flex-direction:column; padding:20px;">
+        <div style="width:100%; max-width:500px; text-align:center;">
+            <h3 style="color:#fff; margin-bottom:15px; font-weight:600;"><i class="fa-solid fa-camera"></i> Capture Receipt</h3>
+            <video id="cameraVideo" autoplay playsinline style="width:100%; border-radius:8px; background:#000; margin-bottom:15px;"></video>
+            <canvas id="cameraCanvas" style="display:none;"></canvas>
+            <div style="display:flex; gap:10px; justify-content:center;">
+                <button type="button" class="btn-primary" id="captureBtn" style="width:auto; padding:10px 30px;">Capture</button>
+                <button type="button" class="btn-secondary" id="closeCameraBtn" style="width:auto; padding:10px 20px;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JS Logic -->
+    <script>
+        let editMode = false;
+        let activeEditId = null;
+        let activeAccountsMap = {};
+        let cameraStream = null;
+        let currentCameraTarget = 'desktop';
+
+        // Set default date
+        document.getElementById('expense_date').value = new Date().toISOString().split('T')[0];
+        document.getElementById('m_expense_date').value = new Date().toISOString().split('T')[0];
+
+        // Bottom Sheet controls
+        const sheetOverlay = document.getElementById('sheetOverlay');
+        const bottomSheet = document.getElementById('bottomSheet');
+        const mobileExpenseBtn = document.getElementById('mobileExpenseBtn');
+        const sheetCloseBtn = document.getElementById('sheetCloseBtn');
+
+        function openSheet() {
+            sheetOverlay.classList.add('open');
+            bottomSheet.classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+        function closeSheet() {
+            sheetOverlay.classList.remove('open');
+            bottomSheet.classList.remove('open');
+            document.body.style.overflow = '';
+        }
+
+        if (mobileExpenseBtn) mobileExpenseBtn.addEventListener('click', () => {
+            resetForm();
+            openSheet();
+        });
+        if (sheetCloseBtn) sheetCloseBtn.addEventListener('click', closeSheet);
+        if (sheetOverlay) sheetOverlay.addEventListener('click', closeSheet);
+
+        // Load Accounts Callback from Auth loader
+        window.onNavigationLoaded = function (user, userData) {
+            loadAccountsList().then(() => {
+                loadExpenseTable(userData);
+            });
+        };
+
+        function loadAccountsList() {
+            const selects = [document.getElementById('account_id'), document.getElementById('m_account_id')];
+            return db.collection('bank_accounts').where('status', '==', 'active').get().then(snapshot => {
+                selects.forEach(sel => {
+                    sel.innerHTML = '<option value="" disabled selected>Select Bank Account</option>';
+                });
+                snapshot.forEach(doc => {
+                    const acc = doc.data();
+                    const id = doc.id;
+                    activeAccountsMap[id] = acc.account_name;
+                    selects.forEach(sel => {
+                        sel.innerHTML += `<option value="${id}">${acc.account_name} (${formatCurrency(acc.current_balance)})</option>`;
+                    });
+                });
+            });
+        }
+
+        function loadExpenseTable(currentUser) {
+            const tableBody = document.getElementById('expenseTableBody');
+            
+            if ($.fn.DataTable.isDataTable('#expenseTable')) {
+                $('#expenseTable').DataTable().destroy();
+            }
+
+            db.collection('expenses').orderBy('expense_date', 'desc').onSnapshot(snapshot => {
+                tableBody.innerHTML = '';
+                snapshot.forEach(doc => {
+                    const exp = doc.data();
+                    const id = doc.id;
+                    const dateObj = new Date(exp.expense_date);
+                    const formattedDate = dateObj.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+                    let attachmentLink = '';
+                    if (exp.attachment_url) {
+                        attachmentLink = `<a href="${exp.attachment_url}" target="_blank" class="bank-btn" title="View Attachment"><i class="fa-solid fa-paperclip"></i></a>`;
+                    }
+
+                    tableBody.innerHTML += `
+                    <tr>
+                        <td>${formattedDate}</td>
+                        <td>${exp.title}</td>
+                        <td><span class="badge" style="background:rgba(225,29,72,0.15); color:#e11d48; font-size:0.75rem;">${exp.category}</span></td>
+                        <td>${activeAccountsMap[exp.account_id] || 'Unknown'}</td>
+                        <td style="text-transform:capitalize;">${exp.payment_method}</td>
+                        <td style="font-weight:700; color:var(--danger);">${formatCurrency(exp.amount)}</td>
+                        <td>${exp.recorded_by_name || 'System'}</td>
+                        <td>
+                            <div style="display:flex; gap:6px;">
+                                ${attachmentLink}
+                                <button class="bank-btn" onclick="editExpense('${id}')" title="Edit Entry"><i class="fa-solid fa-pen"></i></button>
+                                <button class="bank-btn" onclick="deleteExpense('${id}')" title="Delete Entry"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        </td>
+                    </tr>`;
+                });
+
+                $('#expenseTable').DataTable({
+                    order: [[0, 'desc']],
+                    responsive: {
+                        details: { type: 'column', target: 'tr' }
+                    },
+                    columnDefs: [
+                        { responsivePriority: 1, targets: 0 },   // Date
+                        { responsivePriority: 2, targets: 5 },   // Amount
+                        { responsivePriority: 3, targets: 1 },   // Title
+                        { responsivePriority: 4, targets: 7 },   // Actions
+                        { responsivePriority: 5, targets: 2 },   // Category
+                        { responsivePriority: 6, targets: 3 },   // Account
+                        { responsivePriority: 7, targets: 4 },   // Method
+                        { responsivePriority: 8, targets: 6 }    // Recorded By
+                    ]
+                });
+            });
+        }
+
+        // Camera Logic
+        const cameraModal = document.getElementById('cameraModal');
+        const cameraVideo = document.getElementById('cameraVideo');
+        const cameraCanvas = document.getElementById('cameraCanvas');
+        const captureBtn = document.getElementById('captureBtn');
+        const closeCameraBtn = document.getElementById('closeCameraBtn');
+
+        function startCamera(target) {
+            currentCameraTarget = target;
+            navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'environment' },
+                audio: false
+            }).then(stream => {
+                cameraStream = stream;
+                cameraVideo.srcObject = stream;
+                cameraModal.style.display = 'flex';
+            }).catch(err => {
+                alert('Camera blocked or not supported: ' + err.message);
+            });
+        }
+
+        function stopCamera() {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+            }
+            cameraVideo.srcObject = null;
+            cameraModal.style.display = 'none';
+        }
+
+        document.getElementById('startCameraBtn').addEventListener('click', () => startCamera('desktop'));
+        document.getElementById('m_startCameraBtn').addEventListener('click', () => startCamera('mobile'));
+        closeCameraBtn.addEventListener('click', stopCamera);
+
+        captureBtn.addEventListener('click', () => {
+            if (cameraStream) {
+                cameraCanvas.width = cameraVideo.videoWidth;
+                cameraCanvas.height = cameraVideo.videoHeight;
+                const ctx = cameraCanvas.getContext('2d');
+                ctx.drawImage(cameraVideo, 0, 0, cameraCanvas.width, cameraCanvas.height);
+                
+                const dataUrl = cameraCanvas.toDataURL('image/jpeg', 0.95);
+                
+                if (currentCameraTarget === 'desktop') {
+                    document.getElementById('cameraPhotoInput').value = dataUrl;
+                    document.getElementById('capturedPreviewImg').src = dataUrl;
+                    document.getElementById('cameraPreviewContainer').style.display = 'block';
+                } else {
+                    document.getElementById('m_cameraPhotoInput').value = dataUrl;
+                    document.getElementById('m_capturedPreviewImg').src = dataUrl;
+                    document.getElementById('m_cameraPreviewContainer').style.display = 'block';
+                }
+                stopCamera();
+            }
+        });
+
+        // Form Submit
+        document.getElementById('expenseForm').addEventListener('submit', (e) => { e.preventDefault(); handleSave(false); });
+        document.getElementById('mobileExpenseForm').addEventListener('submit', (e) => { e.preventDefault(); handleSave(true); });
+
+        function handleSave(isMobile) {
+            const prefix = isMobile ? 'm_' : '';
+            const saveBtn = document.getElementById(isMobile ? 'm_saveBtn' : 'saveBtn');
+            saveBtn.disabled = true;
+
+            const title = document.getElementById(prefix + 'title').value.trim();
+            const category = document.getElementById(prefix + 'category').value;
+            const amount = parseFloat(document.getElementById(prefix + 'amount').value);
+            const accountId = document.getElementById(prefix + 'account_id').value;
+            const method = document.getElementById(prefix + 'payment_method').value;
+            const date = document.getElementById(prefix + 'expense_date').value;
+            const refNo = document.getElementById(prefix + 'reference_no').value.trim();
+            const desc = document.getElementById(prefix + 'description').value.trim();
+            const cameraPhoto = document.getElementById(prefix + 'cameraPhotoInput').value;
+            const fileInput = document.getElementById(prefix + 'attachment').files[0];
+
+            let docId = editMode ? activeEditId : db.collection('expenses').doc().id;
+
+            let uploadPromise = Promise.resolve(null);
+            if (cameraPhoto) {
+                const storageRef = storage.ref(`expense_receipts/${docId}/cam_receipt.jpg`);
+                uploadPromise = storageRef.putString(cameraPhoto, 'data_url').then(snapshot => snapshot.ref.getDownloadURL());
+            } else if (fileInput) {
+                const storageRef = storage.ref(`expense_receipts/${docId}/${fileInput.name}`);
+                uploadPromise = storageRef.put(fileInput).then(snapshot => snapshot.ref.getDownloadURL());
+            }
+
+            uploadPromise.then(attachmentUrl => {
+                const currentUser = auth.currentUser;
+                
+                return db.collection('users').doc(currentUser.uid).get().then(userDoc => {
+                    const uData = userDoc.data();
+                    const recorderName = uData ? uData.full_name : currentUser.email.split('@')[0];
+
+                    return db.runTransaction(transaction => {
+                        const accountRef = db.collection('bank_accounts').doc(accountId);
+                        
+                        return transaction.get(accountRef).then(accDoc => {
+                            if (!accDoc.exists) throw "Account does not exist!";
+
+                            let currentBal = parseFloat(accDoc.data().current_balance || 0);
+
+                            if (editMode) {
+                                const expenseRef = db.collection('expenses').doc(docId);
+                                return transaction.get(expenseRef).then(expDoc => {
+                                    const oldData = expDoc.data();
+                                    
+                                    if (oldData.account_id === accountId) {
+                                        const balDiff = amount - parseFloat(oldData.amount);
+                                        transaction.update(accountRef, { current_balance: currentBal - balDiff });
+                                    } else {
+                                        const oldAccRef = db.collection('bank_accounts').doc(oldData.account_id);
+                                        return transaction.get(oldAccRef).then(oldAccDoc => {
+                                            const oldAccBal = parseFloat(oldAccDoc.data().current_balance || 0);
+                                            transaction.update(oldAccRef, { current_balance: oldAccBal + parseFloat(oldData.amount) });
+                                            transaction.update(accountRef, { current_balance: currentBal - amount });
+                                        });
+                                    }
+                                }).then(() => {
+                                    let updateData = {
+                                        title: title,
+                                        category: category,
+                                        amount: amount,
+                                        account_id: accountId,
+                                        payment_method: method,
+                                        expense_date: date,
+                                        reference_no: refNo,
+                                        description: desc
+                                    };
+                                    if (attachmentUrl) updateData.attachment_url = attachmentUrl;
+                                    transaction.update(db.collection('expenses').doc(docId), updateData);
+                                });
+                            } else {
+                                // Add mode - subtract balance
+                                transaction.update(accountRef, { current_balance: currentBal - amount });
+                                transaction.set(db.collection('expenses').doc(docId), {
+                                    title: title,
+                                    category: category,
+                                    amount: amount,
+                                    account_id: accountId,
+                                    payment_method: method,
+                                    expense_date: date,
+                                    reference_no: refNo,
+                                    description: desc,
+                                    attachment_url: attachmentUrl || '',
+                                    recorded_by_uid: currentUser.uid,
+                                    recorded_by_name: recorderName,
+                                    created_at: firebase.firestore.FieldValue.serverTimestamp()
+                                });
+                            }
+                        });
+                    });
+                });
+            }).then(() => {
+                Swal.fire({ icon: 'success', title: 'Expense Saved Successfully', timer: 1500, showConfirmButton: false });
+                resetForm();
+                closeSheet();
+                loadAccountsList();
+            }).catch(err => {
+                console.error("Save transaction failed:", err);
+                Swal.fire({ icon: 'error', title: 'Transaction Failed', text: err.message || err });
+            }).finally(() => {
+                saveBtn.disabled = false;
+            });
+        }
+
+        function editExpense(id) {
+            db.collection('expenses').doc(id).get().then(doc => {
+                if (doc.exists) {
+                    const data = doc.data();
+                    editMode = true;
+                    activeEditId = id;
+
+                    ['', 'm_'].forEach(prefix => {
+                        document.getElementById(prefix + 'title').value = data.title;
+                        document.getElementById(prefix + 'category').value = data.category;
+                        document.getElementById(prefix + 'amount').value = data.amount;
+                        document.getElementById(prefix + 'account_id').value = data.account_id;
+                        document.getElementById(prefix + 'payment_method').value = data.payment_method;
+                        document.getElementById(prefix + 'expense_date').value = data.expense_date;
+                        document.getElementById(prefix + 'reference_no').value = data.reference_no || '';
+                        document.getElementById(prefix + 'description').value = data.description || '';
+                    });
+
+                    document.getElementById('formTitle').textContent = 'Edit Expense';
+                    document.getElementById('formSubmitText').textContent = 'Save Changes';
+                    document.getElementById('formSubmitIcon').className = 'fa-solid fa-floppy-disk';
+                    document.getElementById('cancelEditBtn').style.display = 'inline-flex';
+
+                    document.getElementById('sheetFormTitle').textContent = 'Edit Expense';
+                    document.getElementById('m_formSubmitText').textContent = 'Save Changes';
+                    document.getElementById('m_formSubmitIcon').className = 'fa-solid fa-floppy-disk';
+
+                    if (window.innerWidth <= 768) {
+                        openSheet();
+                    }
+                }
+            });
+        }
+
+        function deleteExpense(id) {
+            Swal.fire({
+                title: 'Are you sure?',
+                text: "This transaction will be deleted and the bank account balance adjusted.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#e11d48',
+                confirmButtonText: 'Yes, delete it!'
+            }).then(result => {
+                if (result.isConfirmed) {
+                    db.runTransaction(transaction => {
+                        const expRef = db.collection('expenses').doc(id);
+                        return transaction.get(expRef).then(expDoc => {
+                            if (!expDoc.exists) throw "Expense entry not found.";
+
+                            const data = expDoc.data();
+                            const accRef = db.collection('bank_accounts').doc(data.account_id);
+                            
+                            return transaction.get(accRef).then(accDoc => {
+                                if (accDoc.exists) {
+                                    const currentBal = parseFloat(accDoc.data().current_balance || 0);
+                                    transaction.update(accRef, { current_balance: currentBal + parseFloat(data.amount) });
+                                }
+                                transaction.delete(expRef);
+                            });
+                        });
+                    }).then(() => {
+                        Swal.fire({ icon: 'success', title: 'Deleted Successfully', timer: 1500, showConfirmButton: false });
+                        loadAccountsList();
+                    }).catch(err => {
+                        Swal.fire({ icon: 'error', title: 'Delete Failed', text: err.message || err });
+                    });
+                }
+            });
+        }
+
+        function resetForm() {
+            editMode = false;
+            activeEditId = null;
+
+            document.getElementById('expenseForm').reset();
+            document.getElementById('mobileExpenseForm').reset();
+
+            document.getElementById('cameraPreviewContainer').style.display = 'none';
+            document.getElementById('m_cameraPreviewContainer').style.display = 'none';
+            document.getElementById('cameraPhotoInput').value = '';
+            document.getElementById('m_cameraPhotoInput').value = '';
+
+            document.getElementById('expense_date').value = new Date().toISOString().split('T')[0];
+            document.getElementById('m_expense_date').value = new Date().toISOString().split('T')[0];
+
+            document.getElementById('formTitle').textContent = 'Log Expense';
+            document.getElementById('formSubmitText').textContent = 'Save Expense';
+            document.getElementById('formSubmitIcon').className = 'fa-solid fa-plus';
+            document.getElementById('cancelEditBtn').style.display = 'none';
+
+            document.getElementById('sheetFormTitle').textContent = 'Log Expense';
+            document.getElementById('m_formSubmitText').textContent = 'Save Expense';
+            document.getElementById('m_formSubmitIcon').className = 'fa-solid fa-plus';
+        }
+    </script>
+</body>
+</html>

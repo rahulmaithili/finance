@@ -1,0 +1,736 @@
+<?php
+// Income entry module for Income & Expense Management System (IEMS)
+require_once 'config.php';
+require_login();
+
+$active_page = 'income';
+$error = '';
+$success = '';
+
+// Fetch active accounts for select lists
+$accounts = $pdo->query("SELECT id, account_name, bank_name, current_balance FROM bank_accounts WHERE status = 'active' ORDER BY account_name ASC")->fetchAll();
+
+// Edit Mode detection
+$edit_mode = false;
+$edit_income = null;
+if (isset($_GET['edit'])) {
+    $edit_id = (int)$_GET['edit'];
+    $stmt = $pdo->prepare("SELECT * FROM income WHERE id = ? LIMIT 1");
+    $stmt->execute([$edit_id]);
+    $edit_income = $stmt->fetch();
+    if ($edit_income) {
+        $edit_mode = true;
+    }
+}
+
+// Delete Income Action
+if (isset($_GET['delete'])) {
+    $delete_id = (int)$_GET['delete'];
+    
+    try {
+        $pdo->beginTransaction();
+        
+        // 1. Get transaction info
+        $stmt = $pdo->prepare("SELECT account_id, amount, title, attachment FROM income WHERE id = ? FOR UPDATE");
+        $stmt->execute([$delete_id]);
+        $income_data = $stmt->fetch();
+        
+        if ($income_data) {
+            $account_id = $income_data['account_id'];
+            $amount = (float)$income_data['amount'];
+            $title = $income_data['title'];
+            $attachment = $income_data['attachment'];
+            
+            // 2. Subtract from account current_balance
+            $update_acc = $pdo->prepare("UPDATE bank_accounts SET current_balance = current_balance - ? WHERE id = ?");
+            $update_acc->execute([$amount, $account_id]);
+            
+            // 3. Delete income record
+            $delete_stmt = $pdo->prepare("DELETE FROM income WHERE id = ?");
+            $delete_stmt->execute([$delete_id]);
+            
+            // Delete physical attachment if exists
+            if ($attachment && file_exists('uploads/' . $attachment)) {
+                @unlink('uploads/' . $attachment);
+            }
+            
+            log_activity("Deleted Income: '{$title}' - subtracted " . format_currency($amount) . " from account ID {$account_id}");
+            $pdo->commit();
+            set_flash_message('success', 'Income entry deleted and bank balance adjusted successfully.');
+        } else {
+            $pdo->rollBack();
+            set_flash_message('error', 'Income entry not found.');
+        }
+    } catch (PDOException $e) {
+        $pdo->rollBack();
+        set_flash_message('error', 'Failed to delete income: ' . $e->getMessage());
+    }
+    header("Location: income.php");
+    exit;
+}
+
+// Form Submission handling (Add or Edit)
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $csrf = $_POST['csrf_token'] ?? '';
+    
+    if (!verify_csrf_token($csrf)) {
+        $error = 'CSRF verification failed.';
+    } else {
+        $title = clean($_POST['title'] ?? '');
+        $category = clean($_POST['category'] ?? '');
+        $amount = (float)($_POST['amount'] ?? 0.00);
+        $account_id = (int)($_POST['account_id'] ?? 0);
+        $payment_method = $_POST['payment_method'] ?? 'cash';
+        $reference_no = clean($_POST['reference_no'] ?? '');
+        $description = clean($_POST['description'] ?? '');
+        $income_date = $_POST['income_date'] ?? date('Y-m-d');
+        $created_by = $_SESSION['user_id'];
+        
+        if (empty($title) || empty($category) || $amount <= 0 || $account_id <= 0 || empty($income_date)) {
+            $error = 'Please fill out all required fields and ensure amount is positive.';
+        } else {
+            try {
+                $pdo->beginTransaction();
+                
+                if (isset($_POST['action']) && $_POST['action'] === 'update') {
+                    // UPDATE MODE
+                    $inc_id = (int)$_POST['income_id'];
+                    
+                    // 1. Get old income details to adjust bank balances
+                    $old_stmt = $pdo->prepare("SELECT account_id, amount, attachment FROM income WHERE id = ? FOR UPDATE");
+                    $old_stmt->execute([$inc_id]);
+                    $old_income = $old_stmt->fetch();
+                    
+                    if ($old_income) {
+                        // Subtract old amount from old account
+                        $sub_stmt = $pdo->prepare("UPDATE bank_accounts SET current_balance = current_balance - ? WHERE id = ?");
+                        $sub_stmt->execute([(float)$old_income['amount'], (int)$old_income['account_id']]);
+                        
+                        // Handle attachment changes
+                        $attachment = handle_attachment_upload($old_income['attachment']);
+                        
+                        // Update the income record
+                        $update_stmt = $pdo->prepare("
+                            UPDATE income 
+                            SET account_id = ?, title = ?, category = ?, amount = ?, payment_method = ?, reference_no = ?, description = ?, attachment = ?, income_date = ? 
+                            WHERE id = ?
+                        ");
+                        $update_stmt->execute([$account_id, $title, $category, $amount, $payment_method, $reference_no, $description, $attachment, $income_date, $inc_id]);
+                        
+                        // Add new amount to the selected bank account
+                        $add_stmt = $pdo->prepare("UPDATE bank_accounts SET current_balance = current_balance + ? WHERE id = ?");
+                        $add_stmt->execute([$amount, $account_id]);
+                        
+                        log_activity("Updated Income Entry: '{$title}' (ID: {$inc_id}) - adjusted balance");
+                        $pdo->commit();
+                        set_flash_message('success', 'Income entry updated successfully.');
+                        header("Location: income.php");
+                        exit;
+                    } else {
+                        $pdo->rollBack();
+                        $error = 'Original income entry not found.';
+                    }
+                } else {
+                    // CREATE MODE
+                    // Handle attachment upload
+                    $attachment = handle_attachment_upload();
+                    
+                    // 1. Insert income entry
+                    $insert_stmt = $pdo->prepare("
+                        INSERT INTO income (account_id, title, category, amount, payment_method, reference_no, description, attachment, income_date, created_by) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ");
+                    $insert_stmt->execute([$account_id, $title, $category, $amount, $payment_method, $reference_no, $description, $attachment, $income_date, $created_by]);
+                    
+                    // 2. Add to account current_balance
+                    $update_acc = $pdo->prepare("UPDATE bank_accounts SET current_balance = current_balance + ? WHERE id = ?");
+                    $update_acc->execute([$amount, $account_id]);
+                    
+                    log_activity("Created Income Entry: '{$title}' - added " . format_currency($amount) . " to account ID {$account_id}");
+                    $pdo->commit();
+                    set_flash_message('success', 'New Income entry added successfully.');
+                    header("Location: income.php");
+                    exit;
+                }
+            } catch (PDOException $e) {
+                $pdo->rollBack();
+                $error = 'Database transaction failed: ' . $e->getMessage();
+            }
+        }
+    }
+}
+
+// Fetch all income records with account name and user name details
+$incomes = $pdo->query("
+    SELECT i.*, a.account_name, a.bank_name, u.full_name as recorder_name 
+    FROM income i
+    JOIN bank_accounts a ON i.account_id = a.id
+    JOIN users u ON i.created_by = u.id
+    ORDER BY i.income_date DESC, i.created_at DESC
+")->fetchAll();
+
+// Pre-defined Categories for Income
+$categories = ['Salary', 'Freelance / Projects', 'Investments', 'Sales', 'Rent / Royalty', 'Gifts', 'Refunds', 'Other'];
+?>
+<!DOCTYPE html>
+<html lang="en" data-theme="<?= $_SESSION['theme'] ?? 'dark' ?>">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Income Entries - IEMS ERP</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.4.1/css/responsive.dataTables.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/responsive/2.4.1/js/dataTables.responsive.min.js"></script>
+</head>
+<body>
+
+    <div class="app-wrapper">
+        <!-- Sidebar Navigation -->
+        <?php include 'sidebar.php'; ?>
+        
+        <!-- Main Panel Content -->
+        <div class="main-content">
+            <!-- Mobile Menu -->
+            <?php include 'mobile-menu.php'; ?>
+            
+            <!-- Navbar -->
+            <div class="navbar">
+                <div class="page-title">Income Management</div>
+                <div class="nav-actions">
+                    <a href="?toggle_theme=1" class="nav-btn" title="Toggle Theme">
+                        <i class="fa-solid <?= ($_SESSION['theme'] === 'light') ? 'fa-moon' : 'fa-sun' ?>"></i>
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Content Body -->
+            <div class="content-body">
+                <!-- Flash messages -->
+                <?php display_flash_message(); ?>
+                
+                <?php if (!empty($error)): ?>
+                    <div class="alert alert-danger">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <i class="fa-solid fa-circle-exclamation"></i>
+                            <span><?= clean($error) ?></span>
+                        </div>
+                    </div>
+                <?php endif; ?>
+                
+                <div class="module-grid">
+                    <!-- Left: Incomes Table -->
+                    <div class="table-card">
+                        <div class="header-title-section" style="margin-bottom: 20px;">
+                            <h2>All Income Transactions</h2>
+                            <p>Complete historical list of money received across all accounts.</p>
+                        </div>
+                        
+                        <div class="table-responsive">
+                            <table class="custom-table" id="incomeTable">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Title</th>
+                                        <th>Category</th>
+                                        <th>Account</th>
+                                        <th>Method</th>
+                                        <th>Amount</th>
+                                        <th>Recorded By</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($incomes as $inc): ?>
+                                        <tr>
+                                            <td><?= clean(date('d M Y', strtotime($inc['income_date']))) ?></td>
+                                            <td>
+                                                <div style="font-weight: 600; color: var(--text-light);"><?= clean($inc['title']) ?></div>
+                                                <span style="font-size:0.75rem; color:var(--text-secondary);"><?= clean($inc['reference_no']) ?></span>
+                                            </td>
+                                            <td>
+                                                <span class="badge badge-success"><?= clean($inc['category']) ?></span>
+                                            </td>
+                                            <td><?= clean($inc['account_name']) ?> <span style="font-size:0.75rem; color:var(--text-secondary);">(<?= clean($inc['bank_name']) ?>)</span></td>
+                                            <td><span style="text-transform:uppercase; font-size:0.8rem;"><?= clean($inc['payment_method']) ?></span></td>
+                                            <td style="font-weight: 700; color: var(--success);"><?= format_currency($inc['amount']) ?></td>
+                                            <td><?= clean($inc['recorder_name']) ?></td>
+                                            <td class="actions-cell">
+                                                <?php if (!empty($inc['attachment'])): ?>
+                                                    <button type="button" class="btn-icon btn-view" title="Preview Attachment" onclick="previewAttachment('uploads/<?= $inc['attachment'] ?>', '<?= clean($inc['title']) ?>')">
+                                                        <i class="fa-solid fa-eye"></i>
+                                                    </button>
+                                                <?php endif; ?>
+                                                <a href="invoice.php?type=income&id=<?= $inc['id'] ?>" class="btn-icon btn-view" title="Print Invoice" target="_blank">
+                                                    <i class="fa-solid fa-print"></i>
+                                                </a>
+                                                <a href="?edit=<?= $inc['id'] ?>" class="btn-icon btn-edit" title="Edit">
+                                                    <i class="fa-solid fa-pen"></i>
+                                                </a>
+                                                <a href="?delete=<?= $inc['id'] ?>" class="btn-icon btn-delete" title="Delete" onclick="return confirm('Are you sure you want to delete this income? The amount will be deducted from the associated bank account.');">
+                                                    <i class="fa-solid fa-trash"></i>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Right: Add / Edit Income Form -->
+                    <div class="form-card">
+                        <div class="form-card-title">
+                            <span><?= $edit_mode ? 'Edit Income Entry' : 'Log Income' ?></span>
+                            <?php if ($edit_mode): ?>
+                                <a href="income.php" class="btn-icon" style="border: none;" title="Cancel Edit">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </a>
+                            <?php endif; ?>
+                        </div>
+                        
+                        <?php if (count($accounts) === 0): ?>
+                            <div class="alert alert-warning" style="font-size: 0.85rem;">
+                                <i class="fa-solid fa-exclamation-triangle"></i>
+                                <span>Please register an <a href="accounts.php" style="text-decoration: underline; font-weight:600;">Active Bank Account</a> before adding income.</span>
+                            </div>
+                        <?php else: ?>
+                            <form action="income.php" method="POST" autocomplete="off" enctype="multipart/form-data">
+                                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                                <?php if ($edit_mode): ?>
+                                    <input type="hidden" name="action" value="update">
+                                    <input type="hidden" name="income_id" value="<?= $edit_income['id'] ?>">
+                                <?php endif; ?>
+                                
+                                <div class="form-group">
+                                    <label class="form-label" for="title">Title / Source</label>
+                                    <div class="input-icon-wrapper">
+                                        <input type="text" id="title" name="title" class="form-control" placeholder="e.g. June Monthly Salary" required value="<?= $edit_mode ? clean($edit_income['title']) : '' ?>">
+                                        <i class="fa-solid fa-file-invoice" style="left: 14px;"></i>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label" for="category">Category</label>
+                                    <select id="category" name="category" class="form-control" style="padding-left: 15px;" required>
+                                        <option value="" disabled selected>Select Category</option>
+                                        <?php foreach ($categories as $cat): ?>
+                                            <option value="<?= $cat ?>" <?= ($edit_mode && $edit_income['category'] === $cat) ? 'selected' : '' ?>><?= $cat ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label" for="amount">Amount (₹)</label>
+                                    <div class="input-icon-wrapper">
+                                        <input type="number" id="amount" name="amount" class="form-control" placeholder="0.00" step="0.01" min="0.01" required value="<?= $edit_mode ? clean($edit_income['amount']) : '' ?>">
+                                        <i class="fa-solid fa-indian-rupee-sign" style="left: 14px;"></i>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label" for="account_id">Deposit Account</label>
+                                    <select id="account_id" name="account_id" class="form-control" style="padding-left: 15px;" required>
+                                        <option value="" disabled selected>Select Bank Account</option>
+                                        <?php foreach ($accounts as $acc): ?>
+                                            <option value="<?= $acc['id'] ?>" <?= ($edit_mode && $edit_income['account_id'] == $acc['id']) ? 'selected' : '' ?>>
+                                                <?= clean($acc['account_name']) ?> (Bal: <?= format_currency($acc['current_balance']) ?>)
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label" for="payment_method">Payment Method</label>
+                                    <select id="payment_method" name="payment_method" class="form-control" style="padding-left: 15px;" required>
+                                        <option value="cash" <?= ($edit_mode && $edit_income['payment_method'] === 'cash') ? 'selected' : '' ?>>Cash</option>
+                                        <option value="bank" <?= ($edit_mode && $edit_income['payment_method'] === 'bank') ? 'selected' : '' ?>>Bank Transfer</option>
+                                        <option value="upi" <?= ($edit_mode && $edit_income['payment_method'] === 'upi') ? 'selected' : '' ?>>UPI / QR Code</option>
+                                        <option value="card" <?= ($edit_mode && $edit_income['payment_method'] === 'card') ? 'selected' : '' ?>>Card</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label" for="reference_no">Reference / Tx ID (Optional)</label>
+                                    <div class="input-icon-wrapper">
+                                        <input type="text" id="reference_no" name="reference_no" class="form-control" placeholder="e.g. UPI Ref, Chq No." value="<?= $edit_mode ? clean($edit_income['reference_no']) : '' ?>">
+                                        <i class="fa-solid fa-signature" style="left: 14px;"></i>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label" for="income_date">Income Date</label>
+                                    <div class="input-icon-wrapper">
+                                        <input type="date" id="income_date" name="income_date" class="form-control" required value="<?= $edit_mode ? clean($edit_income['income_date']) : date('Y-m-d') ?>">
+                                        <i class="fa-solid fa-calendar-days" style="left: 14px;"></i>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label" for="description">Remarks / Description</label>
+                                    <textarea id="description" name="description" class="form-control" style="height: 80px; padding-left: 15px; resize: none;" placeholder="Provide brief comments..."><?= $edit_mode ? clean($edit_income['description']) : '' ?></textarea>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label" for="attachment">Upload Receipt (PDF or Image)</label>
+                                    <input type="file" id="attachment" name="attachment" class="form-control" accept="image/*,application/pdf" style="padding-left:15px;">
+                                    
+                                    <input type="hidden" name="camera_photo" id="cameraPhotoInput">
+                                    <button type="button" class="btn-secondary" id="startCameraBtn" style="margin-top: 8px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px; font-weight:600;">
+                                        <i class="fa-solid fa-camera"></i> Live Photo Capture
+                                    </button>
+                                    <div id="cameraPreviewContainer" style="display:none; margin-top:10px; text-align:center;">
+                                        <div style="font-size:0.75rem; color:var(--success); font-weight:600; margin-bottom:5px;"><i class="fa-solid fa-circle-check"></i> Photo Captured!</div>
+                                        <img id="capturedPreviewImg" src="" style="max-width:100%; max-height:120px; border-radius:6px; border:1px solid var(--border-color);">
+                                    </div>
+                                </div>
+                                
+                                <?php if ($edit_mode && !empty($edit_income['attachment'])): ?>
+                                    <div class="form-group" style="background:var(--bg-primary); padding:12px; border-radius:8px; border:1px solid var(--border-color); margin-bottom: 20px;">
+                                        <div style="font-size:0.8rem; font-weight:600; color:var(--text-light); margin-bottom:5px;">Current Attachment:</div>
+                                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                                            <a href="javascript:void(0);" onclick="previewAttachment('uploads/<?= $edit_income['attachment'] ?>', '<?= clean($edit_income['title']) ?>')" style="color:var(--primary); font-size:0.8rem; font-weight:600; text-decoration:underline;">
+                                                <i class="fa-solid fa-paperclip"></i> View File
+                                            </a>
+                                            <label style="font-size:0.8rem; color:var(--danger); display:flex; align-items:center; gap:5px; cursor:pointer;">
+                                                <input type="checkbox" name="remove_attachment" value="1"> Remove
+                                            </label>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
+                                
+                                <button type="submit" class="btn-primary" style="margin-top: 10px;">
+                                    <i class="fa-solid <?= $edit_mode ? 'fa-floppy-disk' : 'fa-plus' ?>"></i>
+                                    <span><?= $edit_mode ? 'Save Changes' : 'Save Income' ?></span>
+                                </button>
+                            </form>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✅ Mobile FAB Button -->
+    <button class="mobile-fab fab-income" id="mobileIncomeBtn" title="Log Income" aria-label="Add Income">
+        <i class="fa-solid fa-plus"></i>
+    </button>
+
+    <!-- ✅ Mobile Bottom Sheet Overlay -->
+    <div class="bottom-sheet-overlay" id="sheetOverlay"></div>
+
+    <!-- ✅ Mobile Bottom Sheet Panel -->
+    <div class="bottom-sheet" id="bottomSheet">
+        <div class="sheet-stripe-income"></div>
+        <div class="bottom-sheet-handle"></div>
+        <div class="bottom-sheet-header">
+            <h3><i class="fa-solid fa-circle-plus" style="color:#10b981; margin-right:8px;"></i><?= $edit_mode ? 'Edit Income' : 'Log Income' ?></h3>
+            <button class="bottom-sheet-close" id="sheetCloseBtn"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="bottom-sheet-body">
+            <?php if (count($accounts) === 0): ?>
+                <div class="alert alert-warning" style="font-size:0.85rem;">
+                    <i class="fa-solid fa-exclamation-triangle"></i>
+                    <span>Please register an <a href="accounts.php" style="text-decoration:underline;font-weight:600;">Active Bank Account</a> first.</span>
+                </div>
+            <?php else: ?>
+            <form action="income.php" method="POST" autocomplete="off" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                <?php if ($edit_mode): ?>
+                    <input type="hidden" name="action" value="update">
+                    <input type="hidden" name="income_id" value="<?= $edit_income['id'] ?>">
+                <?php endif; ?>
+
+                <div class="form-group">
+                    <label class="form-label">Title / Source</label>
+                    <div class="input-icon-wrapper">
+                        <input type="text" name="title" class="form-control" placeholder="e.g. Monthly Salary" required value="<?= $edit_mode ? clean($edit_income['title']) : '' ?>">
+                        <i class="fa-solid fa-file-invoice" style="left:14px;"></i>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <select name="category" class="form-control" style="padding-left:14px;" required>
+                        <option value="" disabled selected>Select Category</option>
+                        <?php foreach ($categories as $cat): ?>
+                            <option value="<?= $cat ?>" <?= ($edit_mode && $edit_income['category'] === $cat) ? 'selected' : '' ?>><?= $cat ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Amount (₹)</label>
+                    <div class="input-icon-wrapper">
+                        <input type="number" name="amount" class="form-control" placeholder="0.00" step="0.01" min="0.01" required value="<?= $edit_mode ? clean($edit_income['amount']) : '' ?>">
+                        <i class="fa-solid fa-indian-rupee-sign" style="left:14px;"></i>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Deposit Account</label>
+                    <select name="account_id" class="form-control" style="padding-left:14px;" required>
+                        <option value="" disabled selected>Select Bank Account</option>
+                        <?php foreach ($accounts as $acc): ?>
+                            <option value="<?= $acc['id'] ?>" <?= ($edit_mode && $edit_income['account_id'] == $acc['id']) ? 'selected' : '' ?>>
+                                <?= clean($acc['account_name']) ?> (<?= format_currency($acc['current_balance']) ?>)
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Payment Method</label>
+                    <select name="payment_method" class="form-control" style="padding-left:14px;" required>
+                        <option value="cash" <?= ($edit_mode && $edit_income['payment_method'] === 'cash') ? 'selected' : '' ?>>Cash</option>
+                        <option value="bank" <?= ($edit_mode && $edit_income['payment_method'] === 'bank') ? 'selected' : '' ?>>Bank Transfer</option>
+                        <option value="upi" <?= ($edit_mode && $edit_income['payment_method'] === 'upi') ? 'selected' : '' ?>>UPI / QR Code</option>
+                        <option value="card" <?= ($edit_mode && $edit_income['payment_method'] === 'card') ? 'selected' : '' ?>>Card</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Income Date</label>
+                    <div class="input-icon-wrapper">
+                        <input type="date" name="income_date" class="form-control" required value="<?= $edit_mode ? clean($edit_income['income_date']) : date('Y-m-d') ?>">
+                        <i class="fa-solid fa-calendar-days" style="left:14px;"></i>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Reference / Tx ID (Optional)</label>
+                    <div class="input-icon-wrapper">
+                        <input type="text" name="reference_no" class="form-control" placeholder="e.g. UPI Ref, Chq No." value="<?= $edit_mode ? clean($edit_income['reference_no']) : '' ?>">
+                        <i class="fa-solid fa-signature" style="left:14px;"></i>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Remarks</label>
+                    <textarea name="description" class="form-control" style="height:70px; padding-left:14px; resize:none;" placeholder="Brief notes..."><?= $edit_mode ? clean($edit_income['description']) : '' ?></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Receipt (PDF / Image)</label>
+                    <input type="file" name="attachment" class="form-control" accept="image/*,application/pdf" style="padding-left:14px; height:auto; padding-top:10px; padding-bottom:10px;">
+                    <input type="hidden" name="camera_photo" id="sheetCameraPhotoInput">
+                    <button type="button" id="sheetCameraBtn" class="btn-secondary" style="margin-top:6px;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;font-weight:600;">
+                        <i class="fa-solid fa-camera"></i> Live Photo Capture
+                    </button>
+                    <div id="sheetCameraPreview" style="display:none;margin-top:8px;text-align:center;">
+                        <div style="font-size:0.75rem;color:var(--success);font-weight:600;"><i class="fa-solid fa-circle-check"></i> Photo Captured!</div>
+                        <img id="sheetCapturedImg" src="" style="max-width:100%;max-height:100px;border-radius:6px;border:1px solid var(--border-color);margin-top:4px;">
+                    </div>
+                </div>
+
+                <?php if ($edit_mode && !empty($edit_income['attachment'])): ?>
+                <div class="form-group" style="background:var(--bg-primary);padding:10px;border-radius:8px;border:1px solid var(--border-color);">
+                    <div style="font-size:0.78rem;font-weight:600;color:var(--text-light);margin-bottom:4px;">Current Attachment:</div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <a href="javascript:void(0);" onclick="previewAttachment('uploads/<?= $edit_income['attachment'] ?>', '<?= clean($edit_income['title']) ?>')" style="color:var(--primary);font-size:0.8rem;font-weight:600;text-decoration:underline;">
+                            <i class="fa-solid fa-paperclip"></i> View File
+                        </a>
+                        <label style="font-size:0.8rem;color:var(--danger);display:flex;align-items:center;gap:5px;cursor:pointer;">
+                            <input type="checkbox" name="remove_attachment" value="1"> Remove
+                        </label>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <button type="submit" class="btn-primary" style="margin-top:10px;">
+                    <i class="fa-solid <?= $edit_mode ? 'fa-floppy-disk' : 'fa-plus' ?>"></i>
+                    <?= $edit_mode ? 'Save Changes' : 'Save Income' ?>
+                </button>
+            </form>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <!-- Camera Capture Modal -->
+    <div id="cameraModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); z-index:10000; justify-content:center; align-items:center; flex-direction:column; padding:20px;">
+        <div style="background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:12px; padding:20px; width:100%; max-width:500px; text-align:center; position:relative;">
+            <h3 style="color:var(--text-light); margin-bottom:15px; font-weight:600;"><i class="fa-solid fa-camera"></i> Capture Receipt</h3>
+            <video id="cameraVideo" autoplay playsinline style="width:100%; border-radius:8px; background:#000; margin-bottom:15px;"></video>
+            <canvas id="cameraCanvas" style="display:none;"></canvas>
+            <div style="display:flex; gap:10px; justify-content:center;">
+                <button type="button" class="btn-primary" id="captureBtn" style="width:auto; padding:10px 20px;"><i class="fa-solid fa-circle-dot"></i> Capture</button>
+                <button type="button" class="btn-secondary" id="closeCameraBtn" style="width:auto; padding:10px 20px;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Attachment Preview Modal -->
+    <div id="previewModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center; padding:20px;">
+        <div style="background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:12px; padding:20px; width:100%; max-width:700px; max-height:90vh; display:flex; flex-direction:column; position:relative;">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:12px; margin-bottom:15px;">
+                <h3 style="color:var(--text-light);" id="previewTitle">Attachment Preview</h3>
+                <button type="button" class="btn-icon" style="border:none;" onclick="closePreviewModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="previewContent" style="flex-grow:1; display:flex; justify-content:center; align-items:center; overflow:auto;">
+                <!-- Preview image or frame iframe -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+    let cameraStream = null;
+
+    $(document).ready(function() {
+        $('#incomeTable').DataTable({
+            order: [[0, 'desc']],
+            responsive: {
+                details: { type: 'column', target: 'tr' }
+            },
+            columnDefs: [
+                { responsivePriority: 1, targets: 0 },   // Date - always show
+                { responsivePriority: 2, targets: 5 },   // Amount - always show
+                { responsivePriority: 3, targets: 1 },   // Title
+                { responsivePriority: 4, targets: 7 },   // Actions
+                { responsivePriority: 5, targets: 2 },   // Category - collapse 1st
+                { responsivePriority: 6, targets: 3 },   // Account - collapse 2nd
+                { responsivePriority: 7, targets: 4 },   // Method - collapse 3rd
+                { responsivePriority: 8, targets: 6 }    // Recorded By - collapse last
+            ]
+        });
+
+        // Live Photo Capture triggers
+        const startCameraBtn = document.getElementById("startCameraBtn");
+        const cameraModal = document.getElementById("cameraModal");
+        const cameraVideo = document.getElementById("cameraVideo");
+        const cameraCanvas = document.getElementById("cameraCanvas");
+        const captureBtn = document.getElementById("captureBtn");
+        const closeCameraBtn = document.getElementById("closeCameraBtn");
+        const cameraPhotoInput = document.getElementById("cameraPhotoInput");
+        const cameraPreviewContainer = document.getElementById("cameraPreviewContainer");
+        const capturedPreviewImg = document.getElementById("capturedPreviewImg");
+
+        startCameraBtn.addEventListener("click", async function() {
+            try {
+                cameraStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "environment" }, // Rear camera on mobile
+                    audio: false 
+                });
+                cameraVideo.srcObject = cameraStream;
+                cameraModal.style.display = "flex";
+            } catch (err) {
+                alert("Camera access denied or not supported by your browser: " + err.message);
+            }
+        });
+
+        captureBtn.addEventListener("click", function() {
+            if (cameraStream) {
+                cameraCanvas.width = cameraVideo.videoWidth;
+                cameraCanvas.height = cameraVideo.videoHeight;
+                const ctx = cameraCanvas.getContext("2d");
+                ctx.drawImage(cameraVideo, 0, 0, cameraCanvas.width, cameraCanvas.height);
+                
+                const dataUrl = cameraCanvas.toDataURL("image/jpeg", 0.9);
+                cameraPhotoInput.value = dataUrl;
+                
+                capturedPreviewImg.src = dataUrl;
+                cameraPreviewContainer.style.display = "block";
+                
+                stopCamera();
+            }
+        });
+
+        closeCameraBtn.addEventListener("click", stopCamera);
+
+        function stopCamera() {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+            }
+            cameraVideo.srcObject = null;
+            cameraModal.style.display = "none";
+        }
+    });
+
+    // Preview Overlay scripts
+    function previewAttachment(fileUrl, title) {
+        const content = document.getElementById("previewContent");
+        document.getElementById("previewTitle").innerText = "Receipt Preview: " + title;
+        
+        const ext = fileUrl.split('.').pop().toLowerCase();
+        let previewHtml = '';
+        
+        if (ext === 'pdf') {
+            previewHtml = `<iframe src="${fileUrl}" style="width:100%; height:400px; border:none; border-radius:8px; margin-bottom:15px;"></iframe>`;
+        } else {
+            previewHtml = `<img src="${fileUrl}" style="max-width:100%; max-height:400px; border-radius:8px; object-fit:contain; margin-bottom:15px;" />`;
+        }
+        
+        previewHtml += `<div style="text-align:center; width:100%;">
+            <a href="${fileUrl}" target="_blank" class="btn-primary" style="display:inline-flex; width:auto; padding:10px 20px; align-items:center; gap:8px; text-decoration:none; font-size:0.9rem; font-weight:600; border-radius:6px;">
+                <i class="fa-solid fa-up-right-from-square"></i> Open in New Tab / Download
+            </a>
+        </div>`;
+        
+        content.innerHTML = previewHtml;
+        document.getElementById("previewModal").style.display = "flex";
+    }
+
+    function closePreviewModal() {
+        document.getElementById("previewModal").style.display = "none";
+        document.getElementById("previewContent").innerHTML = "";
+    }
+
+    // ===== Bottom Sheet Controls =====
+    const sheetOverlay  = document.getElementById('sheetOverlay');
+    const bottomSheet   = document.getElementById('bottomSheet');
+    const mobileIncomeBtn = document.getElementById('mobileIncomeBtn');
+    const sheetCloseBtn = document.getElementById('sheetCloseBtn');
+
+    function openSheet() {
+        sheetOverlay.classList.add('open');
+        bottomSheet.classList.add('open');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeSheet() {
+        sheetOverlay.classList.remove('open');
+        bottomSheet.classList.remove('open');
+        document.body.style.overflow = '';
+    }
+
+    if (mobileIncomeBtn) mobileIncomeBtn.addEventListener('click', openSheet);
+    if (sheetCloseBtn)   sheetCloseBtn.addEventListener('click', closeSheet);
+    if (sheetOverlay)    sheetOverlay.addEventListener('click', closeSheet);
+
+    // Auto-open sheet in edit mode on mobile
+    <?php if ($edit_mode): ?>
+    if (window.innerWidth <= 768) { openSheet(); }
+    <?php endif; ?>
+
+    // Sheet camera button
+    const sheetCameraBtn = document.getElementById('sheetCameraBtn');
+    if (sheetCameraBtn) {
+        sheetCameraBtn.addEventListener('click', async function() {
+            try {
+                cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+                document.getElementById('cameraVideo').srcObject = cameraStream;
+                document.getElementById('cameraModal').style.display = 'flex';
+                // Override capture to write to sheet inputs
+                document.getElementById('captureBtn').onclick = function() {
+                    if (cameraStream) {
+                        const canvas = document.getElementById('cameraCanvas');
+                        const video  = document.getElementById('cameraVideo');
+                        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+                        canvas.getContext('2d').drawImage(video, 0, 0);
+                        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+                        document.getElementById('sheetCameraPhotoInput').value = dataUrl;
+                        document.getElementById('sheetCapturedImg').src = dataUrl;
+                        document.getElementById('sheetCameraPreview').style.display = 'block';
+                        cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null;
+                        document.getElementById('cameraVideo').srcObject = null;
+                        document.getElementById('cameraModal').style.display = 'none';
+                    }
+                };
+            } catch(err) { alert('Camera error: ' + err.message); }
+        });
+    }
+    </script>
+</body>
+</html>

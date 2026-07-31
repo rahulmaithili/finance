@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Activity Logs - IEMS ERP</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.4.1/css/responsive.dataTables.min.css">
+    
+    <!-- Firebase SDK & Config -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    
+    <!-- Navigation Loader -->
+    <script src="nav-loader.js"></script>
+    
+    <!-- jQuery & DataTables -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/responsive/2.4.1/js/dataTables.responsive.min.js"></script>
+</head>
+<body>
+
+    <div class="app-wrapper">
+        <!-- Main Panel Content -->
+        <div class="main-content">
+            <!-- Navbar -->
+            <div class="navbar">
+                <div class="page-title">Audit Trails / Activity Logs</div>
+            </div>
+            
+            <!-- Content Body -->
+            <div class="content-body">
+                <div class="table-card single-col">
+                    <div class="header-title-section" style="margin-bottom: 20px;">
+                        <h2>System Audit Trails</h2>
+                        <p>Complete logs of user logins, database modifications, and security activities.</p>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="custom-table" id="activityLogsTable" style="width:100%;">
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>Performed By</th>
+                                    <th>Role</th>
+                                    <th>Action Logged</th>
+                                    <th>IP Address</th>
+                                </tr>
+                            </thead>
+                            <tbody id="logsTableBody">
+                                <!-- Loaded dynamically from Firestore -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Loader -->
+    <script>
+        window.onNavigationLoaded = function (user, userData) {
+            loadAuditLogs(user, userData);
+        };
+
+        function loadAuditLogs(user, userData) {
+            const tableBody = document.getElementById('logsTableBody');
+            
+            if ($.fn.DataTable.isDataTable('#activityLogsTable')) {
+                $('#activityLogsTable').DataTable().destroy();
+            }
+
+            let query = db.collection('activity_logs');
+            
+            // Staff users can only see their own audit trails
+            if (userData.role === 'staff') {
+                query = query.where('user_id', '==', user.uid);
+            }
+
+            query.orderBy('created_at', 'desc').onSnapshot(snapshot => {
+                tableBody.innerHTML = '';
+                snapshot.forEach(doc => {
+                    const log = doc.data();
+                    let formattedDate = '—';
+                    if (log.created_at) {
+                        const dateObj = new Date(log.created_at.toMillis());
+                        formattedDate = dateObj.toLocaleDateString('en-IN', {
+                            day: '2-digit', month: 'short', year: 'numeric',
+                            hour: '2-digit', minute: '2-digit', hour12: true
+                        });
+                    }
+
+                    tableBody.innerHTML += `
+                    <tr>
+                        <td style="font-weight: 600; color: var(--text-light);">${formattedDate}</td>
+                        <td>
+                            <div style="font-weight: 600; color: var(--text-light);">${log.user_name}</div>
+                            <span style="font-size:0.75rem; color:var(--text-secondary);">${log.user_email}</span>
+                        </td>
+                        <td style="text-transform:capitalize;"><span class="badge" style="background:rgba(99,102,241,0.1); color:var(--primary); font-size:0.7rem;">${log.user_role}</span></td>
+                        <td>${log.action}</td>
+                        <td>${log.ip_address}</td>
+                    </tr>`;
+                });
+
+                $('#activityLogsTable').DataTable({
+                    order: [[0, 'desc']],
+                    responsive: true
+                });
+            });
+        }
+    </script>
+</body>
+</html>

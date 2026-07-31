@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - IEMS ERP</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Firebase SDK (Compat version for direct script load) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    
+    <!-- Firebase Configuration -->
+    <script src="firebase-config.js"></script>
+</head>
+<body class="login-container">
+
+    <div class="login-card">
+        <div class="login-header">
+            <div class="logo-icon">
+                <i class="fa-solid fa-wallet"></i>
+            </div>
+            <h1 id="siteBrandingName">IEMS ERP</h1>
+            <p>Income & Expense Management System (Firebase)</p>
+        </div>
+        
+        <div id="errorAlert" class="alert alert-danger" style="margin-bottom: 20px; display: none;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <i class="fa-solid fa-circle-exclamation"></i>
+                <span id="errorMessage">Invalid email or password.</span>
+            </div>
+        </div>
+        
+        <form id="loginForm" autocomplete="off">
+            <div class="form-group">
+                <label class="form-label" for="email">Email Address</label>
+                <div class="input-icon-wrapper">
+                    <input type="email" id="email" class="form-control" placeholder="name@domain.com" required>
+                    <i class="fa-solid fa-envelope"></i>
+                </div>
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 30px;">
+                <label class="form-label" for="password">Password</label>
+                <div class="input-icon-wrapper">
+                    <input type="password" id="password" class="form-control" placeholder="••••••••" required>
+                    <i class="fa-solid fa-lock"></i>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn-primary" id="loginBtn">
+                <span id="btnText">Sign In</span>
+                <i class="fa-solid fa-arrow-right-to-bracket"></i>
+            </button>
+        </form>
+        
+        <div style="text-align: center; margin-top: 25px; font-size: 0.8rem; color: var(--text-secondary);">
+            Enter your Firebase credentials to log in.<br>
+            <span style="font-weight: 600; color: var(--primary); cursor: pointer;" id="signupLink">Click here to Sign Up</span> if account doesn't exist.
+        </div>
+    </div>
+
+    <!-- Sign Up Modal / View Switcher (Simple Firebase account creation) -->
+    <div id="signupModal" style="display:none; position: fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
+        <div class="login-card" style="width:90%; max-width:400px; margin:auto;">
+            <div class="login-header">
+                <h2>Create Account</h2>
+                <p>Register as a new user in Firebase</p>
+            </div>
+            <div id="signupErrorAlert" class="alert alert-danger" style="margin-bottom: 20px; display: none;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                    <span id="signupErrorMessage">Registration failed.</span>
+                </div>
+            </div>
+            <form id="signupForm">
+                <div class="form-group">
+                    <label class="form-label">Full Name</label>
+                    <input type="text" id="signupName" class="form-control" style="padding-left:15px;" placeholder="Full Name" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" id="signupEmail" class="form-control" style="padding-left:15px;" placeholder="email@example.com" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" id="signupPassword" class="form-control" style="padding-left:15px;" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="btn-primary" style="margin-top:15px;">Register & Sign In</button>
+                <button type="button" class="btn-secondary" style="margin-top:10px; width:100%;" id="cancelSignup">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Redirect to dashboard if already logged in
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                window.location.href = 'index.html';
+            }
+        });
+
+        // Load branding from Firestore system_settings if exists
+        db.collection('system_settings').doc('branding').get().then((doc) => {
+            if (doc.exists) {
+                const data = doc.data();
+                if (data.site_name) {
+                    document.getElementById('siteBrandingName').textContent = data.site_name;
+                }
+            }
+        }).catch(err => console.log("Using default branding"));
+
+        // Toggle signup modal
+        document.getElementById('signupLink').addEventListener('click', () => {
+            document.getElementById('signupModal').style.display = 'flex';
+        });
+        document.getElementById('cancelSignup').addEventListener('click', () => {
+            document.getElementById('signupModal').style.display = 'none';
+        });
+
+        // Handle Login Submission
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const loginBtn = document.getElementById('loginBtn');
+            const btnText = document.getElementById('btnText');
+            const errorAlert = document.getElementById('errorAlert');
+            const errorMessage = document.getElementById('errorMessage');
+
+            // Show loading
+            loginBtn.disabled = true;
+            btnText.textContent = "Signing In...";
+            errorAlert.style.display = "none";
+
+            auth.signInWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    // Redirect is handled by the Auth state observer above
+                })
+                .catch((error) => {
+                    loginBtn.disabled = false;
+                    btnText.textContent = "Sign In";
+                    errorAlert.style.display = "block";
+                    errorMessage.textContent = error.message;
+                });
+        });
+
+        // Handle Signup Submission
+        document.getElementById('signupForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const name = document.getElementById('signupName').value.trim();
+            const email = document.getElementById('signupEmail').value.trim();
+            const password = document.getElementById('signupPassword').value;
+            const signupErrorAlert = document.getElementById('signupErrorAlert');
+            const signupErrorMessage = document.getElementById('signupErrorMessage');
+
+            signupErrorAlert.style.display = "none";
+
+            auth.createUserWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    const user = userCredential.user;
+                    // Save user details to Firestore
+                    return db.collection('users').doc(user.uid).set({
+                        full_name: name,
+                        email: email,
+                        role: 'super_admin', // default to super_admin for first users
+                        status: 'active',
+                        created_at: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                })
+                .then(() => {
+                    window.location.href = 'index.html';
+                })
+                .catch((error) => {
+                    signupErrorAlert.style.display = "block";
+                    signupErrorMessage.textContent = error.message;
+                });
+        });
+    </script>
+</body>
+</html>

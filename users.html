@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Users Control - IEMS ERP</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.4.1/css/responsive.dataTables.min.css">
+    
+    <!-- Firebase SDK & Config -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    
+    <!-- Navigation Loader -->
+    <script src="nav-loader.js"></script>
+    
+    <!-- jQuery, DataTables & SweetAlert2 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/responsive/2.4.1/js/dataTables.responsive.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+
+    <div class="app-wrapper">
+        <!-- Main Panel Content -->
+        <div class="main-content">
+            <!-- Navbar -->
+            <div class="navbar">
+                <div class="page-title">User Controls & Settings</div>
+            </div>
+            
+            <!-- Content Body -->
+            <div class="content-body">
+                <div class="module-grid">
+                    <!-- Left: Users Table -->
+                    <div>
+                        <div class="header-title-section" style="margin-bottom: 20px;">
+                            <h2>All Registered Users</h2>
+                            <p>Manage system access levels, active roles, and account statuses.</p>
+                        </div>
+                        
+                        <div class="table-card">
+                            <div class="table-responsive">
+                                <table id="usersTable" class="custom-table" style="width:100%;">
+                                    <thead>
+                                        <tr>
+                                            <th>Full Name</th>
+                                            <th>Email Address</th>
+                                            <th>Role</th>
+                                            <th>Status</th>
+                                            <th>Registered At</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="usersTableBody">
+                                        <!-- Loaded dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right: Add / Edit User Form -->
+                    <div class="desktop-form-panel">
+                        <div class="form-card">
+                            <div class="form-card-title">
+                                <span id="formTitle">Add User / Define Role</span>
+                                <button class="btn-icon" style="border: none; display:none;" id="cancelEditBtn" onclick="resetForm()">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
+                            
+                            <form id="userForm" autocomplete="off">
+                                <input type="hidden" id="editUserId">
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Full Name</label>
+                                    <div class="input-icon-wrapper">
+                                        <input type="text" id="full_name" class="form-control" placeholder="e.g. John Doe" required>
+                                        <i class="fa-solid fa-user" style="left: 14px;"></i>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Email Address</label>
+                                    <div class="input-icon-wrapper">
+                                        <input type="email" id="email" class="form-control" placeholder="e.g. john@company.com" required>
+                                        <i class="fa-solid fa-envelope" style="left: 14px;"></i>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">User Role</label>
+                                    <select id="role" class="form-control" style="padding-left:15px;" required>
+                                        <option value="staff">Staff (Limited Access)</option>
+                                        <option value="admin">Admin (Full Transactions Access)</option>
+                                        <option value="super_admin">Super Admin (System Settings Access)</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Account Status</label>
+                                    <select id="status" class="form-control" style="padding-left: 15px;" required>
+                                        <option value="active">Active</option>
+                                        <option value="inactive">Inactive</option>
+                                    </select>
+                                </div>
+                                
+                                <button type="submit" class="btn-primary" style="margin-top: 10px;">
+                                    <i class="fa-solid fa-plus" id="formSubmitIcon"></i>
+                                    <span id="formSubmitText">Save User Access</span>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JS Logic -->
+    <script>
+        let editMode = false;
+        let activeEditId = null;
+        let currentAdminRole = 'staff';
+
+        window.onNavigationLoaded = function (user, userData) {
+            currentAdminRole = userData.role;
+            // Only allow super_admin and admin
+            if (userData.role !== 'super_admin' && userData.role !== 'admin') {
+                window.location.href = 'index.html';
+                return;
+            }
+            loadUsersTable();
+        };
+
+        function loadUsersTable() {
+            const tableBody = document.getElementById('usersTableBody');
+            
+            if ($.fn.DataTable.isDataTable('#usersTable')) {
+                $('#usersTable').DataTable().destroy();
+            }
+
+            db.collection('users').orderBy('full_name', 'asc').onSnapshot(snapshot => {
+                tableBody.innerHTML = '';
+                snapshot.forEach(doc => {
+                    const u = doc.data();
+                    const id = doc.id;
+                    const isInactive = u.status === 'inactive';
+                    
+                    let formattedDate = '—';
+                    if (u.created_at) {
+                        formattedDate = new Date(u.created_at.toMillis()).toLocaleDateString('en-IN', {
+                            day: '2-digit', month: 'short', year: 'numeric'
+                        });
+                    }
+
+                    // Hierarchy guard: Admins cannot edit or delete Super Admins
+                    let actionButtons = '';
+                    if (currentAdminRole === 'super_admin' || u.role !== 'super_admin') {
+                        actionButtons = `
+                            <button class="bank-btn" onclick="editUser('${id}')" title="Edit"><i class="fa-solid fa-pen"></i></button>
+                            <button class="bank-btn" onclick="deleteUser('${id}')" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                        `;
+                    } else {
+                        actionButtons = `<span style="font-size:0.75rem; color:var(--text-secondary);">Restricted</span>`;
+                    }
+
+                    tableBody.innerHTML += `
+                    <tr>
+                        <td style="font-weight:600; color:var(--text-light);">${u.full_name}</td>
+                        <td>${u.email}</td>
+                        <td style="text-transform:capitalize;"><span class="badge" style="background:rgba(99,102,241,0.15); color:var(--primary); font-size:0.75rem;">${u.role.replace('_', ' ')}</span></td>
+                        <td><span class="badge ${isInactive ? 'badge-danger' : 'badge-success'}">${u.status}</span></td>
+                        <td>${formattedDate}</td>
+                        <td>
+                            <div style="display:flex; gap:6px;">
+                                ${actionButtons}
+                            </div>
+                        </td>
+                    </tr>`;
+                });
+
+                $('#usersTable').DataTable({
+                    responsive: true
+                });
+            });
+        }
+
+        document.getElementById('userForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const name = document.getElementById('full_name').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const role = document.getElementById('role').value;
+            const status = document.getElementById('status').value;
+
+            if (editMode) {
+                db.collection('users').doc(activeEditId).update({
+                    full_name: name,
+                    email: email,
+                    role: role,
+                    status: status
+                }).then(() => {
+                    Swal.fire({ icon: 'success', title: 'User Updated', timer: 1500, showConfirmButton: false });
+                    logActivity(`Updated user document for ${name} (${email})`);
+                    resetForm();
+                });
+            } else {
+                // Check if email already registered in users doc
+                db.collection('users').where('email', '==', email).get().then(snapshot => {
+                    if (!snapshot.empty) {
+                        Swal.fire({ icon: 'warning', title: 'Email Taken', text: 'Email is already registered in the system.' });
+                    } else {
+                        db.collection('users').add({
+                            full_name: name,
+                            email: email,
+                            role: role,
+                            status: status,
+                            created_at: firebase.firestore.FieldValue.serverTimestamp()
+                        }).then(() => {
+                            Swal.fire({ icon: 'success', title: 'User Pre-registered', text: 'Tell the user to sign up with this email on first login.', confirmButtonText: 'OK' });
+                            logActivity(`Pre-registered user: ${name} with role ${role}`);
+                            resetForm();
+                        });
+                    }
+                });
+            }
+        });
+
+        function editUser(id) {
+            db.collection('users').doc(id).get().then(doc => {
+                if (doc.exists) {
+                    const data = doc.data();
+                    editMode = true;
+                    activeEditId = id;
+
+                    document.getElementById('full_name').value = data.full_name;
+                    document.getElementById('email').value = data.email;
+                    document.getElementById('role').value = data.role;
+                    document.getElementById('status').value = data.status;
+
+                    document.getElementById('formTitle').textContent = 'Edit User Settings';
+                    document.getElementById('formSubmitText').textContent = 'Save Changes';
+                    document.getElementById('formSubmitIcon').className = 'fa-solid fa-floppy-disk';
+                    document.getElementById('cancelEditBtn').style.display = 'inline-flex';
+                }
+            });
+        }
+
+        function deleteUser(id) {
+            if (id === auth.currentUser.uid) {
+                Swal.fire({ icon: 'error', title: 'Self-Destruct Blocked', text: 'You cannot delete your own logged-in user profile!' });
+                return;
+            }
+
+            Swal.fire({
+                title: 'Are you sure?',
+                text: "User profile will be deleted from the directory.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#e11d48',
+                confirmButtonText: 'Yes, delete!'
+            }).then(result => {
+                if (result.isConfirmed) {
+                    // Check if they have created income or expense transactions
+                    const p1 = db.collection('income').where('recorded_by_uid', '==', id).limit(1).get();
+                    const p2 = db.collection('expenses').where('recorded_by_uid', '==', id).limit(1).get();
+
+                    Promise.all([p1, p2]).then(([iSnap, eSnap]) => {
+                        const hasTransactions = !iSnap.empty || !eSnap.empty;
+
+                        if (hasTransactions) {
+                            // If they have dependencies, deactivate them instead of hard deleting to preserve logs
+                            db.collection('users').doc(id).update({ status: 'inactive' }).then(() => {
+                                Swal.fire({
+                                    icon: 'info',
+                                    title: 'Account Deactivated',
+                                    text: 'This user has recorded transactions. Deactivated account instead of deleting to preserve audit trails.'
+                                });
+                                logActivity(`Deactivated user account due to dependencies: ID ${id}`);
+                            });
+                        } else {
+                            db.collection('users').doc(id).delete().then(() => {
+                                Swal.fire({ icon: 'success', title: 'User Deleted', timer: 1500, showConfirmButton: false });
+                                logActivity(`Hard deleted user account: ID ${id}`);
+                            });
+                        }
+                    });
+                }
+            });
+        }
+
+        function resetForm() {
+            editMode = false;
+            activeEditId = null;
+            document.getElementById('userForm').reset();
+            document.getElementById('formTitle').textContent = 'Add User / Define Role';
+            document.getElementById('formSubmitText').textContent = 'Save User Access';
+            document.getElementById('formSubmitIcon').className = 'fa-solid fa-plus';
+            document.getElementById('cancelEditBtn').style.display = 'none';
+        }
+    </script>
+</body>
+</html>

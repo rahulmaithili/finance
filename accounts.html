@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bank Accounts - IEMS ERP</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Firebase SDK & Config -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    
+    <!-- Navigation Loader -->
+    <script src="nav-loader.js"></script>
+    
+    <!-- jQuery & SweetAlert2 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+
+    <div class="app-wrapper">
+        <!-- Main Panel Content -->
+        <div class="main-content">
+            <!-- Navbar -->
+            <div class="navbar">
+                <div class="page-title">Manage Bank Accounts</div>
+            </div>
+            
+            <!-- Content Body -->
+            <div class="content-body">
+                <div class="module-grid">
+                    <!-- Left: Accounts Tiles List -->
+                    <div>
+                        <div class="header-title-section" style="margin-bottom: 20px;">
+                            <h2>All Accounts Overview</h2>
+                            <p>Overview of balances and details for your registered cash holdings and banks.</p>
+                        </div>
+                        
+                        <div class="accounts-grid" id="accountsGrid">
+                            <!-- Loading Spinner -->
+                            <div style="grid-column: 1 / -1; text-align: center; color: var(--text-secondary); padding: 50px 0;">
+                                <i class="fa-solid fa-spinner fa-spin" style="font-size: 3rem; margin-bottom: 15px; opacity: 0.5;"></i>
+                                <h3>Loading accounts...</h3>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right: Add / Edit Account Form (Desktop Only) -->
+                    <div class="desktop-form-panel">
+                        <div class="form-card">
+                            <div class="form-card-title">
+                                <span id="formTitle">Add Bank Account</span>
+                                <button class="btn-icon" style="border: none; display:none;" id="cancelEditBtn" onclick="resetForm()">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
+                            
+                            <form id="accountForm" autocomplete="off">
+                                <input type="hidden" id="accountId">
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Account Nickname</label>
+                                    <div class="input-icon-wrapper">
+                                        <input type="text" id="account_name" class="form-control" placeholder="e.g. Primary Savings / Petty Cash" required>
+                                        <i class="fa-solid fa-wallet" style="left: 14px;"></i>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Bank / Institution Name</label>
+                                    <div class="input-icon-wrapper">
+                                        <input type="text" id="bank_name" class="form-control" placeholder="e.g. HDFC Bank / Cash" required>
+                                        <i class="fa-solid fa-university" style="left: 14px;"></i>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Account Number</label>
+                                    <div class="input-icon-wrapper">
+                                        <input type="text" id="account_number" class="form-control" placeholder="e.g. 501002342345" required>
+                                        <i class="fa-solid fa-hashtag" style="left: 14px;"></i>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">IFSC Code (Optional)</label>
+                                    <div class="input-icon-wrapper">
+                                        <input type="text" id="ifsc_code" class="form-control" placeholder="e.g. SBIN0001234">
+                                        <i class="fa-solid fa-barcode" style="left: 14px;"></i>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Branch Name (Optional)</label>
+                                    <div class="input-icon-wrapper">
+                                        <input type="text" id="branch_name" class="form-control" placeholder="e.g. Connaught Place Branch">
+                                        <i class="fa-solid fa-code-branch" style="left: 14px;"></i>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Opening Balance (₹)</label>
+                                    <div class="input-icon-wrapper">
+                                        <input type="number" id="opening_balance" class="form-control" placeholder="0.00" step="0.01" min="0" required value="0.00">
+                                        <i class="fa-solid fa-indian-rupee-sign" style="left: 14px;"></i>
+                                    </div>
+                                    <div id="balanceHint" style="font-size:0.75rem; color:var(--text-secondary); margin-top:5px; display:none;">
+                                        Updating opening balance will automatically adjust current balance.
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Account Status</label>
+                                    <select id="status" class="form-control" style="padding-left: 15px;" required>
+                                        <option value="active">Active</option>
+                                        <option value="inactive">Inactive</option>
+                                    </select>
+                                </div>
+                                
+                                <button type="submit" class="btn-primary" style="margin-top: 10px;">
+                                    <i class="fa-solid fa-plus" id="formSubmitIcon"></i>
+                                    <span id="formSubmitText">Create Account</span>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile FAB Button (Add Account) -->
+    <button class="mobile-fab fab-account" id="mobileAccountBtn" title="Add Bank Account" aria-label="Add Account">
+        <i class="fa-solid fa-plus"></i>
+    </button>
+
+    <!-- Mobile Bottom Sheet Overlay -->
+    <div class="bottom-sheet-overlay" id="sheetOverlay"></div>
+
+    <!-- Mobile Bottom Sheet Panel -->
+    <div class="bottom-sheet" id="bottomSheet">
+        <div class="sheet-stripe-account"></div>
+        <div class="bottom-sheet-handle"></div>
+        <div class="bottom-sheet-header">
+            <h3><i class="fa-solid fa-building-columns" style="color:#6366f1; margin-right:8px;"></i><span id="sheetFormTitle">Add Bank Account</span></h3>
+            <button class="bottom-sheet-close" id="sheetCloseBtn"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="bottom-sheet-body">
+            <form id="mobileAccountForm" autocomplete="off">
+                <div class="form-group">
+                    <label class="form-label">Account Nickname</label>
+                    <div class="input-icon-wrapper">
+                        <input type="text" id="m_account_name" class="form-control" placeholder="e.g. Primary Savings / Petty Cash" required>
+                        <i class="fa-solid fa-wallet" style="left:14px;"></i>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Bank / Institution Name</label>
+                    <div class="input-icon-wrapper">
+                        <input type="text" id="m_bank_name" class="form-control" placeholder="e.g. HDFC Bank / Cash" required>
+                        <i class="fa-solid fa-university" style="left:14px;"></i>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Account Number</label>
+                    <div class="input-icon-wrapper">
+                        <input type="text" id="m_account_number" class="form-control" placeholder="e.g. 501002342345" required>
+                        <i class="fa-solid fa-hashtag" style="left:14px;"></i>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">IFSC Code (Optional)</label>
+                    <div class="input-icon-wrapper">
+                        <input type="text" id="m_ifsc_code" class="form-control" placeholder="e.g. IFSC Code">
+                        <i class="fa-solid fa-barcode" style="left:14px;"></i>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Branch Name (Optional)</label>
+                    <div class="input-icon-wrapper">
+                        <input type="text" id="m_branch_name" class="form-control" placeholder="e.g. Branch Name">
+                        <i class="fa-solid fa-code-branch" style="left:14px;"></i>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Opening Balance (₹)</label>
+                    <div class="input-icon-wrapper">
+                        <input type="number" id="m_opening_balance" class="form-control" placeholder="0.00" step="0.01" min="0" required value="0.00">
+                        <i class="fa-solid fa-indian-rupee-sign" style="left:14px;"></i>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Account Status</label>
+                    <select id="m_status" class="form-control" style="padding-left:14px;" required>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn-primary" style="margin-top:10px;">
+                    <i class="fa-solid fa-plus" id="m_formSubmitIcon"></i>
+                    <span id="m_formSubmitText">Create Account</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- JS Logic -->
+    <script>
+        let editMode = false;
+        let activeEditId = null;
+
+        // Bottom Sheet controls
+        const sheetOverlay = document.getElementById('sheetOverlay');
+        const bottomSheet = document.getElementById('bottomSheet');
+        const mobileAccountBtn = document.getElementById('mobileAccountBtn');
+        const sheetCloseBtn = document.getElementById('sheetCloseBtn');
+
+        function openSheet() {
+            sheetOverlay.classList.add('open');
+            bottomSheet.classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+        function closeSheet() {
+            sheetOverlay.classList.remove('open');
+            bottomSheet.classList.remove('open');
+            document.body.style.overflow = '';
+        }
+
+        if (mobileAccountBtn) mobileAccountBtn.addEventListener('click', () => {
+            resetForm();
+            openSheet();
+        });
+        if (sheetCloseBtn) sheetCloseBtn.addEventListener('click', closeSheet);
+        if (sheetOverlay) sheetOverlay.addEventListener('click', closeSheet);
+
+        // Fetch Accounts Callback from Auth loader
+        window.onNavigationLoaded = function (user, userData) {
+            loadAccounts();
+        };
+
+        function loadAccounts() {
+            const grid = document.getElementById('accountsGrid');
+            
+            db.collection('bank_accounts').orderBy('account_name', 'asc').onSnapshot(snapshot => {
+                if (snapshot.empty) {
+                    grid.innerHTML = `
+                    <div class="table-card" style="grid-column: 1 / -1; text-align: center; color: var(--text-secondary); padding: 50px 0;">
+                        <i class="fa-solid fa-building-columns" style="font-size: 3rem; margin-bottom: 15px; opacity: 0.5;"></i>
+                        <h3>No accounts registered yet.</h3>
+                        <p style="font-size: 0.85rem;">Use the form to register your first bank account or cash fund.</p>
+                    </div>`;
+                    return;
+                }
+
+                grid.innerHTML = '';
+                snapshot.forEach(doc => {
+                    const acc = doc.data();
+                    const id = doc.id;
+                    const isInactive = acc.status === 'inactive';
+                    
+                    let num = acc.account_number.replace(/\s/g, '');
+                    let formattedNum = num.length > 4 ? '•••• •••• •••• ' + num.slice(-4) : num;
+
+                    grid.innerHTML += `
+                    <div class="bank-card ${isInactive ? 'card-inactive' : ''}">
+                        <div class="bank-header">
+                            <div>
+                                <div class="bank-name-label">${acc.bank_name}</div>
+                                <div style="font-weight: 700; font-size: 1.15rem;">${acc.account_name}</div>
+                            </div>
+                            <div class="bank-actions">
+                                <button class="bank-btn" onclick="editAccount('${id}')" title="Edit Account">
+                                    <i class="fa-solid fa-pen"></i>
+                                </button>
+                                <button class="bank-btn" onclick="deleteAccount('${id}')" title="Delete Account">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="bank-number">${formattedNum}</div>
+                        
+                        <div style="display:flex; justify-content:space-between; font-size:0.75rem; opacity:0.8; margin-top:-5px; margin-bottom:5px;">
+                            <span><i class="fa-solid fa-code-branch" style="margin-right:2px;"></i> ${acc.branch_name || 'N/A'}</span>
+                            <span><i class="fa-solid fa-barcode" style="margin-right:2px;"></i> ${acc.ifsc_code || 'N/A'}</span>
+                        </div>
+                        
+                        <div class="bank-balance-wrapper">
+                            <div>
+                                <div class="bank-balance-label">Current Balance</div>
+                                <div class="bank-balance">${formatCurrency(acc.current_balance)}</div>
+                            </div>
+                            <div>
+                                <span class="badge ${isInactive ? 'badge-danger' : 'badge-success'}" style="font-size: 0.65rem; text-transform:capitalize;">
+                                    ${acc.status}
+                                </span>
+                            </div>
+                        </div>
+                    </div>`;
+                });
+            });
+        }
+
+        // Add/Edit Submissions
+        document.getElementById('accountForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            handleSaveForm(false);
+        });
+
+        document.getElementById('mobileAccountForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            handleSaveForm(true);
+        });
+
+        function handleSaveForm(isMobile) {
+            const prefix = isMobile ? 'm_' : '';
+            const name = document.getElementById(prefix + 'account_name').value.trim();
+            const bank = document.getElementById(prefix + 'bank_name').value.trim();
+            const num = document.getElementById(prefix + 'account_number').value.trim();
+            const ifsc = document.getElementById(prefix + 'ifsc_code').value.trim();
+            const branch = document.getElementById(prefix + 'branch_name').value.trim();
+            const opBal = parseFloat(document.getElementById(prefix + 'opening_balance').value || 0);
+            const status = document.getElementById(prefix + 'status').value;
+
+            if (editMode) {
+                // Fetch current balances to adjust
+                db.collection('bank_accounts').doc(activeEditId).get().then(doc => {
+                    if (doc.exists) {
+                        const oldData = doc.data();
+                        const balDiff = opBal - parseFloat(oldData.opening_balance || 0);
+                        const newCurrentBalance = parseFloat(oldData.current_balance || 0) + balDiff;
+
+                        return db.collection('bank_accounts').doc(activeEditId).update({
+                            account_name: name,
+                            bank_name: bank,
+                            account_number: num,
+                            ifsc_code: ifsc,
+                            branch_name: branch,
+                            opening_balance: opBal,
+                            current_balance: newCurrentBalance,
+                            status: status
+                        });
+                    }
+                }).then(() => {
+                    Swal.fire({ icon: 'success', title: 'Account Updated', timer: 1500, showConfirmButton: false });
+                    resetForm();
+                    closeSheet();
+                });
+            } else {
+                // Create Mode
+                db.collection('bank_accounts').add({
+                    account_name: name,
+                    bank_name: bank,
+                    account_number: num,
+                    ifsc_code: ifsc,
+                    branch_name: branch,
+                    opening_balance: opBal,
+                    current_balance: opBal,
+                    status: status,
+                    created_at: firebase.firestore.FieldValue.serverTimestamp()
+                }).then(() => {
+                    Swal.fire({ icon: 'success', title: 'Account Created', timer: 1500, showConfirmButton: false });
+                    resetForm();
+                    closeSheet();
+                });
+            }
+        }
+
+        function editAccount(id) {
+            db.collection('bank_accounts').doc(id).get().then(doc => {
+                if (doc.exists) {
+                    const data = doc.data();
+                    editMode = true;
+                    activeEditId = id;
+
+                    // Fill both Desktop and Mobile forms
+                    ['', 'm_'].forEach(prefix => {
+                        document.getElementById(prefix + 'account_name').value = data.account_name;
+                        document.getElementById(prefix + 'bank_name').value = data.bank_name;
+                        document.getElementById(prefix + 'account_number').value = data.account_number;
+                        document.getElementById(prefix + 'ifsc_code').value = data.ifsc_code || '';
+                        document.getElementById(prefix + 'branch_name').value = data.branch_name || '';
+                        document.getElementById(prefix + 'opening_balance').value = data.opening_balance;
+                        document.getElementById(prefix + 'status').value = data.status;
+                    });
+
+                    // Update UI titles/buttons
+                    document.getElementById('formTitle').textContent = 'Edit Account';
+                    document.getElementById('formSubmitText').textContent = 'Save Changes';
+                    document.getElementById('formSubmitIcon').className = 'fa-solid fa-floppy-disk';
+                    document.getElementById('cancelEditBtn').style.display = 'inline-flex';
+                    document.getElementById('balanceHint').style.display = 'block';
+
+                    document.getElementById('sheetFormTitle').textContent = 'Edit Account';
+                    document.getElementById('m_formSubmitText').textContent = 'Save Changes';
+                    document.getElementById('m_formSubmitIcon').className = 'fa-solid fa-floppy-disk';
+
+                    // Slide sheet up if on mobile screen
+                    if (window.innerWidth <= 768) {
+                        openSheet();
+                    }
+                }
+            });
+        }
+
+        function deleteAccount(id) {
+            Swal.fire({
+                title: 'Are you sure?',
+                text: "Verify that all transactions associated with this account are complete.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#e11d48',
+                cancelButtonColor: 'var(--border-color)',
+                confirmButtonText: 'Yes, delete it!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Check dependencies in transactions
+                    const p1 = db.collection('income').where('account_id', '==', id).limit(1).get();
+                    const p2 = db.collection('expenses').where('account_id', '==', id).limit(1).get();
+                    const p3 = db.collection('transfers').where('from_account', '==', id).limit(1).get();
+                    const p4 = db.collection('transfers').where('to_account', '==', id).limit(1).get();
+
+                    Promise.all([p1, p2, p3, p4]).then(([iSnap, eSnap, t1Snap, t2Snap]) => {
+                        const hasDeps = !iSnap.empty || !eSnap.empty || !t1Snap.empty || !t2Snap.empty;
+                        
+                        if (hasDeps) {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Cannot Delete',
+                                text: 'This account has associated ledger entries. Deactivate status instead.'
+                            });
+                        } else {
+                            db.collection('bank_accounts').doc(id).delete().then(() => {
+                                Swal.fire({ icon: 'success', title: 'Deleted!', timer: 1500, showConfirmButton: false });
+                            });
+                        }
+                    });
+                }
+            });
+        }
+
+        function resetForm() {
+            editMode = false;
+            activeEditId = null;
+            
+            document.getElementById('accountForm').reset();
+            document.getElementById('mobileAccountForm').reset();
+
+            // Restore defaults
+            document.getElementById('formTitle').textContent = 'Add Bank Account';
+            document.getElementById('formSubmitText').textContent = 'Create Account';
+            document.getElementById('formSubmitIcon').className = 'fa-solid fa-plus';
+            document.getElementById('cancelEditBtn').style.display = 'none';
+            document.getElementById('balanceHint').style.display = 'none';
+
+            document.getElementById('sheetFormTitle').textContent = 'Add Bank Account';
+            document.getElementById('m_formSubmitText').textContent = 'Create Account';
+            document.getElementById('m_formSubmitIcon').className = 'fa-solid fa-plus';
+        }
+    </script>
+</body>
+</html>

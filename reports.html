@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports - IEMS ERP</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Firebase SDK & Config -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    
+    <!-- Navigation Loader -->
+    <script src="nav-loader.js"></script>
+    
+    <!-- jQuery & SweetAlert2 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
+    <style>
+    .filter-bar {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) 150px;
+        gap: 12px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        padding: 16px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        align-items: flex-end;
+    }
+    .filter-group { display: flex; flex-direction: column; gap: 6px; }
+    .filter-group label { font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); }
+    .filter-group input, .filter-group select {
+        padding: 10px;
+        border: 1px solid var(--border-color);
+        background: var(--bg-primary);
+        color: var(--text-light);
+        border-radius: 8px;
+        font-size: 0.88rem;
+    }
+    .progress-bar-container {
+        width: 100%; height: 6px;
+        background: var(--border-color);
+        border-radius: 3px; overflow: hidden;
+        margin-top: 6px;
+    }
+    .progress-bar { height: 100%; border-radius: 3px; }
+    .category-row {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: 12px; font-size: 0.88rem;
+    }
+    </style>
+</head>
+<body>
+
+    <div class="app-wrapper">
+        <div class="main-content">
+            <!-- Navbar -->
+            <div class="navbar">
+                <div class="page-title">Statements & Financial Reports</div>
+            </div>
+            
+            <!-- Content Body -->
+            <div class="content-body">
+                <!-- Filters -->
+                <div class="filter-bar">
+                    <div class="filter-group">
+                        <label>Start Date</label>
+                        <input type="date" id="startDate">
+                    </div>
+                    <div class="filter-group">
+                        <label>End Date</label>
+                        <input type="date" id="endDate">
+                    </div>
+                    <div class="filter-group">
+                        <label>Transaction Type</label>
+                        <select id="typeFilter">
+                            <option value="all">All Transactions</option>
+                            <option value="income">Income Only</option>
+                            <option value="expense">Expenses Only</option>
+                            <option value="transfer">Transfers Only</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Account</label>
+                        <select id="accountFilter">
+                            <option value="all">All Accounts</option>
+                        </select>
+                    </div>
+                    <button class="btn-primary" onclick="generateReport()" style="height: 42px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <i class="fa-solid fa-sync"></i> Filter
+                    </button>
+                </div>
+
+                <!-- KPI Cards -->
+                <div class="kpi-grid">
+                    <div class="kpi-card kpi-income">
+                        <div class="kpi-details">
+                            <h3>Filtered Income</h3>
+                            <div class="kpi-value" id="totalIncome">₹0.00</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card kpi-expense">
+                        <div class="kpi-details">
+                            <h3>Filtered Expense</h3>
+                            <div class="kpi-value" id="totalExpense">₹0.00</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card kpi-profit">
+                        <div class="kpi-details">
+                            <h3>Net Profit/Loss</h3>
+                            <div class="kpi-value" id="netProfit">₹0.00</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card kpi-balance">
+                        <div class="kpi-details">
+                            <h3>Filtered Transfers</h3>
+                            <div class="kpi-value" id="totalTransfers">₹0.00</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Analysis Breakdown Grid -->
+                <div class="dashboard-grid" style="margin-top: 20px;">
+                    <!-- Category Wise Income -->
+                    <div class="dashboard-card">
+                        <div class="dashboard-card-header">
+                            <h2>Income Breakdown by Category</h2>
+                        </div>
+                        <div class="settings-card-body" id="incomeCategoriesBreakdown">
+                            <div style="color: var(--text-secondary); text-align: center; padding: 20px;">No income recorded in this range.</div>
+                        </div>
+                    </div>
+
+                    <!-- Category Wise Expense -->
+                    <div class="dashboard-card">
+                        <div class="dashboard-card-header">
+                            <h2>Expense Breakdown by Category</h2>
+                        </div>
+                        <div class="settings-card-body" id="expenseCategoriesBreakdown">
+                            <div style="color: var(--text-secondary); text-align: center; padding: 20px;">No expenses recorded in this range.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detailed Statement Table -->
+                <div class="table-card single-col" style="margin-top:20px;">
+                    <div class="dashboard-card-header" style="display:flex; justify-content:space-between; align-items:center;">
+                        <h2>Detailed Statement Ledger</h2>
+                        <button class="btn-secondary" onclick="exportReportToCSV()" style="font-size:0.85rem; padding:8px 16px; display:inline-flex; align-items:center; gap:8px;">
+                            <i class="fa-solid fa-file-excel"></i> Export CSV
+                        </button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="custom-table" style="width:100%;">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Type</th>
+                                    <th>Title</th>
+                                    <th>Category</th>
+                                    <th>Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody id="statementTableBody">
+                                <!-- Data rows loaded from JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Logic -->
+    <script>
+        let accountsMap = {};
+        let generatedRecords = [];
+
+        // Set default date range to current month
+        const now = new Date();
+        document.getElementById('startDate').value = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+        document.getElementById('endDate').value = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+
+        window.onNavigationLoaded = function (user, userData) {
+            loadAccountsList().then(() => {
+                generateReport();
+            });
+        };
+
+        function loadAccountsList() {
+            const filter = document.getElementById('accountFilter');
+            return db.collection('bank_accounts').get().then(snapshot => {
+                filter.innerHTML = '<option value="all">All Accounts</option>';
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    accountsMap[doc.id] = data.account_name;
+                    filter.innerHTML += `<option value="${doc.id}">${data.account_name}</option>`;
+                });
+            });
+        }
+
+        function generateReport() {
+            const start = document.getElementById('startDate').value;
+            const end = document.getElementById('endDate').value;
+            const type = document.getElementById('typeFilter').value;
+            const acc = document.getElementById('accountFilter').value;
+
+            generatedRecords = [];
+
+            const p1 = db.collection('income').where('income_date', '>=', start).where('income_date', '<=', end).get();
+            const p2 = db.collection('expenses').where('expense_date', '>=', start).where('expense_date', '<=', end).get();
+            const p3 = db.collection('transfers').where('transfer_date', '>=', start).where('transfer_date', '<=', end).get();
+
+            Promise.all([p1, p2, p3]).then(([incSnap, expSnap, transSnap]) => {
+                let totalInc = 0;
+                let totalExp = 0;
+                let totalTfs = 0;
+                let incCats = {};
+                let expCats = {};
+
+                // 1. Process Income
+                if (type === 'all' || type === 'income') {
+                    incSnap.forEach(doc => {
+                        const data = doc.data();
+                        if (acc === 'all' || data.account_id === acc) {
+                            totalInc += parseFloat(data.amount);
+                            incCats[data.category] = (incCats[data.category] || 0) + parseFloat(data.amount);
+                            generatedRecords.push({
+                                date: data.income_date,
+                                type: 'income',
+                                title: data.title,
+                                category: data.category,
+                                amount: parseFloat(data.amount)
+                            });
+                        }
+                    });
+                }
+
+                // 2. Process Expenses
+                if (type === 'all' || type === 'expense') {
+                    expSnap.forEach(doc => {
+                        const data = doc.data();
+                        if (acc === 'all' || data.account_id === acc) {
+                            totalExp += parseFloat(data.amount);
+                            expCats[data.category] = (expCats[data.category] || 0) + parseFloat(data.amount);
+                            generatedRecords.push({
+                                date: data.expense_date,
+                                type: 'expense',
+                                title: data.title,
+                                category: data.category,
+                                amount: parseFloat(data.amount)
+                            });
+                        }
+                    });
+                }
+
+                // 3. Process Transfers
+                if (type === 'all' || type === 'transfer') {
+                    transSnap.forEach(doc => {
+                        const data = doc.data();
+                        if (acc === 'all' || data.from_account === acc || data.to_account === acc) {
+                            totalTfs += parseFloat(data.amount);
+                            generatedRecords.push({
+                                date: data.transfer_date,
+                                type: 'transfer',
+                                title: 'Account Transfer',
+                                category: 'Transfer',
+                                amount: parseFloat(data.amount)
+                            });
+                        }
+                    });
+                }
+
+                // Render KPIs
+                document.getElementById('totalIncome').textContent = formatCurrency(totalInc);
+                document.getElementById('totalExpense').textContent = formatCurrency(totalExp);
+                document.getElementById('totalTransfers').textContent = formatCurrency(totalTfs);
+                const margin = totalInc - totalExp;
+                const marginEl = document.getElementById('netProfit');
+                marginEl.textContent = formatCurrency(margin);
+                marginEl.style.color = margin >= 0 ? 'var(--success)' : 'var(--danger)';
+
+                // Render Category Breakdowns
+                renderCategoryBreakdowns(incCats, totalInc, 'incomeCategoriesBreakdown', 'var(--success)');
+                renderCategoryBreakdowns(expCats, totalExp, 'expenseCategoriesBreakdown', 'var(--danger)');
+
+                // Render Statement Ledger
+                renderStatementLedger();
+            });
+        }
+
+        function renderCategoryBreakdowns(cats, total, containerId, color) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            
+            const keys = Object.keys(cats).sort((a,b) => cats[b] - cats[a]);
+            if (keys.length === 0) {
+                container.innerHTML = `<div style="color: var(--text-secondary); text-align: center; padding: 20px;">No records.</div>`;
+                return;
+            }
+
+            keys.forEach(cat => {
+                const amt = cats[cat];
+                const pct = total > 0 ? ((amt / total) * 100).toFixed(1) : 0;
+                container.innerHTML += `
+                <div style="margin-bottom:15px;">
+                    <div class="category-row">
+                        <span style="font-weight:600; color:var(--text-light);">${cat}</span>
+                        <span style="font-weight:700;">${formatCurrency(amt)} (${pct}%)</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" style="width:${pct}%; background:${color};"></div>
+                    </div>
+                </div>`;
+            });
+        }
+
+        function renderStatementLedger() {
+            const tbody = document.getElementById('statementTableBody');
+            tbody.innerHTML = '';
+
+            // Sort records by date descending
+            generatedRecords.sort((a,b) => new Date(b.date) - new Date(a.date));
+
+            if (generatedRecords.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-secondary);">No ledger matches found.</td></tr>`;
+                return;
+            }
+
+            generatedRecords.forEach(row => {
+                let color = 'inherit';
+                let sign = '';
+                if (row.type === 'income') { color = 'var(--success)'; sign = '+'; }
+                if (row.type === 'expense') { color = 'var(--danger)'; sign = '-'; }
+
+                const formattedDate = new Date(row.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+                tbody.innerHTML += `
+                <tr>
+                    <td>${formattedDate}</td>
+                    <td style="text-transform:capitalize;">${row.type}</td>
+                    <td>${row.title}</td>
+                    <td>${row.category}</td>
+                    <td style="font-weight:700; color:${color};">${sign}${formatCurrency(row.amount)}</td>
+                </tr>`;
+            });
+        }
+
+        function exportReportToCSV() {
+            if (generatedRecords.length === 0) {
+                Swal.fire({ icon: 'warning', title: 'Empty Ledger', text: 'No transactions found to export.' });
+                return;
+            }
+
+            let csv = "Date,Type,Title,Category,Amount\n";
+            generatedRecords.forEach(row => {
+                csv += `"${row.date}","${row.type}","${row.title}","${row.category}","${row.amount}"\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.setAttribute("download", `Financial_Ledger_Statement.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>

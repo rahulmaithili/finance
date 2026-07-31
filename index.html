@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - IEMS ERP</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Firebase SDK & Config -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    
+    <!-- Navigation Loader -->
+    <script src="nav-loader.js"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+</head>
+<body>
+
+    <div class="app-wrapper">
+        <!-- Main Panel Content -->
+        <div class="main-content">
+            <!-- Desktop Header Navbar -->
+            <div class="navbar" style="display: flex; justify-content: space-between; align-items: center;">
+                <div class="page-title">Financial Dashboard</div>
+                <div class="nav-actions">
+                    <span style="font-size: 0.9rem; color: var(--text-secondary);">
+                        Session: <strong id="userRoleText">Loading...</strong>
+                    </span>
+                </div>
+            </div>
+            
+            <!-- Page Content Body -->
+            <div class="content-body">
+                <!-- KPI Summary cards grid -->
+                <div class="kpi-grid">
+                    <div class="kpi-card kpi-income">
+                        <div class="kpi-details">
+                            <h3>Income (This Month)</h3>
+                            <div class="kpi-value" id="kpiIncome">₹0.00</div>
+                        </div>
+                        <div class="kpi-icon">
+                            <i class="fa-solid fa-circle-arrow-down"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="kpi-card kpi-expense">
+                        <div class="kpi-details">
+                            <h3>Expense (This Month)</h3>
+                            <div class="kpi-value" id="kpiExpense">₹0.00</div>
+                        </div>
+                        <div class="kpi-icon">
+                            <i class="fa-solid fa-circle-arrow-up"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="kpi-card kpi-profit">
+                        <div class="kpi-details">
+                            <h3>Net Margin</h3>
+                            <div class="kpi-value" id="kpiMargin">₹0.00</div>
+                        </div>
+                        <div class="kpi-icon" id="kpiMarginIconBox">
+                            <i class="fa-solid fa-chart-line" id="kpiMarginIcon"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="kpi-card kpi-balance">
+                        <div class="kpi-details">
+                            <h3>Available Balance</h3>
+                            <div class="kpi-value" id="kpiBalance">₹0.00</div>
+                        </div>
+                        <div class="kpi-icon">
+                            <i class="fa-solid fa-building-columns"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Dashboard Analytics Grid -->
+                <div class="dashboard-grid">
+                    <!-- Left: Chart Panel -->
+                    <div class="dashboard-card">
+                        <div class="dashboard-card-header">
+                            <h2>Income vs Expense Analysis</h2>
+                            <span class="header-action">Last 6 Months</span>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="incomeExpenseChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Right: Recent Transactions List -->
+                    <div class="dashboard-card">
+                        <div class="dashboard-card-header">
+                            <h2>Recent Ledger Entries</h2>
+                            <a href="reports.html" class="header-action" style="font-weight: 500;">View All</a>
+                        </div>
+                        
+                        <div class="mini-list" id="recentTxList">
+                            <div style="text-align: center; color: var(--text-secondary); padding: 40px 0;">
+                                <i class="fa-solid fa-spinner fa-spin" style="font-size: 2rem; margin-bottom: 10px; display: block; opacity: 0.5;"></i>
+                                Loading transactions...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard Data Loader & Chart Initializer -->
+    <script>
+        let myChart = null;
+
+        // Callback from nav-loader.js when auth is confirmed and user profile is loaded
+        window.onNavigationLoaded = function (user, userData) {
+            document.getElementById('userRoleText').textContent = userData.role.replace('_', ' ');
+
+            // Load KPI metrics
+            loadKPIs();
+
+            // Load recent transactions list
+            loadRecentTransactions();
+
+            // Render Chart
+            renderDashboardChart();
+        };
+
+        function loadKPIs() {
+            const today = new Date();
+            const currentYearMonth = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
+
+            // 1. Current Month Income Total
+            db.collection('income')
+                .where('income_date', '>=', currentYearMonth + '-01')
+                .where('income_date', '<=', currentYearMonth + '-31')
+                .get()
+                .then(snapshot => {
+                    let totalInc = 0;
+                    snapshot.forEach(doc => {
+                        totalInc += parseFloat(doc.data().amount || 0);
+                    });
+                    document.getElementById('kpiIncome').textContent = formatCurrency(totalInc);
+                    updateMargin();
+                });
+
+            // 2. Current Month Expense Total
+            db.collection('expenses')
+                .where('expense_date', '>=', currentYearMonth + '-01')
+                .where('expense_date', '<=', currentYearMonth + '-31')
+                .get()
+                .then(snapshot => {
+                    let totalExp = 0;
+                    snapshot.forEach(doc => {
+                        totalExp += parseFloat(doc.data().amount || 0);
+                    });
+                    document.getElementById('kpiExpense').textContent = formatCurrency(totalExp);
+                    updateMargin();
+                });
+
+            // 3. Bank Balance Sum
+            db.collection('bank_accounts')
+                .where('status', '==', 'active')
+                .get()
+                .then(snapshot => {
+                    let totalBal = 0;
+                    snapshot.forEach(doc => {
+                        totalBal += parseFloat(doc.data().current_balance || 0);
+                    });
+                    document.getElementById('kpiBalance').textContent = formatCurrency(totalBal);
+                });
+        }
+
+        function updateMargin() {
+            const incText = document.getElementById('kpiIncome').textContent.replace(/[^\d.-]/g, '');
+            const expText = document.getElementById('kpiExpense').textContent.replace(/[^\d.-]/g, '');
+            const margin = parseFloat(incText) - parseFloat(expText);
+
+            const marginElement = document.getElementById('kpiMargin');
+            const iconBox = document.getElementById('kpiMarginIconBox');
+            const icon = document.getElementById('kpiMarginIcon');
+
+            marginElement.textContent = formatCurrency(margin);
+
+            if (margin >= 0) {
+                marginElement.style.color = 'var(--success)';
+                iconBox.style.backgroundColor = 'var(--success-light)';
+                iconBox.style.color = 'var(--success)';
+                icon.className = 'fa-solid fa-chart-line';
+            } else {
+                marginElement.style.color = 'var(--danger)';
+                iconBox.style.backgroundColor = 'var(--danger-light)';
+                iconBox.style.color = 'var(--danger)';
+                icon.className = 'fa-solid fa-chart-line-down';
+            }
+        }
+
+        function loadRecentTransactions() {
+            const txList = document.getElementById('recentTxList');
+            let transactions = [];
+
+            // Read Income, Expenses, and Transfers concurrently
+            const p1 = db.collection('income').orderBy('income_date', 'desc').limit(10).get();
+            const p2 = db.collection('expenses').orderBy('expense_date', 'desc').limit(10).get();
+            const p3 = db.collection('transfers').orderBy('transfer_date', 'desc').limit(10).get();
+
+            Promise.all([p1, p2, p3]).then(([incSnap, expSnap, transSnap]) => {
+                incSnap.forEach(doc => {
+                    const data = doc.data();
+                    transactions.push({
+                        type: 'income',
+                        title: data.title,
+                        amount: data.amount,
+                        category: data.category,
+                        date: data.income_date,
+                        timestamp: data.created_at ? data.created_at.toMillis() : Date.now()
+                    });
+                });
+
+                expSnap.forEach(doc => {
+                    const data = doc.data();
+                    transactions.push({
+                        type: 'expense',
+                        title: data.title,
+                        amount: data.amount,
+                        category: data.category,
+                        date: data.expense_date,
+                        timestamp: data.created_at ? data.created_at.toMillis() : Date.now()
+                    });
+                });
+
+                transSnap.forEach(doc => {
+                    const data = doc.data();
+                    transactions.push({
+                        type: 'transfer',
+                        title: 'Transfer Transaction',
+                        amount: data.amount,
+                        category: 'Transfer',
+                        date: data.transfer_date,
+                        timestamp: data.created_at ? data.created_at.toMillis() : Date.now()
+                    });
+                });
+
+                // Sort descending by date/timestamp
+                transactions.sort((a, b) => b.timestamp - a.timestamp);
+                const recent = transactions.slice(0, 10);
+
+                if (recent.length === 0) {
+                    txList.innerHTML = `
+                    <div style="text-align: center; color: var(--text-secondary); padding: 40px 0;">
+                        <i class="fa-solid fa-folder-open" style="font-size: 2rem; margin-bottom: 10px; display: block; opacity: 0.5;"></i>
+                        No recent transactions found
+                    </div>`;
+                    return;
+                }
+
+                txList.innerHTML = '';
+                recent.forEach(tx => {
+                    let itemClass = 'mini-income';
+                    let itemIcon = 'fa-arrow-down';
+                    let prefix = '+';
+                    if (tx.type === 'expense') {
+                        itemClass = 'mini-expense';
+                        itemIcon = 'fa-arrow-up';
+                        prefix = '-';
+                    } else if (tx.type === 'transfer') {
+                        itemClass = 'mini-transfer';
+                        itemIcon = 'fa-right-left';
+                        prefix = '';
+                    }
+
+                    const dateObj = new Date(tx.date);
+                    const formattedDate = dateObj.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+                    txList.innerHTML += `
+                    <div class="mini-item ${itemClass}">
+                        <div class="mini-info">
+                            <div class="mini-icon">
+                                <i class="fa-solid ${itemIcon}"></i>
+                            </div>
+                            <div class="mini-details">
+                                <h4>${tx.title}</h4>
+                                <span>${formattedDate} • ${tx.category}</span>
+                            </div>
+                        </div>
+                        <div class="mini-amount">${prefix}${formatCurrency(tx.amount)}</div>
+                    </div>`;
+                });
+            });
+        }
+
+        function renderDashboardChart() {
+            const ctx = document.getElementById('incomeExpenseChart').getContext('2d');
+            const styles = getComputedStyle(document.body);
+            const textColor = styles.getPropertyValue('--text-secondary').trim();
+            const borderColor = styles.getPropertyValue('--border-color').trim();
+            const successColor = styles.getPropertyValue('--success').trim() || '#10b981';
+            const dangerColor = styles.getPropertyValue('--danger').trim() || '#ef4444';
+
+            // Generate past 6 months labels
+            let monthLabels = [];
+            let monthKeys = [];
+            for (let i = 5; i >= 0; i--) {
+                let d = new Date();
+                d.setMonth(d.getMonth() - i);
+                monthLabels.push(d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }));
+                monthKeys.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'));
+            }
+
+            let incomeValues = new Array(6).fill(0);
+            let expenseValues = new Array(6).fill(0);
+
+            // Fetch income and expense sums
+            const p1 = db.collection('income').get();
+            const p2 = db.collection('expenses').get();
+
+            Promise.all([p1, p2]).then(([incSnap, expSnap]) => {
+                incSnap.forEach(doc => {
+                    const data = doc.data();
+                    const monthKey = data.income_date.substring(0, 7); // "YYYY-MM"
+                    const index = monthKeys.indexOf(monthKey);
+                    if (index !== -1) {
+                        incomeValues[index] += parseFloat(data.amount || 0);
+                    }
+                });
+
+                expSnap.forEach(doc => {
+                    const data = doc.data();
+                    const monthKey = data.expense_date.substring(0, 7);
+                    const index = monthKeys.indexOf(monthKey);
+                    if (index !== -1) {
+                        expenseValues[index] += parseFloat(data.amount || 0);
+                    }
+                });
+
+                if (myChart) myChart.destroy();
+
+                myChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: monthLabels,
+                        datasets: [
+                            {
+                                label: 'Income',
+                                data: incomeValues,
+                                backgroundColor: successColor,
+                                borderRadius: 6
+                            },
+                            {
+                                label: 'Expense',
+                                data: expenseValues,
+                                backgroundColor: dangerColor,
+                                borderRadius: 6
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                labels: { color: textColor, font: { family: 'Inter', size: 12 } }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: { color: borderColor },
+                                ticks: { color: textColor }
+                            },
+                            y: {
+                                grid: { color: borderColor },
+                                ticks: { color: textColor }
+                            }
+                        }
+                    }
+                });
+            });
+        }
+    </script>
+</body>
+</html>

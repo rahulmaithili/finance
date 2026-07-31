@@ -1,0 +1,361 @@
+// Navigation Loader & Auth State Guard
+// Dynamically renders Sidebar, Mobile Topbar, and Mobile Bottom Nav.
+// Manages User profile initials, roles, and dropdowns.
+
+(function () {
+    // 1. Create global navigation containers if they don't exist
+    document.addEventListener("DOMContentLoaded", function () {
+        // Enforce Authentication Guard on every page except login.html
+        if (!window.location.pathname.endsWith('login.html')) {
+            auth.onAuthStateChanged((user) => {
+                if (!user) {
+                    window.location.href = 'login.html';
+                } else {
+                    // Fetch user details from Firestore
+                    db.collection('users').doc(user.uid).get().then((doc) => {
+                        let userData = {
+                            full_name: user.email.split('@')[0],
+                            role: 'staff'
+                        };
+                        if (doc.exists) {
+                            userData = doc.data();
+                        }
+                        renderNavigation(userData);
+                        if (window.onNavigationLoaded) {
+                            window.onNavigationLoaded(user, userData);
+                        }
+                    }).catch(err => {
+                        console.error("Firestore user load failed, using fallback:", err);
+                        renderNavigation({ full_name: user.email.split('@')[0], role: 'staff' });
+                    });
+                }
+            });
+        }
+    });
+
+    // 2. Render Sidebar & Mobile menu elements
+    function renderNavigation(user) {
+        const activePage = window.location.pathname.split("/").pop().replace(".html", "") || 'index';
+        
+        // Generate Initials
+        let initials = '';
+        let words = user.full_name.split(' ');
+        words.forEach(w => { if (w) initials += w[0].toUpperCase(); });
+        initials = initials.substring(0, 2) || 'US';
+
+        const roleText = user.role.replace('_', ' ');
+
+        // HTML Templates
+        const sidebarHTML = `
+        <div class="sidebar" id="appSidebar">
+            <div class="sidebar-header">
+                <div class="logo-container">
+                    <i class="fa-solid fa-wallet logo-img"></i>
+                    <span class="logo-text" id="sidebarLogoText">IEMS ERP</span>
+                </div>
+            </div>
+            
+            <div class="sidebar-profile">
+                <div class="profile-avatar">${initials}</div>
+                <div class="profile-info">
+                    <span class="profile-name">${user.full_name}</span>
+                    <span class="profile-role" style="text-transform: capitalize;">${roleText}</span>
+                </div>
+            </div>
+            
+            <ul class="sidebar-menu">
+                <li class="menu-item ${activePage === 'index' ? 'active' : ''}">
+                    <a href="index.html">
+                        <i class="fa-solid fa-chart-pie"></i>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+                <li class="menu-item ${activePage === 'accounts' ? 'active' : ''}">
+                    <a href="accounts.html">
+                        <i class="fa-solid fa-building-columns"></i>
+                        <span>Bank Accounts</span>
+                    </a>
+                </li>
+                <li class="menu-item ${activePage === 'income' ? 'active' : ''}">
+                    <a href="income.html">
+                        <i class="fa-solid fa-circle-arrow-down"></i>
+                        <span>Income</span>
+                    </a>
+                </li>
+                <li class="menu-item ${activePage === 'expense' ? 'active' : ''}">
+                    <a href="expense.html">
+                        <i class="fa-solid fa-circle-arrow-up"></i>
+                        <span>Expenses</span>
+                    </a>
+                </li>
+                <li class="menu-item ${activePage === 'transfers' ? 'active' : ''}">
+                    <a href="transfers.html">
+                        <i class="fa-solid fa-right-left"></i>
+                        <span>Transfers</span>
+                    </a>
+                </li>
+                <li class="menu-item ${activePage === 'reports' ? 'active' : ''}">
+                    <a href="reports.html">
+                        <i class="fa-solid fa-file-invoice-dollar"></i>
+                        <span>Reports</span>
+                    </a>
+                </li>
+                
+                ${(user.role === 'super_admin' || user.role === 'admin') ? `
+                <li class="menu-item ${activePage === 'users' ? 'active' : ''}">
+                    <a href="users.html">
+                        <i class="fa-solid fa-users-gear"></i>
+                        <span>Users Control</span>
+                    </a>
+                </li>
+                ` : ''}
+                
+                <li class="menu-item ${activePage === 'activity_logs' ? 'active' : ''}">
+                    <a href="activity_logs.html">
+                        <i class="fa-solid fa-clipboard-list"></i>
+                        <span>Activity Logs</span>
+                    </a>
+                </li>
+                
+                ${user.role === 'super_admin' ? `
+                <li class="menu-item ${activePage === 'settings' ? 'active' : ''}">
+                    <a href="settings.html">
+                        <i class="fa-solid fa-gears"></i>
+                        <span>System Settings</span>
+                    </a>
+                </li>
+                ` : ''}
+                
+                <li class="menu-item" style="margin-top: auto;">
+                    <a href="#" id="signOutBtn">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                        <span>Sign Out</span>
+                    </a>
+                </li>
+            </ul>
+        </div>`;
+
+        const mobileNavHTML = `
+        <!-- Mobile Top Bar -->
+        <div class="mobile-navbar">
+            <button class="mobile-menu-toggle" id="mobileMenuBtn">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+            <div class="page-title" id="mobileNavbarTitle">IEMS ERP</div>
+            <button class="nav-btn" id="themeToggleBtn" style="width: 35px; height: 35px; border-radius: 6px; border:none; background:transparent; color:inherit;">
+                <i class="fa-solid fa-sun" id="themeIcon"></i>
+            </button>
+        </div>
+        
+        <!-- Mobile Drawer Overlay -->
+        <div class="drawer-overlay" id="menuOverlay"></div>
+        
+        <!-- Mobile Drawer -->
+        <div class="mobile-menu-drawer" id="mobileDrawer">
+            <div class="drawer-header">
+                <div class="logo-container">
+                    <i class="fa-solid fa-wallet logo-img"></i>
+                    <span class="logo-text">IEMS ERP</span>
+                </div>
+                <button class="mobile-menu-toggle" id="closeDrawerBtn">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            
+            <div class="sidebar-profile" style="display: flex; padding: 20px; border-bottom: 1px solid var(--border-color); gap: 12px;">
+                <div class="profile-avatar">${initials}</div>
+                <div class="profile-info">
+                    <span class="profile-name" style="color: white; font-weight:600; font-size:0.9rem;">${user.full_name}</span>
+                    <span class="profile-role" style="color: var(--text-secondary); font-size:0.75rem; text-transform:capitalize;">${roleText}</span>
+                </div>
+            </div>
+            
+            <ul class="sidebar-menu">
+                <li class="menu-item ${activePage === 'index' ? 'active' : ''}">
+                    <a href="index.html">
+                        <i class="fa-solid fa-chart-pie"></i>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+                <li class="menu-item ${activePage === 'accounts' ? 'active' : ''}">
+                    <a href="accounts.html">
+                        <i class="fa-solid fa-building-columns"></i>
+                        <span>Bank Accounts</span>
+                    </a>
+                </li>
+                <li class="menu-item ${activePage === 'income' ? 'active' : ''}">
+                    <a href="income.html">
+                        <i class="fa-solid fa-circle-arrow-down"></i>
+                        <span>Income</span>
+                    </a>
+                </li>
+                <li class="menu-item ${activePage === 'expense' ? 'active' : ''}">
+                    <a href="expense.html">
+                        <i class="fa-solid fa-circle-arrow-up"></i>
+                        <span>Expenses</span>
+                    </a>
+                </li>
+                <li class="menu-item ${activePage === 'transfers' ? 'active' : ''}">
+                    <a href="transfers.html">
+                        <i class="fa-solid fa-right-left"></i>
+                        <span>Transfers</span>
+                    </a>
+                </li>
+                <li class="menu-item ${activePage === 'reports' ? 'active' : ''}">
+                    <a href="reports.html">
+                        <i class="fa-solid fa-file-invoice-dollar"></i>
+                        <span>Reports</span>
+                    </a>
+                </li>
+                ${(user.role === 'super_admin' || user.role === 'admin') ? `
+                <li class="menu-item ${activePage === 'users' ? 'active' : ''}">
+                    <a href="users.html">
+                        <i class="fa-solid fa-users-gear"></i>
+                        <span>Users Control</span>
+                    </a>
+                </li>
+                ` : ''}
+                <li class="menu-item ${activePage === 'activity_logs' ? 'active' : ''}">
+                    <a href="activity_logs.html">
+                        <i class="fa-solid fa-clipboard-list"></i>
+                        <span>Activity Logs</span>
+                    </a>
+                </li>
+                ${user.role === 'super_admin' ? `
+                <li class="menu-item ${activePage === 'settings' ? 'active' : ''}">
+                    <a href="settings.html">
+                        <i class="fa-solid fa-gears"></i>
+                        <span>System Settings</span>
+                    </a>
+                </li>
+                ` : ''}
+                <li class="menu-item">
+                    <a href="#" id="signOutBtnMobile">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                        <span>Sign Out</span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+        
+        <!-- Mobile Bottom Navigation Bar (Quick Actions) -->
+        <div class="mobile-bottom-nav">
+            <a href="index.html" class="nav-item ${activePage === 'index' ? 'active' : ''}">
+                <i class="fa-solid fa-chart-pie"></i>
+                <span>Home</span>
+            </a>
+            <a href="income.html" class="nav-item ${activePage === 'income' ? 'active' : ''}" style="color: var(--success) !important;">
+                <i class="fa-solid fa-circle-plus"></i>
+                <span>+ Income</span>
+            </a>
+            <a href="expense.html" class="nav-item ${activePage === 'expense' ? 'active' : ''}" style="color: var(--danger) !important;">
+                <i class="fa-solid fa-circle-minus"></i>
+                <span>- Expense</span>
+            </a>
+            <a href="accounts.html" class="nav-item ${activePage === 'accounts' ? 'active' : ''}">
+                <i class="fa-solid fa-building-columns"></i>
+                <span>Accounts</span>
+            </a>
+        </div>`;
+
+        // Inject elements
+        const wrapper = document.querySelector(".app-wrapper");
+        if (wrapper) {
+            // Desktop Sidebar injection
+            const sidebarDiv = document.createElement("div");
+            sidebarDiv.innerHTML = sidebarHTML;
+            wrapper.insertBefore(sidebarDiv.firstElementChild, wrapper.firstChild);
+
+            // Mobile Topbar + Bottom Nav injection
+            const mobileContainer = document.createElement("div");
+            mobileContainer.innerHTML = mobileNavHTML;
+            while(mobileContainer.children.length > 0){
+                wrapper.parentNode.insertBefore(mobileContainer.children[0], wrapper);
+            }
+        }
+
+        // Attach Navigation Event Listeners
+        attachNavListeners();
+
+        // Sync theme display
+        syncThemeDisplay();
+
+        // Load branding names dynamically
+        loadNavBranding();
+    }
+
+    function attachNavListeners() {
+        const mobileMenuBtn = document.getElementById("mobileMenuBtn");
+        const closeDrawerBtn = document.getElementById("closeDrawerBtn");
+        const mobileDrawer = document.getElementById("mobileDrawer");
+        const menuOverlay = document.getElementById("menuOverlay");
+        
+        if (mobileMenuBtn && closeDrawerBtn && mobileDrawer && menuOverlay) {
+            mobileMenuBtn.addEventListener("click", () => {
+                mobileDrawer.classList.add("open");
+                menuOverlay.classList.add("show");
+            });
+            
+            closeDrawerBtn.addEventListener("click", () => {
+                mobileDrawer.classList.remove("open");
+                menuOverlay.classList.remove("show");
+            });
+            
+            menuOverlay.addEventListener("click", () => {
+                mobileDrawer.classList.remove("open");
+                menuOverlay.classList.remove("show");
+            });
+        }
+
+        // Sign Out action
+        const signOut = (e) => {
+            e.preventDefault();
+            auth.signOut().then(() => {
+                window.location.href = 'login.html';
+            });
+        };
+        const soBtn = document.getElementById("signOutBtn");
+        const soBtnMob = document.getElementById("signOutBtnMobile");
+        if (soBtn) soBtn.addEventListener("click", signOut);
+        if (soBtnMob) soBtnMob.addEventListener("click", signOut);
+
+        // Theme Toggle Action
+        const themeBtn = document.getElementById("themeToggleBtn");
+        if (themeBtn) {
+            themeBtn.addEventListener("click", () => {
+                const currentTheme = document.documentElement.getAttribute("data-theme") || "dark";
+                const newTheme = currentTheme === "light" ? "dark" : "light";
+                document.documentElement.setAttribute("data-theme", newTheme);
+                localStorage.setItem("theme", newTheme);
+                syncThemeDisplay();
+            });
+        }
+    }
+
+    function syncThemeDisplay() {
+        const currentTheme = localStorage.getItem("theme") || "dark";
+        document.documentElement.setAttribute("data-theme", currentTheme);
+        const icon = document.getElementById("themeIcon");
+        if (icon) {
+            if (currentTheme === "light") {
+                icon.className = "fa-solid fa-moon";
+            } else {
+                icon.className = "fa-solid fa-sun";
+            }
+        }
+    }
+
+    function loadNavBranding() {
+        db.collection('system_settings').doc('branding').get().then((doc) => {
+            if (doc.exists) {
+                const data = doc.data();
+                if (data.site_name) {
+                    const sbLogo = document.getElementById("sidebarLogoText");
+                    const mbTitle = document.getElementById("mobileNavbarTitle");
+                    if (sbLogo) sbLogo.textContent = data.site_name;
+                    if (mbTitle) mbTitle.textContent = data.site_name;
+                }
+            }
+        }).catch(err => console.log("Using default nav branding"));
+    }
+})();
