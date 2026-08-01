@@ -26,7 +26,21 @@
                         }
                     }).catch(err => {
                         console.error("Firestore user load failed, using fallback:", err);
-                        renderNavigation({ full_name: user.email.split('@')[0], role: 'staff' });
+                        const fallbackData = { full_name: user.email.split('@')[0], role: 'staff' };
+                        renderNavigation(fallbackData);
+                        if (window.onNavigationLoaded) {
+                            window.onNavigationLoaded(user, fallbackData);
+                        }
+                        // Show warning alert for rules block
+                        setTimeout(() => {
+                            if (window.Swal) {
+                                Swal.fire({
+                                    icon: 'warning',
+                                    title: 'Database Rules Warning',
+                                    text: 'Failed to read user profile: ' + err.message + '. Please ensure Firestore Database Rules are published.'
+                                });
+                            }
+                        }, 500);
                     });
                 }
             });
