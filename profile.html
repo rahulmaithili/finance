@@ -229,6 +229,16 @@
         const file = input.files[0];
         if (!file) return;
 
+        // 5MB Limit validation
+        if (file.size > 5 * 1024 * 1024) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'File Too Large',
+                text: 'Profile photo size must be less than 5MB. Your file is ' + (file.size / (1024*1024)).toFixed(2) + 'MB.'
+            });
+            return;
+        }
+
         const ref = storage.ref(`avatars/${currentUid}/${file.name}`);
         
         Swal.fire({
@@ -236,7 +246,10 @@
             didOpen: () => { Swal.showLoading(); }
         });
 
-        ref.put(file).then(snapshot => snapshot.ref.getDownloadURL()).then(url => {
+        ref.put(file).then(snapshot => {
+            console.log("Upload success, fetching URL...");
+            return snapshot.ref.getDownloadURL();
+        }).then(url => {
             document.getElementById('avatarPreview').src = url;
             document.getElementById('avatarPreview').style.display = 'block';
             document.getElementById('avatarPlaceholder').style.display = 'none';
@@ -250,7 +263,12 @@
             setTimeout(() => { window.location.reload(); }, 1500);
         }).catch(err => {
             Swal.close();
-            Swal.fire({ icon: 'error', title: 'Upload Failed', text: err.message });
+            console.error("Storage upload failed error details:", err);
+            Swal.fire({ 
+                icon: 'error', 
+                title: 'Upload Failed', 
+                text: err.message + '. Please ensure that Firebase Storage is enabled in the Firebase Console and Rules are published.'
+            });
         });
     }
 
