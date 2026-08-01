@@ -19,6 +19,8 @@ if (!firebase.apps.length) {
 const auth = firebase.auth();
 const db = firebase.firestore();
 const storage = firebase.storage();
+storage.setMaxUploadRetryTime(5000); // 5 seconds upload timeout
+storage.setMaxOperationRetryTime(5000); // 5 seconds operation timeout
 
 // Helper: Check Auth Session state
 function checkAuthState(callback) {
