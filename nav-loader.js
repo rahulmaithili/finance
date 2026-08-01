@@ -45,6 +45,11 @@
 
         const roleText = user.role.replace('_', ' ');
 
+        // Profile picture html helper
+        const profileAvatarHTML = user.profile_pic_url 
+            ? `<div class="profile-avatar" style="background-image: url('${user.profile_pic_url}'); background-size: cover; background-position: center; border-radius: 50%; font-size: 0; border: 2px solid var(--primary);"></div>`
+            : `<div class="profile-avatar">${initials}</div>`;
+
         // HTML Templates
         const sidebarHTML = `
         <div class="sidebar" id="appSidebar">
@@ -55,13 +60,13 @@
                 </div>
             </div>
             
-            <div class="sidebar-profile">
-                <div class="profile-avatar">${initials}</div>
+            <a href="profile.html" class="sidebar-profile" style="text-decoration: none;">
+                ${profileAvatarHTML}
                 <div class="profile-info">
                     <span class="profile-name">${user.full_name}</span>
                     <span class="profile-role" style="text-transform: capitalize;">${roleText}</span>
                 </div>
-            </div>
+            </a>
             
             <ul class="sidebar-menu">
                 <li class="menu-item ${activePage === 'index' ? 'active' : ''}">
@@ -162,13 +167,13 @@
                 </button>
             </div>
             
-            <div class="sidebar-profile" style="display: flex; padding: 20px; border-bottom: 1px solid var(--border-color); gap: 12px;">
-                <div class="profile-avatar">${initials}</div>
+            <a href="profile.html" class="sidebar-profile" style="display: flex; padding: 20px; border-bottom: 1px solid var(--border-color); gap: 12px; text-decoration: none;">
+                ${profileAvatarHTML}
                 <div class="profile-info">
                     <span class="profile-name" style="color: white; font-weight:600; font-size:0.9rem;">${user.full_name}</span>
                     <span class="profile-role" style="color: var(--text-secondary); font-size:0.75rem; text-transform:capitalize;">${roleText}</span>
                 </div>
-            </div>
+            </a>
             
             <ul class="sidebar-menu">
                 <li class="menu-item ${activePage === 'index' ? 'active' : ''}">

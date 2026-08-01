@@ -14,6 +14,8 @@
     
     <!-- Firebase Configuration -->
     <script src="firebase-config.js"></script>
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body class="login-container">
 
@@ -43,7 +45,10 @@
             </div>
             
             <div class="form-group" style="margin-bottom: 30px;">
-                <label class="form-label" for="password">Password</label>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <label class="form-label" for="password" style="margin-bottom: 0;">Password</label>
+                    <a href="javascript:void(0);" onclick="forgotPassword()" style="font-size: 0.78rem; color: var(--primary); text-decoration: none; font-weight: 600;">Forgot Password?</a>
+                </div>
                 <div class="input-icon-wrapper">
                     <input type="password" id="password" class="form-control" placeholder="••••••••" required>
                     <i class="fa-solid fa-lock"></i>
@@ -178,6 +183,46 @@
                     signupErrorMessage.textContent = error.message;
                 });
         });
+
+        function forgotPassword() {
+            const email = document.getElementById('email').value.trim();
+            if (!email) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Email Required',
+                    text: 'Please enter your email address first in the input field above, then click Forgot Password.',
+                    confirmButtonColor: 'var(--primary)'
+                });
+                return;
+            }
+
+            Swal.fire({
+                title: 'Reset Password?',
+                text: `Send a password reset email to ${email}?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: 'var(--primary)',
+                confirmButtonText: 'Yes, send reset link'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    auth.sendPasswordResetEmail(email).then(() => {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Email Sent',
+                            text: 'A password reset link has been sent to your email inbox.',
+                            confirmButtonColor: 'var(--primary)'
+                        });
+                    }).catch(error => {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Failed to Send',
+                            text: error.message,
+                            confirmButtonColor: 'var(--primary)'
+                        });
+                    });
+                }
+            });
+        }
     </script>
 </body>
 </html>

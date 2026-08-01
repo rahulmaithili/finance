@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile - IEMS ERP</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Firebase SDK & Config -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    
+    <!-- Navigation Loader -->
+    <script src="nav-loader.js"></script>
+    
+    <!-- jQuery & SweetAlert2 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
+    <style>
+    .profile-card-container {
+        display: grid;
+        grid-template-columns: 1fr 2fr;
+        gap: 24px;
+    }
+    
+    .avatar-upload-circle {
+        width: 130px; height: 130px;
+        border-radius: 50%;
+        border: 4px solid var(--border-color);
+        overflow: hidden;
+        display: flex; align-items: center; justify-content: center;
+        background: var(--bg-primary);
+        position: relative; cursor: pointer;
+        margin: 0 auto 16px;
+        transition: all 0.2s;
+    }
+    .avatar-upload-circle:hover { border-color: var(--primary); }
+    .avatar-upload-circle img { width: 100%; height: 100%; object-fit: cover; }
+    
+    .avatar-overlay {
+        position: absolute; inset: 0;
+        background: rgba(0,0,0,0.6);
+        display: flex; align-items: center; justify-content: center;
+        opacity: 0; transition: opacity 0.2s; border-radius: 50%;
+    }
+    .avatar-upload-circle:hover .avatar-overlay { opacity: 1; }
+    .avatar-overlay i { color: white; font-size: 24px; }
+    
+    .profile-sidebar-card {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 30px 20px;
+        text-align: center;
+    }
+    
+    .profile-sidebar-card h3 { font-size: 1.25rem; font-weight: 700; color: var(--text-light); margin: 0 0 4px; }
+    .profile-sidebar-card p { font-size: 0.82rem; color: var(--text-secondary); margin: 0 0 16px; }
+    
+    .profile-main-card {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        overflow: hidden;
+    }
+    
+    .profile-card-header {
+        display: flex; align-items: center; gap: 12px;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border-color);
+        background: var(--bg-primary);
+    }
+    .profile-card-header h3 { font-size: 1rem; font-weight: 700; color: var(--text-light); margin: 0; }
+    .profile-card-header p { font-size: 0.78rem; color: var(--text-secondary); margin: 2px 0 0; }
+    
+    .profile-card-body { padding: 24px; }
+    
+    .p-form-group { margin-bottom: 18px; }
+    .p-form-group label {
+        display: block; font-size: 0.82rem; font-weight: 600;
+        color: var(--text-secondary); margin-bottom: 6px;
+    }
+    .p-form-group input {
+        width: 100%; padding: 10px 14px;
+        border: 1px solid var(--border-color); border-radius: 8px;
+        background: var(--bg-primary); color: var(--text-light);
+        font-size: 0.9rem; box-sizing: border-box;
+    }
+    
+    .role-badge {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 4px 12px; border-radius: 20px;
+        font-size: 0.75rem; font-weight: 700;
+        background: rgba(99,102,241,0.15); color: var(--primary);
+        text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    
+    @media (max-width: 768px) {
+        .profile-card-container { grid-template-columns: 1fr; }
+    }
+    </style>
+</head>
+<body>
+<div class="app-wrapper">
+    <div class="main-content">
+        <!-- Navbar -->
+        <div class="navbar">
+            <div class="page-title"><i class="fa-solid fa-user-circle" style="margin-right:8px;color:var(--primary);"></i>User Settings / Profile</div>
+        </div>
+
+        <div class="content-body">
+            <div class="profile-card-container">
+                
+                <!-- Left: Profile Sidebar Card -->
+                <div class="profile-sidebar-card">
+                    <div class="avatar-upload-circle" onclick="document.getElementById('avatarFileInput').click()">
+                        <img id="avatarPreview" src="" alt="Profile Photo" style="display:none;">
+                        <i class="fa-solid fa-user" id="avatarPlaceholder" style="font-size: 42px; color: var(--text-secondary);"></i>
+                        <div class="avatar-overlay"><i class="fa-solid fa-camera"></i></div>
+                    </div>
+                    <input type="file" id="avatarFileInput" accept="image/*" style="display:none;" onchange="uploadAvatarImage(this)">
+                    
+                    <h3 id="sidebarFullName">User Full Name</h3>
+                    <p id="sidebarEmail">user@company.com</p>
+                    <div id="sidebarRoleBadge" class="role-badge">STAFF</div>
+                    
+                    <div style="margin-top: 24px; border-top: 1px solid var(--border-color); padding-top: 20px;">
+                        <p style="font-size:0.78rem; color:var(--text-secondary); text-align: left; line-height: 1.4;">
+                            <i class="fa-solid fa-info-circle" style="color:var(--primary); margin-right:4px;"></i> 
+                            Click on the circle avatar above to upload or edit your profile picture.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Right: Account settings -->
+                <div style="display: flex; flex-direction: column; gap: 20px;">
+                    
+                    <!-- Card 1: General Info -->
+                    <div class="profile-main-card">
+                        <div class="profile-card-header">
+                            <h3 style="color:var(--text-light);"><i class="fa-solid fa-id-card" style="margin-right:8px;color:var(--primary);"></i>Personal Details</h3>
+                        </div>
+                        <div class="profile-card-body">
+                            <form id="detailsForm">
+                                <div class="p-form-group">
+                                    <label>Email Address (Cannot be changed)</label>
+                                    <input type="email" id="profileEmail" readonly style="opacity: 0.6; cursor: not-allowed; background: var(--bg-secondary);">
+                                </div>
+                                <div class="p-form-group">
+                                    <label>Full Name *</label>
+                                    <input type="text" id="profileName" required placeholder="e.g. John Doe">
+                                </div>
+                                <button type="submit" class="btn-primary" style="width: auto; padding: 10px 24px;"><i class="fa-solid fa-save"></i> Save Details</button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Card 2: Security & Password -->
+                    <div class="profile-main-card">
+                        <div class="profile-card-header">
+                            <h3 style="color:var(--text-light);"><i class="fa-solid fa-key" style="margin-right:8px;color:var(--danger);"></i>Change Password</h3>
+                        </div>
+                        <div class="profile-card-body">
+                            <form id="passwordForm">
+                                <div class="p-form-group">
+                                    <label>New Password *</label>
+                                    <input type="password" id="newPassword" required placeholder="Min 6 characters" minlength="6">
+                                </div>
+                                <div class="p-form-group">
+                                    <label>Confirm Password *</label>
+                                    <input type="password" id="confirmPassword" required placeholder="Repeat new password" minlength="6">
+                                </div>
+                                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                                    <button type="submit" class="btn-primary" style="width: auto; padding: 10px 24px; background: linear-gradient(135deg,#e11d48,#be123c);"><i class="fa-solid fa-lock"></i> Update Password</button>
+                                    <button type="button" class="btn-secondary" onclick="triggerPasswordResetEmail()" style="width: auto; padding: 10px 20px;"><i class="fa-solid fa-paper-plane"></i> Send Password Reset Email</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentUid = '';
+
+    window.onNavigationLoaded = function (user, userData) {
+        currentUid = user.uid;
+        document.getElementById('profileEmail').value = user.email;
+        document.getElementById('sidebarEmail').textContent = user.email;
+        document.getElementById('profileName').value = userData.full_name || '';
+        document.getElementById('sidebarFullName').textContent = userData.full_name || '';
+        document.getElementById('sidebarRoleBadge').textContent = (userData.role || 'staff').replace('_', ' ');
+
+        if (userData.profile_pic_url) {
+            document.getElementById('avatarPreview').src = userData.profile_pic_url;
+            document.getElementById('avatarPreview').style.display = 'block';
+            document.getElementById('avatarPlaceholder').style.display = 'none';
+        }
+    };
+
+    // Save profile details (Full name)
+    document.getElementById('detailsForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const fullName = document.getElementById('profileName').value.trim();
+        
+        db.collection('users').doc(currentUid).update({
+            full_name: fullName
+        }).then(() => {
+            document.getElementById('sidebarFullName').textContent = fullName;
+            Swal.fire({ icon: 'success', title: 'Details Saved Successfully', timer: 1500, showConfirmButton: false });
+            logActivity(`Updated personal details: name changed to ${fullName}`);
+        }).catch(err => {
+            Swal.fire({ icon: 'error', title: 'Failed to Save', text: err.message });
+        });
+    });
+
+    // Upload avatar photo to Storage
+    function uploadAvatarImage(input) {
+        const file = input.files[0];
+        if (!file) return;
+
+        const ref = storage.ref(`avatars/${currentUid}/${file.name}`);
+        
+        Swal.fire({
+            title: 'Uploading Image...',
+            didOpen: () => { Swal.showLoading(); }
+        });
+
+        ref.put(file).then(snapshot => snapshot.ref.getDownloadURL()).then(url => {
+            document.getElementById('avatarPreview').src = url;
+            document.getElementById('avatarPreview').style.display = 'block';
+            document.getElementById('avatarPlaceholder').style.display = 'none';
+
+            return db.collection('users').doc(currentUid).update({ profile_pic_url: url });
+        }).then(() => {
+            Swal.close();
+            Swal.fire({ icon: 'success', title: 'Profile Photo Updated', timer: 1500, showConfirmButton: false });
+            logActivity('Changed user profile avatar picture.');
+            // Reload sidebars to reflect new avatar
+            setTimeout(() => { window.location.reload(); }, 1500);
+        }).catch(err => {
+            Swal.close();
+            Swal.fire({ icon: 'error', title: 'Upload Failed', text: err.message });
+        });
+    }
+
+    // Change Password Form
+    document.getElementById('passwordForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const newPass = document.getElementById('newPassword').value;
+        const confirmPass = document.getElementById('confirmPassword').value;
+
+        if (newPass !== confirmPass) {
+            Swal.fire({ icon: 'warning', title: 'Mismatch', text: 'Passwords do not match.' });
+            return;
+        }
+
+        const user = auth.currentUser;
+        user.updatePassword(newPass).then(() => {
+            Swal.fire({ icon: 'success', title: 'Password Updated', text: 'Security login key has been refreshed.' });
+            document.getElementById('passwordForm').reset();
+            logActivity('Updated account security password.');
+        }).catch(err => {
+            Swal.fire({
+                icon: 'error',
+                title: 'Security Re-auth Required',
+                text: 'For security reasons, changing password requires a fresh login. Please sign out and sign in again, then retry.'
+            });
+        });
+    });
+
+    // Reset Password Email Trigger
+    function triggerPasswordResetEmail() {
+        const email = auth.currentUser.email;
+        auth.sendPasswordResetEmail(email).then(() => {
+            Swal.fire({ icon: 'success', title: 'Reset Email Sent', text: `A password reset link was successfully dispatched to ${email}` });
+        }).catch(err => {
+            Swal.fire({ icon: 'error', title: 'Dispatch Failed', text: err.message });
+        });
+    }
+</script>
+</body>
+</html>
