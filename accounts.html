@@ -309,6 +309,15 @@
                         </div>
                     </div>`;
                 });
+            }, error => {
+                console.error("Firestore accounts load error:", error);
+                grid.innerHTML = `
+                <div class="table-card" style="grid-column: 1 / -1; text-align: center; color: var(--danger); padding: 50px 0;">
+                    <i class="fa-solid fa-circle-exclamation" style="font-size: 3rem; margin-bottom: 15px;"></i>
+                    <h3>Database Error</h3>
+                    <p style="font-size: 0.85rem;">${error.message}</p>
+                </div>`;
+                Swal.fire({ icon: 'error', title: 'Database Load Error', text: error.message });
             });
         }
 
