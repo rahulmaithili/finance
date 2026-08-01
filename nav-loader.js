@@ -170,6 +170,11 @@
                     </a>
                 </li>
             </ul>
+            <div class="sidebar-footer">
+                <button class="sidebar-toggle-btn" id="sidebarCollapseBtn">
+                    <i class="fa-solid fa-angles-left" id="collapseIcon"></i>
+                </button>
+            </div>
         </div>`;
 
         const mobileNavHTML = `
@@ -365,6 +370,31 @@
                 document.documentElement.setAttribute("data-theme", newTheme);
                 localStorage.setItem("theme", newTheme);
                 syncThemeDisplay();
+            });
+        }
+
+        // Sidebar Collapse Action
+        const sidebar = document.getElementById("appSidebar");
+        const collapseBtn = document.getElementById("sidebarCollapseBtn");
+        const collapseIcon = document.getElementById("collapseIcon");
+        
+        if (sidebar && collapseBtn && collapseIcon) {
+            // Check previous saved state
+            if (localStorage.getItem("sidebar-collapsed") === "true") {
+                sidebar.classList.add("collapsed");
+                collapseIcon.classList.replace("fa-angles-left", "fa-angles-right");
+            }
+            
+            collapseBtn.addEventListener("click", function() {
+                sidebar.classList.toggle("collapsed");
+                const isCollapsed = sidebar.classList.contains("collapsed");
+                localStorage.setItem("sidebar-collapsed", isCollapsed);
+                
+                if (isCollapsed) {
+                    collapseIcon.classList.replace("fa-angles-left", "fa-angles-right");
+                } else {
+                    collapseIcon.classList.replace("fa-angles-right", "fa-angles-left");
+                }
             });
         }
     }
