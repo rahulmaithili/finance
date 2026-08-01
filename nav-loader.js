@@ -13,16 +13,34 @@
                 } else {
                     // Fetch user details from Firestore
                     db.collection('users').doc(user.uid).get().then((doc) => {
-                        let userData = {
-                            full_name: user.email.split('@')[0],
-                            role: 'staff'
-                        };
                         if (doc.exists) {
-                            userData = doc.data();
-                        }
-                        renderNavigation(userData);
-                        if (window.onNavigationLoaded) {
-                            window.onNavigationLoaded(user, userData);
+                            const userData = doc.data();
+                            renderNavigation(userData);
+                            if (window.onNavigationLoaded) {
+                                window.onNavigationLoaded(user, userData);
+                            }
+                        } else {
+                            // Document does not exist (failed during locked rules signup)
+                            // Auto-provision user as super_admin
+                            const newAdmin = {
+                                full_name: user.email.split('@')[0],
+                                email: user.email,
+                                role: 'super_admin',
+                                status: 'active',
+                                created_at: firebase.firestore.FieldValue.serverTimestamp()
+                            };
+                            db.collection('users').doc(user.uid).set(newAdmin).then(() => {
+                                renderNavigation(newAdmin);
+                                if (window.onNavigationLoaded) {
+                                    window.onNavigationLoaded(user, newAdmin);
+                                }
+                            }).catch(err => {
+                                const fallbackData = { full_name: user.email.split('@')[0], role: 'staff' };
+                                renderNavigation(fallbackData);
+                                if (window.onNavigationLoaded) {
+                                    window.onNavigationLoaded(user, fallbackData);
+                                }
+                            });
                         }
                     }).catch(err => {
                         console.error("Firestore user load failed, using fallback:", err);
