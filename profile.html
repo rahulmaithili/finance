@@ -224,7 +224,7 @@
         });
     });
 
-    // Upload avatar photo to Storage
+    // Convert, compress and store profile photo directly in Firestore Database document (No Storage needed!)
     function uploadAvatarImage(input) {
         const file = input.files[0];
         if (!file) return;
@@ -234,42 +234,65 @@
             Swal.fire({
                 icon: 'warning',
                 title: 'File Too Large',
-                text: 'Profile photo size must be less than 5MB. Your file is ' + (file.size / (1024*1024)).toFixed(2) + 'MB.'
+                text: 'Profile photo size must be less than 5MB.'
             });
             return;
         }
 
-        const ref = storage.ref(`avatars/${currentUid}/${file.name}`);
-        
         Swal.fire({
-            title: 'Uploading Image...',
+            title: 'Saving Photo to Database...',
             didOpen: () => { Swal.showLoading(); }
         });
 
-        ref.put(file).then(snapshot => {
-            console.log("Upload success, fetching URL...");
-            return snapshot.ref.getDownloadURL();
-        }).then(url => {
-            document.getElementById('avatarPreview').src = url;
-            document.getElementById('avatarPreview').style.display = 'block';
-            document.getElementById('avatarPlaceholder').style.display = 'none';
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = new Image();
+            img.onload = function() {
+                // Resize image using HTML5 Canvas to keep Firestore document size small and fast
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 200;
+                const MAX_HEIGHT = 200;
+                let width = img.width;
+                let height = img.height;
 
-            return db.collection('users').doc(currentUid).update({ profile_pic_url: url });
-        }).then(() => {
-            Swal.close();
-            Swal.fire({ icon: 'success', title: 'Profile Photo Updated', timer: 1500, showConfirmButton: false });
-            logActivity('Changed user profile avatar picture.');
-            // Reload sidebars to reflect new avatar
-            setTimeout(() => { window.location.reload(); }, 1500);
-        }).catch(err => {
-            Swal.close();
-            console.error("Storage upload failed error details:", err);
-            Swal.fire({ 
-                icon: 'error', 
-                title: 'Upload Failed', 
-                text: err.message + '. Please ensure that Firebase Storage is enabled in the Firebase Console and Rules are published.'
-            });
-        });
+                if (width > height) {
+                    if (width > MAX_WIDTH) {
+                        height *= MAX_WIDTH / width;
+                        width = MAX_WIDTH;
+                    }
+                } else {
+                    if (height > MAX_HEIGHT) {
+                        width *= MAX_HEIGHT / height;
+                        height = MAX_HEIGHT;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // Convert to compressed base64 JPEG format (Approx. 10KB - 20KB)
+                const base64Url = canvas.toDataURL('image/jpeg', 0.85);
+
+                // Save directly in Firestore users collection under uid document!
+                db.collection('users').doc(currentUid).update({
+                    profile_pic_url: base64Url
+                }).then(() => {
+                    Swal.close();
+                    Swal.fire({ icon: 'success', title: 'Profile Photo Updated', timer: 1500, showConfirmButton: false });
+                    logActivity('Changed user profile avatar picture (Base64 stored in Firestore).');
+                    // Reload to reflect new avatar globally
+                    setTimeout(() => { window.location.reload(); }, 1500);
+                }).catch(err => {
+                    Swal.close();
+                    console.error("Firestore photo update failed:", err);
+                    Swal.fire({ icon: 'error', title: 'Database Save Failed', text: err.message });
+                });
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
     }
 
     // Change Password Form
