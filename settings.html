@@ -497,6 +497,9 @@
                     document.getElementById('logoPlaceholder').style.display = 'none';
                 }
             }
+        }).catch(err => {
+            console.error("Failed to load general settings:", err);
+            Swal.fire({ icon: 'error', title: 'Load Failed', text: 'General settings load error: ' + err.message });
         });
     }
 
@@ -511,12 +514,17 @@
             currency_symbol: cur
         }, { merge: true }).then(() => {
             Swal.fire({ icon: 'success', title: 'Branding Settings Saved', timer: 1500, showConfirmButton: false });
+        }).catch(err => {
+            console.error("Failed to save branding:", err);
+            Swal.fire({ icon: 'error', title: 'Save Failed', text: 'Branding settings update error: ' + err.message });
         });
     }
 
     function uploadSiteLogo(input) {
         const file = input.files[0];
         if (!file) return;
+
+        Swal.fire({ title: 'Uploading Logo...', didOpen: () => { Swal.showLoading(); } });
 
         const ref = storage.ref(`branding/site_logo.${file.name.split('.').pop()}`);
         ref.put(file).then(snapshot => snapshot.ref.getDownloadURL()).then(url => {
@@ -526,7 +534,12 @@
 
             return db.collection('system_settings').doc('branding').set({ site_logo_url: url }, { merge: true });
         }).then(() => {
+            Swal.close();
             Swal.fire({ icon: 'success', title: 'Logo Uploaded', timer: 1500, showConfirmButton: false });
+        }).catch(err => {
+            Swal.close();
+            console.error("Logo upload failed:", err);
+            Swal.fire({ icon: 'error', title: 'Upload Failed', text: err.message });
         });
     }
 
@@ -549,6 +562,9 @@
                     document.getElementById('companyLogoPlaceholder').style.display = 'none';
                 }
             }
+        }).catch(err => {
+            console.error("Failed to load company settings:", err);
+            Swal.fire({ icon: 'error', title: 'Load Failed', text: 'Company settings load error: ' + err.message });
         });
     }
 
@@ -574,12 +590,17 @@
             youtube_url: document.getElementById('socialYoutube').value.trim()
         }, { merge: true }).then(() => {
             Swal.fire({ icon: 'success', title: 'Company Settings Saved', timer: 1500, showConfirmButton: false });
+        }).catch(err => {
+            console.error("Failed to save company settings:", err);
+            Swal.fire({ icon: 'error', title: 'Save Failed', text: 'Company settings update error: ' + err.message });
         });
     }
 
     function uploadCompanyLogo(input) {
         const file = input.files[0];
         if (!file) return;
+
+        Swal.fire({ title: 'Uploading Logo...', didOpen: () => { Swal.showLoading(); } });
 
         const ref = storage.ref(`branding/company_logo.${file.name.split('.').pop()}`);
         ref.put(file).then(snapshot => snapshot.ref.getDownloadURL()).then(url => {
@@ -589,7 +610,12 @@
 
             return db.collection('system_settings').doc('company').set({ logo_url: url }, { merge: true });
         }).then(() => {
+            Swal.close();
             Swal.fire({ icon: 'success', title: 'Company Logo Uploaded', timer: 1500, showConfirmButton: false });
+        }).catch(err => {
+            Swal.close();
+            console.error("Company logo upload failed:", err);
+            Swal.fire({ icon: 'error', title: 'Upload Failed', text: err.message });
         });
     }
 
