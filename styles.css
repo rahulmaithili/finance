@@ -95,6 +95,7 @@ body {
     color: var(--text-primary);
     min-height: 100vh;
     display: flex;
+    flex-direction: column;
     overflow-x: hidden;
     transition: background-color var(--transition-speed), color var(--transition-speed);
 }
