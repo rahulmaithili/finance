@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
@@ -14,30 +14,62 @@
     <script src="nav-loader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
-        .loan-stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;}
-        @media(max-width:768px){.loan-stats-grid{grid-template-columns:repeat(2,1fr);}}
-        .loan-stat-card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;gap:6px;}
-        .loan-stat-label{font-size:0.75rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.04em;}
-        .loan-stat-value{font-size:1.4rem;font-weight:800;color:var(--text-light);}
+        /* ── Premium KPI Stat Cards ── */
+        .loan-stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px;}
+        @media(max-width:900px){.loan-stats-grid{grid-template-columns:repeat(2,1fr);}}
+        @media(max-width:480px){.loan-stats-grid{grid-template-columns:1fr 1fr;}}
+
+        .loan-stat-card{
+            border-radius:18px;padding:22px 20px;
+            display:flex;flex-direction:column;gap:10px;
+            position:relative;overflow:hidden;
+            transition:transform 0.2s,box-shadow 0.2s;
+            border:1px solid rgba(255,255,255,0.08);
+        }
+        .loan-stat-card:hover{transform:translateY(-3px);box-shadow:0 16px 40px rgba(0,0,0,0.4);}
+        .loan-stat-card::before{content:'';position:absolute;top:-30px;right:-30px;width:90px;height:90px;border-radius:50%;opacity:0.12;background:rgba(255,255,255,0.6);}
+        .loan-stat-card::after{content:'';position:absolute;bottom:-20px;left:-20px;width:60px;height:60px;border-radius:50%;opacity:0.08;background:rgba(255,255,255,0.5);}
+        .loan-stat-card.blue{background:linear-gradient(135deg,#1e3a8a,#3b82f6);}
+        .loan-stat-card.green{background:linear-gradient(135deg,#064e3b,#10b981);}
+        .loan-stat-card.red{background:linear-gradient(135deg,#7f1d1d,#ef4444);}
+        .loan-stat-card.amber{background:linear-gradient(135deg,#78350f,#f59e0b);}
+        .loan-stat-icon{font-size:1.5rem;opacity:0.9;z-index:1;}
+        .loan-stat-label{font-size:0.72rem;color:rgba(255,255,255,0.75);text-transform:uppercase;letter-spacing:0.07em;font-weight:600;z-index:1;}
+        .loan-stat-value{font-size:1.55rem;font-weight:900;color:#ffffff;letter-spacing:-0.02em;z-index:1;}
+        .loan-stat-sub{font-size:0.73rem;color:rgba(255,255,255,0.65);z-index:1;}
+
+        /* ── Loan Cards Grid ── */
         .loans-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:20px;}
         @media(max-width:540px){.loans-grid{grid-template-columns:1fr;}}
-        .loan-card{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:22px;display:flex;flex-direction:column;gap:14px;transition:box-shadow 0.2s;}
-        .loan-card:hover{box-shadow:0 8px 28px rgba(0,0,0,0.25);}
+        .loan-card{
+            background:var(--bg-card);border:1px solid var(--border);
+            border-radius:18px;padding:22px;
+            display:flex;flex-direction:column;gap:14px;
+            transition:transform 0.2s,box-shadow 0.2s;
+        }
+        .loan-card:hover{transform:translateY(-2px);box-shadow:0 10px 32px rgba(0,0,0,0.3);}
         .loan-card-header{display:flex;justify-content:space-between;align-items:flex-start;}
-        .loan-type-badge{font-size:0.7rem;font-weight:700;padding:4px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:0.05em;}
+        .loan-type-badge{font-size:0.7rem;font-weight:700;padding:4px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:0.05em;}
         .loan-actions{display:flex;gap:6px;}
-        .loan-progress-bar-bg{background:var(--bg-secondary);border-radius:6px;height:8px;overflow:hidden;}
-        .loan-progress-bar-fill{height:100%;border-radius:6px;transition:width 0.6s ease;}
-        .loan-detail-row{display:flex;justify-content:space-between;font-size:0.82rem;}
-        .loan-detail-label{color:var(--text-secondary);}
+        .loan-progress-bar-bg{background:var(--bg-secondary);border-radius:6px;height:10px;overflow:hidden;}
+        .loan-progress-bar-fill{height:100%;border-radius:6px;transition:width 0.8s ease;}
+        .loan-detail-row{display:flex;justify-content:space-between;font-size:0.82rem;padding:5px 0;border-bottom:1px solid var(--border);}
+        .loan-detail-row:last-child{border-bottom:none;}
+        .loan-detail-label{color:var(--text-secondary);display:flex;align-items:center;gap:7px;}
         .loan-detail-value{font-weight:600;color:var(--text-light);}
-        .loan-emi-badge{background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border-radius:10px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;}
-        .emi-result-box{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;padding:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px;text-align:center;}
-        .emi-result-item label{display:block;font-size:0.72rem;color:var(--text-secondary);margin-bottom:4px;}
+        .loan-emi-badge{border-radius:12px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;}
+        .emi-result-box{
+            background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(139,92,246,0.08));
+            border:1px solid rgba(99,102,241,0.25);border-radius:14px;
+            padding:18px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px;text-align:center;
+        }
+        .emi-result-item label{display:block;font-size:0.72rem;color:var(--text-secondary);margin-bottom:6px;}
         .emi-result-item span{font-weight:800;font-size:1rem;color:var(--text-light);}
-        .loans-empty{text-align:center;padding:60px 20px;color:var(--text-secondary);}
-        .loans-empty i{font-size:3rem;opacity:0.4;margin-bottom:14px;display:block;}
+        .loans-empty{text-align:center;padding:80px 20px;color:var(--text-secondary);}
+        .loans-empty i{font-size:4rem;opacity:0.3;margin-bottom:16px;display:block;}
         .payment-hist-item{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg-secondary);border-radius:10px;border:1px solid var(--border);font-size:0.83rem;}
+        .mark-paid-btn{background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);color:#fff;padding:7px 14px;border-radius:8px;cursor:pointer;font-size:0.78rem;font-weight:600;transition:background 0.2s;}
+        .mark-paid-btn:hover{background:rgba(255,255,255,0.3);}
     </style>
 </head>
 <body>
@@ -52,10 +84,34 @@
         <div class="page-content">
             <div class="page-header"><h2>Loan Tracker</h2><p>Track all your bank loans, EMIs, interest paid and outstanding balances.</p></div>
             <div class="loan-stats-grid">
-                <div class="loan-stat-card"><div class="loan-stat-label"><i class="fa-solid fa-landmark" style="margin-right:5px;"></i>Total Loans</div><div class="loan-stat-value" id="statTotalLoans">0</div><div style="font-size:0.75rem;color:var(--text-secondary);" id="statLoanCount">0 loans</div></div>
-                <div class="loan-stat-card"><div class="loan-stat-label"><i class="fa-solid fa-circle-check" style="margin-right:5px;color:var(--success);"></i>Total Paid</div><div class="loan-stat-value" id="statTotalPaid" style="color:var(--success);">0</div><div style="font-size:0.75rem;color:var(--text-secondary);" id="statPaidPct">0% repaid</div></div>
-                <div class="loan-stat-card"><div class="loan-stat-label"><i class="fa-solid fa-hourglass-half" style="margin-right:5px;color:var(--danger);"></i>Outstanding</div><div class="loan-stat-value" id="statOutstanding" style="color:var(--danger);">0</div><div style="font-size:0.75rem;color:var(--text-secondary);" id="statActiveCount">0 active</div></div>
-                <div class="loan-stat-card"><div class="loan-stat-label"><i class="fa-solid fa-calendar-check" style="margin-right:5px;color:#f59e0b;"></i>Monthly EMI</div><div class="loan-stat-value" id="statMonthlyEmi" style="color:#f59e0b;">0</div><div style="font-size:0.75rem;color:var(--text-secondary);">combined burden</div></div>
+                <!-- Card 1: Total Loans (Blue) -->
+                <div class="loan-stat-card blue">
+                    <div class="loan-stat-icon"><i class="fa-solid fa-landmark"></i></div>
+                    <div class="loan-stat-label">Total Loans Taken</div>
+                    <div class="loan-stat-value" id="statTotalLoans">&#8377;0</div>
+                    <div class="loan-stat-sub" id="statLoanCount">0 loans</div>
+                </div>
+                <!-- Card 2: Total Paid (Green) -->
+                <div class="loan-stat-card green">
+                    <div class="loan-stat-icon"><i class="fa-solid fa-circle-check"></i></div>
+                    <div class="loan-stat-label">Total Amount Paid</div>
+                    <div class="loan-stat-value" id="statTotalPaid">&#8377;0</div>
+                    <div class="loan-stat-sub" id="statPaidPct">0% repaid</div>
+                </div>
+                <!-- Card 3: Outstanding (Red) -->
+                <div class="loan-stat-card red">
+                    <div class="loan-stat-icon"><i class="fa-solid fa-hourglass-half"></i></div>
+                    <div class="loan-stat-label">Outstanding Balance</div>
+                    <div class="loan-stat-value" id="statOutstanding">&#8377;0</div>
+                    <div class="loan-stat-sub" id="statActiveCount">0 active loans</div>
+                </div>
+                <!-- Card 4: Monthly EMI (Amber) -->
+                <div class="loan-stat-card amber">
+                    <div class="loan-stat-icon"><i class="fa-solid fa-calendar-check"></i></div>
+                    <div class="loan-stat-label">Monthly EMI Burden</div>
+                    <div class="loan-stat-value" id="statMonthlyEmi">&#8377;0</div>
+                    <div class="loan-stat-sub">combined all loans</div>
+                </div>
             </div>
             <div class="loans-grid" id="loansGrid">
                 <div class="loans-empty" style="grid-column:1/-1;"><i class="fa-solid fa-hand-holding-dollar"></i><h3>No loans recorded yet.</h3><p style="font-size:0.85rem;">Click "Add Loan" to track your first loan.</p></div>
@@ -65,8 +121,8 @@
 </div>
 
 <!-- Add/Edit Loan Modal -->
-<div id="loanModal" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:16px;">
-    <div style="background:var(--bg-card);border-radius:18px;padding:28px;max-width:540px;width:100%;max-height:92vh;overflow-y:auto;position:relative;box-shadow:0 20px 60px rgba(0,0,0,0.5);border:1px solid var(--border);">
+<div id="loanModal" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,0.55);align-items:center;justify-content:center;padding:16px;">
+    <div style="background:var(--bg-card);border-radius:18px;padding:28px;max-width:540px;width:100%;max-height:92vh;overflow-y:auto;position:relative;box-shadow:0 24px 80px rgba(0,0,0,0.6);border:1px solid var(--border);">
         <button onclick="closeLoanModal()" style="position:absolute;top:14px;right:16px;background:transparent;border:none;color:var(--text-secondary);font-size:1.3rem;cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
         <h3 style="margin:0 0 22px 0;color:var(--text-light);"><i class="fa-solid fa-landmark" style="color:var(--primary);margin-right:10px;"></i><span id="loanModalTitle">Add New Loan</span></h3>
         <form id="loanForm" autocomplete="off">
@@ -95,7 +151,7 @@
 </div>
 
 <!-- Payment Modal -->
-<div id="paymentModal" style="display:none;position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:16px;">
+<div id="paymentModal" style="display:none;position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,0.55);align-items:center;justify-content:center;padding:16px;">
     <div style="background:var(--bg-card);border-radius:18px;padding:28px;max-width:500px;width:100%;max-height:88vh;overflow-y:auto;position:relative;box-shadow:0 20px 60px rgba(0,0,0,0.5);border:1px solid var(--border);">
         <button onclick="closePaymentModal()" style="position:absolute;top:14px;right:16px;background:transparent;border:none;color:var(--text-secondary);font-size:1.3rem;cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
         <h3 style="margin:0 0 6px 0;color:var(--text-light);"><i class="fa-solid fa-receipt" style="color:var(--primary);margin-right:10px;"></i>Mark EMI Payment</h3>
