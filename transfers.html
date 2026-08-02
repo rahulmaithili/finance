@@ -248,12 +248,13 @@
 
         function loadTransfersTable(currentUser) {
             const tableBody = document.getElementById('transfersTableBody');
-            
-            if ($.fn.DataTable.isDataTable('#transfersTable')) {
-                $('#transfersTable').DataTable().destroy();
-            }
 
             db.collection('transfers').orderBy('transfer_date', 'desc').onSnapshot(snapshot => {
+                // Always destroy before repopulating
+                if ($.fn.DataTable.isDataTable('#transfersTable')) {
+                    $('#transfersTable').DataTable().destroy();
+                }
+
                 tableBody.innerHTML = '';
                 snapshot.forEach(doc => {
                     const tf = doc.data();
@@ -282,6 +283,9 @@
                     order: [[0, 'desc']],
                     responsive: true
                 });
+            }, error => {
+                console.error("Transfers table load error:", error);
+                Swal.fire({ icon: 'error', title: 'Database Error', text: error.message });
             });
         }
 

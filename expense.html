@@ -362,12 +362,13 @@
 
         function loadExpenseTable(currentUser) {
             const tableBody = document.getElementById('expenseTableBody');
-            
-            if ($.fn.DataTable.isDataTable('#expenseTable')) {
-                $('#expenseTable').DataTable().destroy();
-            }
 
             db.collection('expenses').orderBy('expense_date', 'desc').onSnapshot(snapshot => {
+                // Always destroy before repopulating
+                if ($.fn.DataTable.isDataTable('#expenseTable')) {
+                    $('#expenseTable').DataTable().destroy();
+                }
+
                 tableBody.innerHTML = '';
                 snapshot.forEach(doc => {
                     const exp = doc.data();
@@ -405,16 +406,19 @@
                         details: { type: 'column', target: 'tr' }
                     },
                     columnDefs: [
-                        { responsivePriority: 1, targets: 0 },   // Date
-                        { responsivePriority: 2, targets: 5 },   // Amount
-                        { responsivePriority: 3, targets: 1 },   // Title
-                        { responsivePriority: 4, targets: 7 },   // Actions
-                        { responsivePriority: 5, targets: 2 },   // Category
-                        { responsivePriority: 6, targets: 3 },   // Account
-                        { responsivePriority: 7, targets: 4 },   // Method
-                        { responsivePriority: 8, targets: 6 }    // Recorded By
+                        { responsivePriority: 1, targets: 0 },
+                        { responsivePriority: 2, targets: 5 },
+                        { responsivePriority: 3, targets: 1 },
+                        { responsivePriority: 4, targets: 7 },
+                        { responsivePriority: 5, targets: 2 },
+                        { responsivePriority: 6, targets: 3 },
+                        { responsivePriority: 7, targets: 4 },
+                        { responsivePriority: 8, targets: 6 }
                     ]
                 });
+            }, error => {
+                console.error("Expense table load error:", error);
+                Swal.fire({ icon: 'error', title: 'Database Error', text: error.message });
             });
         }
 

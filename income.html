@@ -354,13 +354,13 @@
 
         function loadIncomeTable(currentUser) {
             const tableBody = document.getElementById('incomeTableBody');
-            
-            // Destroy DataTable if already initialized
-            if ($.fn.DataTable.isDataTable('#incomeTable')) {
-                $('#incomeTable').DataTable().destroy();
-            }
 
             db.collection('income').orderBy('income_date', 'desc').onSnapshot(snapshot => {
+                // Always destroy before repopulating
+                if ($.fn.DataTable.isDataTable('#incomeTable')) {
+                    $('#incomeTable').DataTable().destroy();
+                }
+
                 tableBody.innerHTML = '';
                 snapshot.forEach(doc => {
                     const inc = doc.data();
@@ -392,7 +392,7 @@
                     </tr>`;
                 });
 
-                // Initialize DataTable with priorities
+                // Initialize DataTable fresh after DOM is populated
                 $('#incomeTable').DataTable({
                     order: [[0, 'desc']],
                     responsive: {
@@ -409,6 +409,9 @@
                         { responsivePriority: 8, targets: 6 }    // Recorded By
                     ]
                 });
+            }, error => {
+                console.error("Income table load error:", error);
+                Swal.fire({ icon: 'error', title: 'Database Error', text: error.message });
             });
         }
 
