@@ -18,6 +18,75 @@
     
     <!-- Chart.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        @media(max-width:1100px){ .kpi-grid { grid-template-columns: repeat(3,1fr); } }
+        @media(max-width:700px)  { .kpi-grid { grid-template-columns: repeat(2,1fr); } }
+        @media(max-width:420px)  { .kpi-grid { grid-template-columns: 1fr 1fr; } }
+
+        .kpi-card {
+            border-radius: 18px;
+            padding: 20px 18px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.07);
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: default;
+        }
+        .kpi-card:hover { transform: translateY(-3px); box-shadow: 0 14px 40px rgba(0,0,0,0.4); }
+        .kpi-card::before {
+            content: '';
+            position: absolute; top: -28px; right: -28px;
+            width: 80px; height: 80px; border-radius: 50%;
+            background: rgba(255,255,255,0.12);
+        }
+        .kpi-card::after {
+            content: '';
+            position: absolute; bottom: -18px; left: -18px;
+            width: 55px; height: 55px; border-radius: 50%;
+            background: rgba(255,255,255,0.07);
+        }
+        .kpi-income  { background: linear-gradient(135deg, #064e3b, #10b981); }
+        .kpi-expense { background: linear-gradient(135deg, #7f1d1d, #ef4444); }
+        .kpi-profit  { background: linear-gradient(135deg, #1e3a8a, #3b82f6); }
+        .kpi-balance { background: linear-gradient(135deg, #4c1d95, #8b5cf6); }
+        .kpi-loan    { background: linear-gradient(135deg, #78350f, #f59e0b); }
+
+        .kpi-details { z-index: 1; }
+        .kpi-details h3 {
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: rgba(255,255,255,0.75);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin: 0 0 10px;
+        }
+        .kpi-value {
+            font-size: 1.45rem;
+            font-weight: 900;
+            color: #fff;
+            letter-spacing: -0.02em;
+        }
+        .kpi-sub {
+            font-size: 0.72rem;
+            color: rgba(255,255,255,0.65);
+            margin-top: 5px;
+        }
+        .kpi-icon {
+            font-size: 1.6rem;
+            color: rgba(255,255,255,0.35);
+            z-index: 1;
+            padding-top: 2px;
+        }
+    </style>
 </head>
 <body>
 
@@ -38,44 +107,54 @@
             <div class="content-body">
                 <!-- KPI Summary cards grid -->
                 <div class="kpi-grid">
+                    <!-- Income -->
                     <div class="kpi-card kpi-income">
                         <div class="kpi-details">
-                            <h3>Income (This Month)</h3>
-                            <div class="kpi-value" id="kpiIncome">₹0.00</div>
+                            <h3><i class="fa-solid fa-arrow-trend-up" style="margin-right:5px;"></i>Income This Month</h3>
+                            <div class="kpi-value" id="kpiIncome">&#8377;0</div>
+                            <div class="kpi-sub" id="kpiIncomeSub">Loading...</div>
                         </div>
-                        <div class="kpi-icon">
-                            <i class="fa-solid fa-circle-arrow-down"></i>
-                        </div>
+                        <div class="kpi-icon"><i class="fa-solid fa-circle-arrow-down"></i></div>
                     </div>
-                    
+
+                    <!-- Expense -->
                     <div class="kpi-card kpi-expense">
                         <div class="kpi-details">
-                            <h3>Expense (This Month)</h3>
-                            <div class="kpi-value" id="kpiExpense">₹0.00</div>
+                            <h3><i class="fa-solid fa-arrow-trend-down" style="margin-right:5px;"></i>Expense This Month</h3>
+                            <div class="kpi-value" id="kpiExpense">&#8377;0</div>
+                            <div class="kpi-sub" id="kpiExpenseSub">Loading...</div>
                         </div>
-                        <div class="kpi-icon">
-                            <i class="fa-solid fa-circle-arrow-up"></i>
-                        </div>
+                        <div class="kpi-icon"><i class="fa-solid fa-circle-arrow-up"></i></div>
                     </div>
-                    
+
+                    <!-- Net Margin -->
                     <div class="kpi-card kpi-profit">
                         <div class="kpi-details">
-                            <h3>Net Margin</h3>
-                            <div class="kpi-value" id="kpiMargin">₹0.00</div>
+                            <h3><i class="fa-solid fa-chart-line" style="margin-right:5px;"></i>Net Margin</h3>
+                            <div class="kpi-value" id="kpiMargin">&#8377;0</div>
+                            <div class="kpi-sub" id="kpiMarginSub">Income - Expense</div>
                         </div>
-                        <div class="kpi-icon" id="kpiMarginIconBox">
-                            <i class="fa-solid fa-chart-line" id="kpiMarginIcon"></i>
-                        </div>
+                        <div class="kpi-icon" id="kpiMarginIconBox"><i class="fa-solid fa-chart-line" id="kpiMarginIcon"></i></div>
                     </div>
-                    
+
+                    <!-- Available Balance -->
                     <div class="kpi-card kpi-balance">
                         <div class="kpi-details">
-                            <h3>Available Balance</h3>
-                            <div class="kpi-value" id="kpiBalance">₹0.00</div>
+                            <h3><i class="fa-solid fa-building-columns" style="margin-right:5px;"></i>Available Balance</h3>
+                            <div class="kpi-value" id="kpiBalance">&#8377;0</div>
+                            <div class="kpi-sub">All bank accounts</div>
                         </div>
-                        <div class="kpi-icon">
-                            <i class="fa-solid fa-building-columns"></i>
+                        <div class="kpi-icon"><i class="fa-solid fa-wallet"></i></div>
+                    </div>
+
+                    <!-- Loan Outstanding -->
+                    <div class="kpi-card kpi-loan" style="cursor:pointer;" onclick="window.location='loans.html'">
+                        <div class="kpi-details">
+                            <h3><i class="fa-solid fa-hand-holding-dollar" style="margin-right:5px;"></i>Loan Outstanding</h3>
+                            <div class="kpi-value" id="kpiLoan">&#8377;0</div>
+                            <div class="kpi-sub" id="kpiLoanSub">Click to manage loans</div>
                         </div>
+                        <div class="kpi-icon"><i class="fa-solid fa-landmark"></i></div>
                     </div>
                 </div>
                 
@@ -113,6 +192,10 @@
 
     <!-- Dashboard Data Loader & Chart Initializer -->
     <script>
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(amount || 0);
+        }
+
         let myChart = null;
 
         // Callback from nav-loader.js when auth is confirmed and user profile is loaded
@@ -132,6 +215,7 @@
         function loadKPIs() {
             const today = new Date();
             const currentYearMonth = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
+            const monthName = today.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
 
             // 1. Current Month Income Total
             db.collection('income')
@@ -140,10 +224,9 @@
                 .get()
                 .then(snapshot => {
                     let totalInc = 0;
-                    snapshot.forEach(doc => {
-                        totalInc += parseFloat(doc.data().amount || 0);
-                    });
+                    snapshot.forEach(doc => { totalInc += parseFloat(doc.data().amount || 0); });
                     document.getElementById('kpiIncome').textContent = formatCurrency(totalInc);
+                    document.getElementById('kpiIncomeSub').textContent = snapshot.size + ' entries in ' + monthName;
                     updateMargin();
                 });
 
@@ -154,10 +237,9 @@
                 .get()
                 .then(snapshot => {
                     let totalExp = 0;
-                    snapshot.forEach(doc => {
-                        totalExp += parseFloat(doc.data().amount || 0);
-                    });
+                    snapshot.forEach(doc => { totalExp += parseFloat(doc.data().amount || 0); });
                     document.getElementById('kpiExpense').textContent = formatCurrency(totalExp);
+                    document.getElementById('kpiExpenseSub').textContent = snapshot.size + ' entries in ' + monthName;
                     updateMargin();
                 });
 
@@ -167,34 +249,41 @@
                 .get()
                 .then(snapshot => {
                     let totalBal = 0;
-                    snapshot.forEach(doc => {
-                        totalBal += parseFloat(doc.data().current_balance || 0);
-                    });
+                    snapshot.forEach(doc => { totalBal += parseFloat(doc.data().current_balance || 0); });
                     document.getElementById('kpiBalance').textContent = formatCurrency(totalBal);
                 });
+
+            // 4. Loan Outstanding
+            db.collection('loans').where('status', '==', 'active').get().then(snapshot => {
+                let outstanding = 0, count = 0;
+                snapshot.forEach(doc => {
+                    const l = doc.data();
+                    const r = (l.interest_rate / 12) / 100;
+                    const n = l.tenure_months;
+                    const emi = P => P * r * Math.pow(1+r,n) / (Math.pow(1+r,n)-1);
+                    const totalPayable = emi(l.principal) * n;
+                    outstanding += Math.max(0, totalPayable - (l.total_paid || 0));
+                    count++;
+                });
+                document.getElementById('kpiLoan').textContent = formatCurrency(outstanding);
+                document.getElementById('kpiLoanSub').textContent = count + ' active loan' + (count !== 1 ? 's' : '') + ' → click to manage';
+            }).catch(() => {
+                document.getElementById('kpiLoan').textContent = formatCurrency(0);
+                document.getElementById('kpiLoanSub').textContent = 'No loans recorded';
+            });
         }
 
         function updateMargin() {
             const incText = document.getElementById('kpiIncome').textContent.replace(/[^\d.-]/g, '');
             const expText = document.getElementById('kpiExpense').textContent.replace(/[^\d.-]/g, '');
             const margin = parseFloat(incText) - parseFloat(expText);
-
             const marginElement = document.getElementById('kpiMargin');
-            const iconBox = document.getElementById('kpiMarginIconBox');
-            const icon = document.getElementById('kpiMarginIcon');
-
             marginElement.textContent = formatCurrency(margin);
-
+            const sub = document.getElementById('kpiMarginSub');
             if (margin >= 0) {
-                marginElement.style.color = 'var(--success)';
-                iconBox.style.backgroundColor = 'var(--success-light)';
-                iconBox.style.color = 'var(--success)';
-                icon.className = 'fa-solid fa-chart-line';
+                sub.textContent = '&#9650; Profit this month';
             } else {
-                marginElement.style.color = 'var(--danger)';
-                iconBox.style.backgroundColor = 'var(--danger-light)';
-                iconBox.style.color = 'var(--danger)';
-                icon.className = 'fa-solid fa-chart-line-down';
+                sub.textContent = '&#9660; Loss this month';
             }
         }
 
