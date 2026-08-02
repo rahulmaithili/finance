@@ -137,6 +137,12 @@
                         <span>Reports</span>
                     </a>
                 </li>
+                <li class="menu-item ${activePage === 'loans' ? 'active' : ''}">
+                    <a href="loans.html">
+                        <i class="fa-solid fa-hand-holding-dollar"></i>
+                        <span>Loans</span>
+                    </a>
+                </li>
                 
                 ${(user.role === 'super_admin' || user.role === 'admin') ? `
                 <li class="menu-item ${activePage === 'users' ? 'active' : ''}">

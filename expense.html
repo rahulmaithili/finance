@@ -300,6 +300,15 @@
         </div>
     </div>
 
+    <!-- View Detail Modal -->
+    <div id="viewModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.7); backdrop-filter:blur(6px); align-items:center; justify-content:center;">
+        <div style="background:var(--bg-card); border-radius:16px; padding:30px; max-width:520px; width:92%; max-height:88vh; overflow-y:auto; position:relative; box-shadow:0 20px 60px rgba(0,0,0,0.5); border:1px solid var(--border);">
+            <button onclick="closeViewModal()" style="position:absolute; top:14px; right:16px; background:transparent; border:none; color:var(--text-secondary); font-size:1.3rem; cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
+            <h3 style="margin:0 0 20px 0; color:var(--text-light); display:flex; align-items:center; gap:10px;"><i class="fa-solid fa-circle-info" style="color:#e11d48;"></i> Expense Details</h3>
+            <div id="viewModalBody" style="display:flex; flex-direction:column; gap:13px;"></div>
+        </div>
+    </div>
+
     <!-- JS Logic -->
     <script>
         let editMode = false;
@@ -392,7 +401,7 @@
                         <td>${exp.recorded_by_name || 'System'}</td>
                         <td>
                             <div style="display:flex; gap:6px;">
-                                ${attachmentLink}
+                                <button class="bank-btn" onclick="viewExpense('${id}')" title="View Details" style="color:#6366f1;"><i class="fa-solid fa-eye"></i></button>
                                 <button class="bank-btn" onclick="editExpense('${id}')" title="Edit Entry"><i class="fa-solid fa-pen"></i></button>
                                 <button class="bank-btn" onclick="deleteExpense('${id}')" title="Delete Entry"><i class="fa-solid fa-trash"></i></button>
                             </div>
@@ -681,6 +690,50 @@
             document.getElementById('sheetFormTitle').textContent = 'Log Expense';
             document.getElementById('m_formSubmitText').textContent = 'Save Expense';
             document.getElementById('m_formSubmitIcon').className = 'fa-solid fa-plus';
+        }
+
+        // ── View Details Modal ──────────────────────────────────────────────
+        function viewExpense(id) {
+            db.collection('expenses').doc(id).get().then(doc => {
+                if (!doc.exists) return;
+                const d = doc.data();
+                const dateStr = new Date(d.expense_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
+                const accountName = activeAccountsMap[d.account_id] || 'Unknown';
+
+                let attachmentHTML = '';
+                if (d.attachment_url) {
+                    const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(d.attachment_url) || d.attachment_url.startsWith('data:image');
+                    if (isImage) {
+                        attachmentHTML = `<img src="${d.attachment_url}" style="width:100%; border-radius:10px; margin-top:6px; border:1px solid var(--border);" alt="Attachment">`;
+                    } else {
+                        attachmentHTML = `<a href="${d.attachment_url}" target="_blank" style="color:var(--primary); text-decoration:none;"><i class="fa-solid fa-file-pdf"></i> View Attachment PDF</a>`;
+                    }
+                }
+
+                const row = (icon, label, value, color) =>
+                    `<div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:var(--bg-secondary); border-radius:10px; border:1px solid var(--border);">
+                        <span style="color:var(--text-secondary); font-size:0.82rem; display:flex; align-items:center; gap:8px;"><i class="fa-solid fa-${icon}"></i> ${label}</span>
+                        <span style="font-weight:600; color:${color || 'var(--text-light)'}; font-size:0.9rem;">${value}</span>
+                    </div>`;
+
+                document.getElementById('viewModalBody').innerHTML =
+                    row('indian-rupee', 'Amount', formatCurrency(d.amount), '#e11d48') +
+                    row('calendar', 'Date', dateStr) +
+                    row('tag', 'Category', d.category) +
+                    row('building-columns', 'Account', accountName) +
+                    row('credit-card', 'Payment Method', d.payment_method ? d.payment_method.charAt(0).toUpperCase() + d.payment_method.slice(1) : '—') +
+                    row('user', 'Recorded By', d.recorded_by_name || 'System') +
+                    (d.notes ? row('note-sticky', 'Notes', d.notes) : '') +
+                    (attachmentHTML ? `<div style="padding:10px 14px; background:var(--bg-secondary); border-radius:10px; border:1px solid var(--border);"><p style="color:var(--text-secondary); font-size:0.82rem; margin:0 0 8px;"><i class="fa-solid fa-paperclip"></i> Attachment</p>${attachmentHTML}</div>` : '');
+
+                const modal = document.getElementById('viewModal');
+                modal.style.display = 'flex';
+                modal.addEventListener('click', function(e) { if (e.target === modal) closeViewModal(); }, { once: true });
+            });
+        }
+
+        function closeViewModal() {
+            document.getElementById('viewModal').style.display = 'none';
         }
     </script>
 </body>
