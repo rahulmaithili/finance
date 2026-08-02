@@ -255,6 +255,12 @@
                         <span>Reports</span>
                     </a>
                 </li>
+                <li class="menu-item ${activePage === 'loans' ? 'active' : ''}">
+                    <a href="loans.html">
+                        <i class="fa-solid fa-hand-holding-dollar"></i>
+                        <span>Loans</span>
+                    </a>
+                </li>
                 ${(user.role === 'super_admin' || user.role === 'admin') ? `
                 <li class="menu-item ${activePage === 'users' ? 'active' : ''}">
                     <a href="users.html">
@@ -292,17 +298,21 @@
                 <i class="fa-solid fa-chart-pie"></i>
                 <span>Home</span>
             </a>
-            <a href="income.html" class="nav-item ${activePage === 'income' ? 'active' : ''}" style="color: var(--success) !important;">
-                <i class="fa-solid fa-circle-plus"></i>
-                <span>+ Income</span>
+            <a href="income.html" class="nav-item ${activePage === 'income' ? 'active' : ''}">
+                <i class="fa-solid fa-circle-plus" style="color:#10b981;"></i>
+                <span>Income</span>
             </a>
-            <a href="expense.html" class="nav-item ${activePage === 'expense' ? 'active' : ''}" style="color: var(--danger) !important;">
-                <i class="fa-solid fa-circle-minus"></i>
-                <span>- Expense</span>
+            <a href="expense.html" class="nav-item ${activePage === 'expense' ? 'active' : ''}">
+                <i class="fa-solid fa-circle-minus" style="color:#ef4444;"></i>
+                <span>Expense</span>
             </a>
-            <a href="accounts.html" class="nav-item ${activePage === 'accounts' ? 'active' : ''}">
-                <i class="fa-solid fa-building-columns"></i>
-                <span>Accounts</span>
+            <a href="reports.html" class="nav-item ${activePage === 'reports' ? 'active' : ''}">
+                <i class="fa-solid fa-file-chart-column"></i>
+                <span>Reports</span>
+            </a>
+            <a href="#" class="nav-item" id="mobileMoreBtn">
+                <i class="fa-solid fa-grid-2"></i>
+                <span>More</span>
             </a>
         </div>`;
 
@@ -366,6 +376,16 @@
         const soBtnMob = document.getElementById("signOutBtnMobile");
         if (soBtn) soBtn.addEventListener("click", signOut);
         if (soBtnMob) soBtnMob.addEventListener("click", signOut);
+
+        // "More" bottom nav opens the drawer
+        const moreBtn = document.getElementById("mobileMoreBtn");
+        if (moreBtn && mobileDrawer && menuOverlay) {
+            moreBtn.addEventListener("click", (e) => {
+                e.preventDefault();
+                mobileDrawer.classList.add("open");
+                menuOverlay.classList.add("show");
+            });
+        }
 
         // Theme Toggle Action
         const themeBtn = document.getElementById("themeToggleBtn");

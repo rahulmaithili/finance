@@ -1362,93 +1362,147 @@ select.form-control option {
     .module-grid {
         grid-template-columns: 1fr;
     }
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
-@media (max-width: 768px) {
-    .sidebar {
-        display: none;
+/* ── TABLET: 769px–1024px ── */
+@media (max-width: 1024px) and (min-width: 769px) {
+    .kpi-grid {
+        grid-template-columns: repeat(3, 1fr) !important;
     }
-    
+}
+
+/* ── MOBILE: ≤768px ── */
+@media (max-width: 768px) {
+    /* Hide desktop sidebar & topbar, show mobile versions */
+    .sidebar    { display: none; }
+    .navbar     { display: none; }
+    .mobile-navbar { display: flex; }
     .main-content {
         margin-left: 0 !important;
         width: 100% !important;
         overflow-x: hidden;
     }
-    
-    .navbar {
-        display: none;
-    }
-    
-    .mobile-navbar {
-        display: flex;
-    }
-    
-    .dashboard-grid {
-        grid-template-columns: 1fr;
-    }
-    
+
+    /* Page body padding for bottom nav */
+    body { padding-bottom: 72px !important; }
+
+    /* Content spacing */
     .content-body {
-        padding: 20px;
+        padding: 12px !important;
     }
-    
+    .page-content {
+        padding: 12px !important;
+    }
+
+    /* ── KPI Grid: 2×2 + 1 centered ── */
     .kpi-grid {
         grid-template-columns: 1fr 1fr !important;
         gap: 10px !important;
     }
-
     .kpi-card {
-        padding: 12px !important;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
+        padding: 16px 14px !important;
+        border-radius: 14px !important;
+        align-items: flex-start;
+    }
+    .kpi-card::before { width: 60px; height: 60px; top: -20px; right: -20px; }
+    .kpi-card::after  { width: 40px; height: 40px; bottom: -14px; left: -14px; }
+    .kpi-value        { font-size: 1.2rem !important; }
+    .kpi-details h3   { font-size: 0.65rem !important; margin-bottom: 6px; }
+    .kpi-sub          { font-size: 0.65rem !important; }
+    .kpi-icon         { font-size: 1.3rem !important; }
+
+    /* 5th card: span full width */
+    .kpi-grid > .kpi-card:nth-child(5) {
+        grid-column: 1 / -1;
+        flex-direction: row;
+        align-items: center;
+        gap: 12px;
+    }
+    .kpi-grid > .kpi-card:nth-child(5) .kpi-icon {
+        font-size: 2rem !important;
+    }
+    .kpi-grid > .kpi-card:nth-child(5) .kpi-value {
+        font-size: 1.4rem !important;
     }
 
-    .kpi-card .kpi-header {
-        margin-bottom: 6px !important;
+    /* ── Dashboard Grid ── */
+    .dashboard-grid {
+        grid-template-columns: 1fr !important;
+        gap: 12px;
     }
+    .dashboard-card { padding: 16px !important; border-radius: 14px; }
 
-    .kpi-card h3 {
-        font-size: 1rem !important;
+    /* ── Module Grid (Income/Expense pages) ── */
+    .module-grid {
+        grid-template-columns: 1fr !important;
+    }
+    .module-grid > .form-card,
+    .module-grid > div:last-child > .form-card,
+    .module-grid > div:last-child { display: none !important; }
+    .mobile-fab { display: flex !important; }
+
+    /* ── Tables: horizontal scroll ── */
+    .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .custom-table th, .custom-table td {
+        padding: 8px 10px !important;
+        font-size: 0.78rem !important;
         white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+    }
+    .table-card, .form-card {
+        padding: 12px !important;
+        border-radius: 14px !important;
     }
 
-    .kpi-card .kpi-icon {
-        width: 32px !important;
-        height: 32px !important;
-        font-size: 0.95rem !important;
+    /* ── Loan Tracker Mobile ── */
+    .loan-stats-grid {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 10px !important;
+    }
+    .loan-stat-card {
+        padding: 16px 14px !important;
+        border-radius: 14px !important;
+    }
+    .loan-stat-value { font-size: 1.15rem !important; }
+    .loan-stat-label { font-size: 0.62rem !important; }
+    .loans-grid {
+        grid-template-columns: 1fr !important;
+        gap: 12px;
+    }
+    .loan-card { padding: 16px !important; border-radius: 14px !important; }
+    .emi-result-box {
+        grid-template-columns: 1fr !important;
+        gap: 8px;
     }
 
-    .kpi-card .kpi-value {
-        font-size: 1.15rem !important;
-        font-weight: 700 !important;
+    /* ── Reports Filter Bar ── */
+    .filter-bar {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 10px;
     }
-    
-    .filter-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .btn-filter {
-        width: 100%;
-    }
+    .filter-bar button { grid-column: 1 / -1; }
 
-    /* Mobile Bottom Navigation Bar Styles */
+    /* ── Forms ── */
+    .filter-grid { grid-template-columns: 1fr; }
+    .btn-filter  { width: 100%; }
+
+    /* ── Mobile Bottom Navigation ── */
     .mobile-bottom-nav {
         display: flex;
         position: fixed;
-        bottom: 0;
-        left: 0;
+        bottom: 0; left: 0;
         width: 100%;
-        height: 60px;
-        background-color: var(--bg-secondary);
+        height: 62px;
+        background: var(--bg-sidebar);
         border-top: 1px solid var(--border-color);
-        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 -4px 20px rgba(0,0,0,0.4);
         z-index: 998;
         justify-content: space-around;
-        align-items: center;
+        align-items: stretch;
     }
-    
+
     .mobile-bottom-nav .nav-item {
         display: flex;
         flex-direction: column;
@@ -1456,49 +1510,57 @@ select.form-control option {
         justify-content: center;
         color: var(--text-secondary);
         text-decoration: none;
-        font-size: 0.7rem;
+        font-size: 0.62rem;
         font-weight: 600;
-        gap: 4px;
+        gap: 3px;
         flex: 1;
         height: 100%;
-        transition: all var(--transition-speed);
+        padding: 6px 0;
+        transition: color 0.2s, background 0.2s;
+        border-radius: 0;
+        position: relative;
     }
-    
+    .mobile-bottom-nav .nav-item::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 20%; right: 20%;
+        height: 2px;
+        border-radius: 0 0 2px 2px;
+        background: transparent;
+        transition: background 0.2s;
+    }
+    .mobile-bottom-nav .nav-item.active::before {
+        background: var(--primary);
+    }
     .mobile-bottom-nav .nav-item i {
-        font-size: 1.2rem;
+        font-size: 1.25rem;
+        transition: transform 0.2s;
     }
-    
     .mobile-bottom-nav .nav-item.active {
         color: var(--primary) !important;
     }
+    .mobile-bottom-nav .nav-item:active i {
+        transform: scale(0.88);
+    }
 
-    body {
-        padding-bottom: 75px !important;
+    /* Drawer scrollable */
+    .mobile-menu-drawer .sidebar-menu {
+        overflow-y: auto;
+        flex: 1;
+        padding-bottom: 20px;
     }
-    .custom-table th, .custom-table td {
-        padding: 8px 10px !important;
-        font-size: 0.8rem !important;
-    }
-    .table-card, .form-card {
-        padding: 15px !important;
-    }
-    .content-body {
-        padding: 12px !important;
-    }
-    /* Hide desktop right-side form panel on mobile */
-    .module-grid > .form-card,
-    .module-grid > div:last-child > .form-card,
-    .module-grid > div:last-child {
-        display: none !important;
-    }
-    /* Make table take full width on mobile */
-    .module-grid {
-        grid-template-columns: 1fr !important;
-    }
-    /* Mobile FAB button */
-    .mobile-fab {
-        display: flex !important;
-    }
+}
+
+/* ── SMALL PHONES: ≤420px ── */
+@media (max-width: 420px) {
+    .kpi-grid { grid-template-columns: 1fr 1fr !important; }
+    .loan-stats-grid { grid-template-columns: 1fr 1fr !important; }
+    .kpi-value { font-size: 1.05rem !important; }
+    .loan-stat-value { font-size: 1rem !important; }
+    .content-body, .page-content { padding: 10px !important; }
+    .mobile-bottom-nav { height: 58px; }
+    .mobile-bottom-nav .nav-item { font-size: 0.58rem; }
+    .mobile-bottom-nav .nav-item i { font-size: 1.1rem; }
 }
 
 /* ===================================================================
