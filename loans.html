@@ -188,6 +188,12 @@
         <div style="padding:22px;overflow-y:auto;flex:1;">
             <div class="form-group"><label class="form-label">Payment Date *</label><input type="date" id="paymentDate" class="form-control"></div>
             <div class="form-group"><label class="form-label">Amount Paid (Rs) *</label><input type="number" id="paymentAmount" class="form-control" placeholder="e.g. 12000" min="1"></div>
+            <div class="form-group">
+                <label class="form-label">Pay From Account *</label>
+                <select id="paymentAccount" class="form-control" style="padding-left:14px;" required>
+                    <option value="" disabled selected>Select Account</option>
+                </select>
+            </div>
             <div class="form-group"><label class="form-label">Note (Optional)</label><input type="text" id="paymentNote" class="form-control" placeholder="e.g. EMI for July 2026"></div>
             <button class="btn-primary" onclick="savePayment()" style="width:100%;height:48px;border-radius:12px;font-size:1rem;font-weight:700;margin-bottom:20px;"><i class="fa-solid fa-check-circle"></i> Mark as Paid</button>
             <hr style="border-color:rgba(255,255,255,0.07);margin:0 0 16px;">
@@ -200,8 +206,14 @@
 <button class="mobile-fab" id="mobileLoanFab"><i class="fa-solid fa-plus"></i></button>
 
 <script>
-    let currentUser=null,currentUserData=null,activePaymentLoanId=null,loansCache={};
-    window.onNavigationLoaded=function(user,userData){currentUser=user;currentUserData=userData;loadLoans();};
+    let currentUser=null,currentUserData=null,activePaymentLoanId=null,loansCache={},activeAccountsMap={};
+    window.onNavigationLoaded=function(user,userData){
+        currentUser=user;
+        currentUserData=userData;
+        loadAccountsList().then(() => {
+            loadLoans();
+        });
+    };
 
     function calcEMI(){
         const P=parseFloat(document.getElementById('principal').value);
@@ -218,6 +230,19 @@
     }
     function computeEMI(P,rate,n){const r=rate/12/100;return P*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1);}
     function formatCurrency(v){return new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',minimumFractionDigits:0}).format(v||0);}
+
+    function loadAccountsList() {
+        const select = document.getElementById('paymentAccount');
+        return db.collection('bank_accounts').where('status', '==', 'active').get().then(snapshot => {
+            select.innerHTML = '<option value="" disabled selected>Select Account</option>';
+            snapshot.forEach(doc => {
+                const acc = doc.data();
+                const id = doc.id;
+                activeAccountsMap[id] = acc.account_name;
+                select.innerHTML += `<option value="${id}">${acc.account_name} (${formatCurrency(acc.current_balance)})</option>`;
+            });
+        });
+    }
 
     function loadLoans(){
         db.collection('loans').orderBy('start_date','desc').onSnapshot(snapshot=>{
@@ -398,6 +423,7 @@
         document.getElementById('paymentDate').value=new Date().toISOString().split('T')[0];
         document.getElementById('paymentAmount').value=l?Math.round(l.emi_amount):'';
         document.getElementById('paymentNote').value='';
+        document.getElementById('paymentAccount').value='';
         loadPaymentHistory(loanId);
         document.getElementById('paymentModal').style.display='flex';
     }
@@ -408,7 +434,7 @@
         list.innerHTML='<div style="color:var(--text-secondary);font-size:0.82rem;">Loading...</div>';
         db.collection('loans').doc(loanId).collection('payments').orderBy('payment_date','desc').get().then(snap=>{
             if(snap.empty){list.innerHTML='<div style="color:var(--text-secondary);font-size:0.82rem;text-align:center;padding:10px;">No payments yet.</div>';return;}
-            list.innerHTML=snap.docs.map(d=>{const p=d.data();const ds=new Date(p.payment_date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});return `<div class="payment-hist-item"><div><div style="font-weight:600;color:var(--text-light);">${formatCurrency(p.amount)}</div><div style="color:var(--text-secondary);font-size:0.76rem;">${p.note||'EMI Payment'}</div></div><div style="text-align:right;"><div style="color:var(--success);font-size:0.8rem;">${ds}</div><button onclick="deletePayment('${loanId}','${d.id}',${p.amount})" style="background:transparent;border:none;color:var(--danger);cursor:pointer;font-size:0.75rem;margin-top:2px;"><i class="fa-solid fa-trash"></i></button></div></div>`;}).join('');
+            list.innerHTML=snap.docs.map(d=>{const p=d.data();const ds=new Date(p.payment_date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});return `<div class="payment-hist-item"><div><div style="font-weight:600;color:var(--text-light);">${formatCurrency(p.amount)}</div><div style="color:var(--text-secondary);font-size:0.76rem;">${p.note||'EMI Payment'} (${p.account_name||'Account'})</div></div><div style="text-align:right;"><div style="color:var(--success);font-size:0.8rem;">${ds}</div><button onclick="deletePayment('${loanId}','${d.id}',${p.amount})" style="background:transparent;border:none;color:var(--danger);cursor:pointer;font-size:0.75rem;margin-top:2px;"><i class="fa-solid fa-trash"></i></button></div></div>`;}).join('');
         });
     }
 
@@ -417,17 +443,99 @@
         const amount=parseFloat(document.getElementById('paymentAmount').value);
         const date=document.getElementById('paymentDate').value;
         const note=document.getElementById('paymentNote').value.trim();
-        if(!amount||!date){Swal.fire({icon:'warning',title:'Missing Fields',text:'Please enter amount and date.'});return;}
+        const accountId=document.getElementById('paymentAccount').value;
+        if(!amount||!date||!accountId){Swal.fire({icon:'warning',title:'Missing Fields',text:'Please enter amount, date, and select account.'});return;}
+        
         const lRef=db.collection('loans').doc(activePaymentLoanId);
         const pRef=lRef.collection('payments').doc();
-        db.runTransaction(tx=>tx.get(lRef).then(doc=>{const l=doc.data();const nPaid=(l.total_paid||0)+amount;const nEmi=(l.emi_paid||0)+1;const tot=l.emi_amount*l.tenure_months;const status=nPaid>=tot?'closed':'active';tx.update(lRef,{total_paid:nPaid,emi_paid:nEmi,status,updated_at:firebase.firestore.FieldValue.serverTimestamp()});tx.set(pRef,{amount,payment_date:date,note,recorded_by:currentUser.uid,recorded_at:firebase.firestore.FieldValue.serverTimestamp()});})).then(()=>{Swal.fire({icon:'success',title:'EMI Marked Paid!',timer:1500,showConfirmButton:false});logActivity('Marked EMI payment of '+formatCurrency(amount));loadPaymentHistory(activePaymentLoanId);}).catch(err=>Swal.fire({icon:'error',title:'Failed',text:err.message}));
+        const accRef=db.collection('bank_accounts').doc(accountId);
+        const expRef=db.collection('expenses').doc();
+
+        db.runTransaction(tx=>tx.get(lRef).then(doc=>{
+            const l=doc.data();
+            return tx.get(accRef).then(accDoc => {
+                if(!accDoc.exists) throw new Error("Selected account does not exist!");
+                const currentBal = parseFloat(accDoc.data().current_balance || 0);
+                const accountName = accDoc.data().account_name;
+                
+                const nPaid=(l.total_paid||0)+amount;
+                const nEmi=(l.emi_paid||0)+1;
+                const tot=l.emi_amount*l.tenure_months;
+                const status=nPaid>=tot?'closed':'active';
+                
+                tx.update(accRef, {current_balance: currentBal - amount});
+                tx.update(lRef,{total_paid:nPaid,emi_paid:nEmi,status,updated_at:firebase.firestore.FieldValue.serverTimestamp()});
+                tx.set(pRef,{
+                    amount,
+                    payment_date:date,
+                    note: note || `EMI Payment to ${l.lender_name}`,
+                    account_id: accountId,
+                    account_name: accountName,
+                    expense_id: expRef.id,
+                    recorded_by:currentUser.uid,
+                    recorded_at:firebase.firestore.FieldValue.serverTimestamp()
+                });
+                tx.set(expRef, {
+                    title: `Loan EMI - ${l.lender_name} (${l.loan_type})`,
+                    category: 'Loan EMI',
+                    amount: amount,
+                    account_id: accountId,
+                    payment_method: 'bank',
+                    expense_date: date,
+                    reference_no: '',
+                    description: note || `EMI Payment to ${l.lender_name}`,
+                    attachment_url: '',
+                    recorded_by_uid: currentUser.uid,
+                    recorded_by_name: currentUserData ? currentUserData.full_name : currentUser.email.split('@')[0],
+                    created_at: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            });
+        })).then(()=>{
+            Swal.fire({icon:'success',title:'EMI Marked Paid!',timer:1500,showConfirmButton:false});
+            logActivity('Marked EMI payment of '+formatCurrency(amount)+' from account '+activeAccountsMap[accountId]);
+            loadPaymentHistory(activePaymentLoanId);
+            loadAccountsList();
+        }).catch(err=>Swal.fire({icon:'error',title:'Failed',text:err.message}));
     }
 
     function deletePayment(loanId,payId,amount){
-        Swal.fire({icon:'question',title:'Remove Payment?',text:'This subtracts '+formatCurrency(amount)+' from paid.',showCancelButton:true,confirmButtonText:'Remove',confirmButtonColor:'#e11d48'}).then(r=>{
+        Swal.fire({icon:'question',title:'Remove Payment?',text:'This subtracts '+formatCurrency(amount)+' from paid and refunds account balance.',showCancelButton:true,confirmButtonText:'Remove',confirmButtonColor:'#e11d48'}).then(r=>{
             if(!r.isConfirmed)return;
             const lRef=db.collection('loans').doc(loanId);
-            db.runTransaction(tx=>tx.get(lRef).then(doc=>{const l=doc.data();tx.update(lRef,{total_paid:Math.max(0,(l.total_paid||0)-amount),emi_paid:Math.max(0,(l.emi_paid||0)-1),status:'active'});tx.delete(lRef.collection('payments').doc(payId));})).then(()=>{Swal.fire({icon:'success',title:'Removed',timer:1200,showConfirmButton:false});loadPaymentHistory(loanId);}).catch(err=>Swal.fire({icon:'error',title:'Error',text:err.message}));
+            
+            db.collection('loans').doc(loanId).collection('payments').doc(payId).get().then(pDoc => {
+                if(!pDoc.exists) return;
+                const pData = pDoc.data();
+                const accId = pData.account_id;
+                const expId = pData.expense_id;
+
+                db.runTransaction(tx=>tx.get(lRef).then(doc=>{
+                    const l=doc.data();
+                    tx.update(lRef,{
+                        total_paid:Math.max(0,(l.total_paid||0)-amount),
+                        emi_paid:Math.max(0,(l.emi_paid||0)-1),
+                        status:'active'
+                    });
+                    tx.delete(lRef.collection('payments').doc(payId));
+                    
+                    if (accId) {
+                        const accRef = db.collection('bank_accounts').doc(accId);
+                        return tx.get(accRef).then(accDoc => {
+                            if (accDoc.exists) {
+                                const currentBal = parseFloat(accDoc.data().current_balance || 0);
+                                tx.update(accRef, {current_balance: currentBal + amount});
+                            }
+                        });
+                    }
+                })).then(()=>{
+                    if (expId) {
+                        db.collection('expenses').doc(expId).delete().catch(e => console.log("Failed to delete expense doc: ", e));
+                    }
+                    Swal.fire({icon:'success',title:'Removed',timer:1200,showConfirmButton:false});
+                    loadPaymentHistory(loanId);
+                    loadAccountsList();
+                }).catch(err=>Swal.fire({icon:'error',title:'Error',text:err.message}));
+            });
         });
     }
 
