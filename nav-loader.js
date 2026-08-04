@@ -228,71 +228,71 @@
             <ul class="sidebar-menu">
                 <li class="menu-item ${activePage === 'index' ? 'active' : ''}">
                     <a href="index.html">
-                        <i class="fa-solid fa-chart-pie"></i>
+                        <i class="fa-solid fa-chart-pie" style="color: #3b82f6;"></i>
                         <span>Dashboard</span>
                     </a>
                 </li>
                 <li class="menu-item ${activePage === 'accounts' ? 'active' : ''}">
                     <a href="accounts.html">
-                        <i class="fa-solid fa-building-columns"></i>
+                        <i class="fa-solid fa-building-columns" style="color: #10b981;"></i>
                         <span>Bank Accounts</span>
                     </a>
                 </li>
                 <li class="menu-item ${activePage === 'income' ? 'active' : ''}">
                     <a href="income.html">
-                        <i class="fa-solid fa-circle-arrow-down"></i>
+                        <i class="fa-solid fa-circle-arrow-down" style="color: #059669;"></i>
                         <span>Income</span>
                     </a>
                 </li>
                 <li class="menu-item ${activePage === 'expense' ? 'active' : ''}">
                     <a href="expense.html">
-                        <i class="fa-solid fa-circle-arrow-up"></i>
+                        <i class="fa-solid fa-circle-arrow-up" style="color: #dc2626;"></i>
                         <span>Expenses</span>
                     </a>
                 </li>
                 <li class="menu-item ${activePage === 'transfers' ? 'active' : ''}">
                     <a href="transfers.html">
-                        <i class="fa-solid fa-right-left"></i>
+                        <i class="fa-solid fa-right-left" style="color: #8b5cf6;"></i>
                         <span>Transfers</span>
                     </a>
                 </li>
                 <li class="menu-item ${activePage === 'reports' ? 'active' : ''}">
                     <a href="reports.html">
-                        <i class="fa-solid fa-file-invoice-dollar"></i>
+                        <i class="fa-solid fa-file-invoice-dollar" style="color: #6366f1;"></i>
                         <span>Reports</span>
                     </a>
                 </li>
                 <li class="menu-item ${activePage === 'loans' ? 'active' : ''}">
                     <a href="loans.html">
-                        <i class="fa-solid fa-hand-holding-dollar"></i>
+                        <i class="fa-solid fa-hand-holding-dollar" style="color: #f59e0b;"></i>
                         <span>Loans</span>
                     </a>
                 </li>
                 ${(user.role === 'super_admin' || user.role === 'admin') ? `
                 <li class="menu-item ${activePage === 'users' ? 'active' : ''}">
                     <a href="users.html">
-                        <i class="fa-solid fa-users-gear"></i>
+                        <i class="fa-solid fa-users-gear" style="color: #ec4899;"></i>
                         <span>Users Control</span>
                     </a>
                 </li>
                 ` : ''}
                 <li class="menu-item ${activePage === 'activity_logs' ? 'active' : ''}">
                     <a href="activity_logs.html">
-                        <i class="fa-solid fa-clipboard-list"></i>
+                        <i class="fa-solid fa-clipboard-list" style="color: #06b6d4;"></i>
                         <span>Activity Logs</span>
                     </a>
                 </li>
                 ${user.role === 'super_admin' ? `
                 <li class="menu-item ${activePage === 'settings' ? 'active' : ''}">
                     <a href="settings.html">
-                        <i class="fa-solid fa-gears"></i>
+                        <i class="fa-solid fa-gears" style="color: #a8a29e;"></i>
                         <span>System Settings</span>
                     </a>
                 </li>
                 ` : ''}
                 <li class="menu-item">
                     <a href="#" id="signOutBtnMobile">
-                        <i class="fa-solid fa-right-from-bracket"></i>
+                        <i class="fa-solid fa-right-from-bracket" style="color: #ef4444;"></i>
                         <span>Sign Out</span>
                     </a>
                 </li>
