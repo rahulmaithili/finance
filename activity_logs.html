@@ -71,10 +71,6 @@
         function loadAuditLogs(user, userData) {
             const tableBody = document.getElementById('logsTableBody');
             
-            if ($.fn.DataTable.isDataTable('#activityLogsTable')) {
-                $('#activityLogsTable').DataTable().destroy();
-            }
-
             let query = db.collection('activity_logs');
             
             // Staff users can only see their own audit trails
@@ -83,6 +79,9 @@
             }
 
             query.orderBy('created_at', 'desc').limit(100).onSnapshot(snapshot => {
+                if ($.fn.DataTable.isDataTable('#activityLogsTable')) {
+                    $('#activityLogsTable').DataTable().destroy();
+                }
                 tableBody.innerHTML = '';
                 snapshot.forEach(doc => {
                     const log = doc.data();

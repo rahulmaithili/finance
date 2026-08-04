@@ -142,11 +142,10 @@
         function loadUsersTable() {
             const tableBody = document.getElementById('usersTableBody');
             
-            if ($.fn.DataTable.isDataTable('#usersTable')) {
-                $('#usersTable').DataTable().destroy();
-            }
-
             db.collection('users').orderBy('full_name', 'asc').onSnapshot(snapshot => {
+                if ($.fn.DataTable.isDataTable('#usersTable')) {
+                    $('#usersTable').DataTable().destroy();
+                }
                 tableBody.innerHTML = '';
                 snapshot.forEach(doc => {
                     const u = doc.data();

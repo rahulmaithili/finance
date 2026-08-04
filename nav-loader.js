@@ -468,4 +468,13 @@
             }
         }).catch(err => console.log("Using default nav branding"));
     }
+
+    // Suppress generic browser alert warnings for DataTables globally and log to console instead
+    if (window.jQuery) {
+        $(document).ready(function() {
+            if ($.fn.dataTable) {
+                $.fn.dataTable.ext.errMode = 'none'; // Silent in console, no browser alert()
+            }
+        });
+    }
 })();
