@@ -281,9 +281,9 @@
             marginElement.textContent = formatCurrency(margin);
             const sub = document.getElementById('kpiMarginSub');
             if (margin >= 0) {
-                sub.textContent = '&#9650; Profit this month';
+                sub.innerHTML = '&#9650; Profit this month';
             } else {
-                sub.textContent = '&#9660; Loss this month';
+                sub.innerHTML = '&#9660; Loss this month';
             }
         }
 
