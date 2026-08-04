@@ -214,44 +214,105 @@
     }
 
     function renderLoans(loans,grid){
-        const colors={'Home Loan':'#10b981','Personal Loan':'#6366f1','Car Loan':'#f59e0b','Business Loan':'#3b82f6','Education Loan':'#8b5cf6','Gold Loan':'#eab308','Other':'#6b7280'};
+        const colors={
+            'Home Loan':    {c:'#10b981', bg:'rgba(16,185,129,0.12)', grad:'135deg,#064e3b,#059669'},
+            'Personal Loan':{c:'#6366f1', bg:'rgba(99,102,241,0.12)', grad:'135deg,#312e81,#6366f1'},
+            'Car Loan':     {c:'#f59e0b', bg:'rgba(245,158,11,0.12)', grad:'135deg,#78350f,#f59e0b'},
+            'Business Loan':{c:'#3b82f6', bg:'rgba(59,130,246,0.12)', grad:'135deg,#1e3a8a,#3b82f6'},
+            'Education Loan':{c:'#8b5cf6',bg:'rgba(139,92,246,0.12)',grad:'135deg,#4c1d95,#8b5cf6'},
+            'Gold Loan':    {c:'#eab308', bg:'rgba(234,179,8,0.12)',  grad:'135deg,#713f12,#eab308'},
+            'Other':        {c:'#6b7280', bg:'rgba(107,114,128,0.12)',grad:'135deg,#374151,#6b7280'}
+        };
         grid.innerHTML=loans.map(l=>{
             const emi=computeEMI(l.principal,l.interest_rate,l.tenure_months);
-            const tot=emi*l.tenure_months,totInt=tot-l.principal;
-            const paid=l.total_paid||0,emiPaid=l.emi_paid||0;
+            const tot=emi*l.tenure_months, totInt=tot-l.principal;
+            const paid=l.total_paid||0, emiPaid=l.emi_paid||0;
             const remaining=Math.max(0,tot-paid);
             const pct=Math.min(100,Math.round(paid/tot*100));
-            const color=colors[l.loan_type]||'#6366f1';
+            const scheme=colors[l.loan_type]||colors['Other'];
+            const c=scheme.c, bg=scheme.bg, grad=scheme.grad;
             const closed=l.status==='closed';
             const startD=new Date(l.start_date);
-            const nextD=new Date(startD);nextD.setMonth(nextD.getMonth()+emiPaid+1);nextD.setDate(l.emi_day||5);
+            const nextD=new Date(startD);
+            nextD.setMonth(nextD.getMonth()+emiPaid+1);
+            nextD.setDate(l.emi_day||5);
             const nextStr=nextD.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
-            return `<div class="loan-card">
-                <div class="loan-card-header">
-                    <div><div style="font-weight:700;font-size:1.05rem;color:var(--text-light);">${l.lender_name}</div><div style="margin-top:4px;"><span class="loan-type-badge" style="background:${color}22;color:${color};">${l.loan_type}</span>${closed?'<span class="loan-type-badge" style="background:rgba(16,185,129,0.15);color:#10b981;margin-left:6px;">Closed</span>':''}</div></div>
-                    <div class="loan-actions">
-                        ${!closed?`<button class="bank-btn" onclick="openPaymentModal('${l.id}')" title="Mark EMI Paid" style="color:#10b981;"><i class="fa-solid fa-indian-rupee-sign"></i></button>`:''}
-                        <button class="bank-btn" onclick="editLoan('${l.id}')" title="Edit"><i class="fa-solid fa-pen"></i></button>
-                        <button class="bank-btn" onclick="deleteLoan('${l.id}')" title="Delete"><i class="fa-solid fa-trash"></i></button>
+            return `
+            <div style="background:#1a1d2e;border-radius:18px;overflow:hidden;border:1px solid rgba(255,255,255,0.08);box-shadow:0 4px 24px rgba(0,0,0,0.4);display:flex;flex-direction:column;transition:transform 0.2s,box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 12px 40px rgba(0,0,0,0.5)'" onmouseout="this.style.transform='';this.style.boxShadow='0 4px 24px rgba(0,0,0,0.4)'">
+
+                <!-- Colored top accent bar -->
+                <div style="height:4px;background:linear-gradient(${grad});"></div>
+
+                <!-- Card Body -->
+                <div style="padding:18px 20px;display:flex;flex-direction:column;gap:14px;flex:1;">
+
+                    <!-- Header: Lender + Actions -->
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                        <div>
+                            <div style="font-weight:800;font-size:1.05rem;color:#fff;margin-bottom:6px;">${l.lender_name}</div>
+                            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                                <span style="background:${bg};color:${c};font-size:0.68rem;font-weight:700;padding:3px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:0.05em;border:1px solid ${c}44;">${l.loan_type}</span>
+                                ${closed?`<span style="background:rgba(16,185,129,0.12);color:#10b981;font-size:0.68rem;font-weight:700;padding:3px 10px;border-radius:20px;border:1px solid rgba(16,185,129,0.3);">✓ Closed</span>`:''}
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:6px;">
+                            ${!closed?`<button onclick="openPaymentModal('${l.id}')" title="Mark EMI Paid" style="width:32px;height:32px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);color:#10b981;border-radius:8px;cursor:pointer;font-size:0.85rem;display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-indian-rupee-sign"></i></button>`:''}
+                            <button onclick="editLoan('${l.id}')" title="Edit" style="width:32px;height:32px;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);color:#6366f1;border-radius:8px;cursor:pointer;font-size:0.82rem;display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-pen"></i></button>
+                            <button onclick="deleteLoan('${l.id}')" title="Delete" style="width:32px;height:32px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);color:#ef4444;border-radius:8px;cursor:pointer;font-size:0.82rem;display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-trash"></i></button>
+                        </div>
                     </div>
+
+                    <!-- Progress -->
+                    <div style="display:flex;flex-direction:column;gap:6px;">
+                        <div style="display:flex;justify-content:space-between;font-size:0.74rem;">
+                            <span style="color:rgba(255,255,255,0.5);">Paid: <b style="color:#fff;">${formatCurrency(paid)}</b></span>
+                            <span style="color:${c};font-weight:700;">${pct}% complete</span>
+                        </div>
+                        <div style="background:rgba(255,255,255,0.07);border-radius:6px;height:8px;overflow:hidden;">
+                            <div style="width:${pct}%;height:100%;background:linear-gradient(90deg,${c},${c}99);border-radius:6px;transition:width 0.8s ease;"></div>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;font-size:0.74rem;">
+                            <span style="color:rgba(255,255,255,0.5);">Remaining: <b style="color:#fff;">${formatCurrency(remaining)}</b></span>
+                            <span style="color:rgba(255,255,255,0.5);">EMIs: <b style="color:#fff;">${emiPaid}/${l.tenure_months}</b></span>
+                        </div>
+                    </div>
+
+                    <!-- Detail Rows -->
+                    <div style="display:flex;flex-direction:column;gap:0;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:12px;overflow:hidden;">
+                        <div style="display:flex;justify-content:space-between;padding:9px 14px;border-bottom:1px solid rgba(255,255,255,0.05);">
+                            <span style="color:rgba(255,255,255,0.5);font-size:0.8rem;display:flex;align-items:center;gap:7px;"><i class="fa-solid fa-indian-rupee-sign" style="color:${c};width:14px;"></i>Principal</span>
+                            <span style="font-weight:700;color:#fff;font-size:0.85rem;">${formatCurrency(l.principal)}</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;padding:9px 14px;border-bottom:1px solid rgba(255,255,255,0.05);">
+                            <span style="color:rgba(255,255,255,0.5);font-size:0.8rem;display:flex;align-items:center;gap:7px;"><i class="fa-solid fa-percent" style="color:${c};width:14px;"></i>Interest Rate</span>
+                            <span style="font-weight:700;color:#fff;font-size:0.85rem;">${l.interest_rate}% p.a.</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;padding:9px 14px;border-bottom:1px solid rgba(255,255,255,0.05);">
+                            <span style="color:rgba(255,255,255,0.5);font-size:0.8rem;display:flex;align-items:center;gap:7px;"><i class="fa-solid fa-coins" style="color:#f59e0b;width:14px;"></i>Total Interest</span>
+                            <span style="font-weight:700;color:#f59e0b;font-size:0.85rem;">${formatCurrency(totInt)}</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;padding:9px 14px;${!closed?'border-bottom:1px solid rgba(255,255,255,0.05);':''}">
+                            <span style="color:rgba(255,255,255,0.5);font-size:0.8rem;display:flex;align-items:center;gap:7px;"><i class="fa-solid fa-calendar" style="color:${c};width:14px;"></i>Start Date</span>
+                            <span style="font-weight:700;color:#fff;font-size:0.85rem;">${new Date(l.start_date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</span>
+                        </div>
+                        ${!closed?`
+                        <div style="display:flex;justify-content:space-between;padding:9px 14px;">
+                            <span style="color:rgba(255,255,255,0.5);font-size:0.8rem;display:flex;align-items:center;gap:7px;"><i class="fa-solid fa-clock" style="color:#ef4444;width:14px;"></i>Next EMI</span>
+                            <span style="font-weight:700;color:#ef4444;font-size:0.85rem;">${nextStr}</span>
+                        </div>`:''}
+                    </div>
+
+                    <!-- EMI Footer Badge -->
+                    <div style="background:linear-gradient(${grad});border-radius:12px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;">
+                        <div>
+                            <div style="font-size:0.68rem;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;">Monthly EMI</div>
+                            <div style="font-size:1.2rem;font-weight:900;color:#fff;">${formatCurrency(emi)}</div>
+                        </div>
+                        ${!closed?`<button onclick="openPaymentModal('${l.id}')" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);color:#fff;padding:9px 16px;border-radius:10px;cursor:pointer;font-size:0.8rem;font-weight:700;display:flex;align-items:center;gap:6px;"><i class="fa-solid fa-check"></i>Mark Paid</button>`:`<span style="color:rgba(255,255,255,0.7);font-size:0.82rem;">✓ Loan Cleared</span>`}
+                    </div>
+
+                    ${l.notes?`<div style="font-size:0.79rem;color:rgba(255,255,255,0.5);background:rgba(255,255,255,0.04);padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.07);"><i class="fa-solid fa-note-sticky" style="margin-right:6px;color:${c};"></i>${l.notes}</div>`:''}
                 </div>
-                <div style="display:flex;flex-direction:column;gap:6px;">
-                    <div style="display:flex;justify-content:space-between;font-size:0.76rem;color:var(--text-secondary);"><span>Paid: ${formatCurrency(paid)}</span><span>${pct}% complete</span></div>
-                    <div class="loan-progress-bar-bg"><div class="loan-progress-bar-fill" style="width:${pct}%;background:linear-gradient(90deg,${color},${color}88);"></div></div>
-                    <div style="display:flex;justify-content:space-between;font-size:0.76rem;color:var(--text-secondary);"><span>Remaining: ${formatCurrency(remaining)}</span><span>EMIs: ${emiPaid}/${l.tenure_months}</span></div>
-                </div>
-                <div style="display:flex;flex-direction:column;gap:7px;">
-                    <div class="loan-detail-row"><span class="loan-detail-label"><i class="fa-solid fa-indian-rupee-sign" style="width:16px;margin-right:4px;"></i>Principal</span><span class="loan-detail-value">${formatCurrency(l.principal)}</span></div>
-                    <div class="loan-detail-row"><span class="loan-detail-label"><i class="fa-solid fa-percent" style="width:16px;margin-right:4px;"></i>Interest Rate</span><span class="loan-detail-value">${l.interest_rate}% p.a.</span></div>
-                    <div class="loan-detail-row"><span class="loan-detail-label"><i class="fa-solid fa-coins" style="width:16px;margin-right:4px;"></i>Total Interest</span><span class="loan-detail-value" style="color:#f59e0b;">${formatCurrency(totInt)}</span></div>
-                    <div class="loan-detail-row"><span class="loan-detail-label"><i class="fa-solid fa-calendar" style="width:16px;margin-right:4px;"></i>Start Date</span><span class="loan-detail-value">${new Date(l.start_date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</span></div>
-                    ${!closed?`<div class="loan-detail-row"><span class="loan-detail-label"><i class="fa-solid fa-clock" style="width:16px;margin-right:4px;"></i>Next EMI</span><span class="loan-detail-value" style="color:var(--danger);">${nextStr}</span></div>`:''}
-                </div>
-                <div class="loan-emi-badge">
-                    <div><div style="font-size:0.72rem;opacity:0.8;">Monthly EMI</div><div style="font-size:1.15rem;font-weight:800;">${formatCurrency(emi)}</div></div>
-                    ${!closed?`<button onclick="openPaymentModal('${l.id}')" style="background:rgba(255,255,255,0.18);border:none;color:#fff;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:0.8rem;font-weight:600;"><i class="fa-solid fa-check" style="margin-right:5px;"></i>Mark Paid</button>`:'<span style="opacity:0.7;font-size:0.82rem;">Loan Cleared</span>'}
-                </div>
-                ${l.notes?`<div style="font-size:0.8rem;color:var(--text-secondary);background:var(--bg-secondary);padding:8px 12px;border-radius:8px;"><i class="fa-solid fa-note-sticky" style="margin-right:5px;"></i>${l.notes}</div>`:''}
             </div>`;
         }).join('');
     }
