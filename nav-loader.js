@@ -103,43 +103,43 @@
             <ul class="sidebar-menu">
                 <li class="menu-item ${activePage === 'index' ? 'active' : ''}">
                     <a href="index.html">
-                        <i class="fa-solid fa-chart-pie"></i>
+                        <i class="fa-solid fa-chart-pie" style="color: #3b82f6;"></i>
                         <span>Dashboard</span>
                     </a>
                 </li>
                 <li class="menu-item ${activePage === 'accounts' ? 'active' : ''}">
                     <a href="accounts.html">
-                        <i class="fa-solid fa-building-columns"></i>
+                        <i class="fa-solid fa-building-columns" style="color: #10b981;"></i>
                         <span>Bank Accounts</span>
                     </a>
                 </li>
                 <li class="menu-item ${activePage === 'income' ? 'active' : ''}">
                     <a href="income.html">
-                        <i class="fa-solid fa-circle-arrow-down"></i>
+                        <i class="fa-solid fa-circle-arrow-down" style="color: #059669;"></i>
                         <span>Income</span>
                     </a>
                 </li>
                 <li class="menu-item ${activePage === 'expense' ? 'active' : ''}">
                     <a href="expense.html">
-                        <i class="fa-solid fa-circle-arrow-up"></i>
+                        <i class="fa-solid fa-circle-arrow-up" style="color: #dc2626;"></i>
                         <span>Expenses</span>
                     </a>
                 </li>
                 <li class="menu-item ${activePage === 'transfers' ? 'active' : ''}">
                     <a href="transfers.html">
-                        <i class="fa-solid fa-right-left"></i>
+                        <i class="fa-solid fa-right-left" style="color: #8b5cf6;"></i>
                         <span>Transfers</span>
                     </a>
                 </li>
                 <li class="menu-item ${activePage === 'reports' ? 'active' : ''}">
                     <a href="reports.html">
-                        <i class="fa-solid fa-file-invoice-dollar"></i>
+                        <i class="fa-solid fa-file-invoice-dollar" style="color: #6366f1;"></i>
                         <span>Reports</span>
                     </a>
                 </li>
                 <li class="menu-item ${activePage === 'loans' ? 'active' : ''}">
                     <a href="loans.html">
-                        <i class="fa-solid fa-hand-holding-dollar"></i>
+                        <i class="fa-solid fa-hand-holding-dollar" style="color: #f59e0b;"></i>
                         <span>Loans</span>
                     </a>
                 </li>
@@ -147,7 +147,7 @@
                 ${(user.role === 'super_admin' || user.role === 'admin') ? `
                 <li class="menu-item ${activePage === 'users' ? 'active' : ''}">
                     <a href="users.html">
-                        <i class="fa-solid fa-users-gear"></i>
+                        <i class="fa-solid fa-users-gear" style="color: #ec4899;"></i>
                         <span>Users Control</span>
                     </a>
                 </li>
@@ -155,7 +155,7 @@
                 
                 <li class="menu-item ${activePage === 'activity_logs' ? 'active' : ''}">
                     <a href="activity_logs.html">
-                        <i class="fa-solid fa-clipboard-list"></i>
+                        <i class="fa-solid fa-clipboard-list" style="color: #06b6d4;"></i>
                         <span>Activity Logs</span>
                     </a>
                 </li>
@@ -163,15 +163,22 @@
                 ${user.role === 'super_admin' ? `
                 <li class="menu-item ${activePage === 'settings' ? 'active' : ''}">
                     <a href="settings.html">
-                        <i class="fa-solid fa-gears"></i>
+                        <i class="fa-solid fa-gears" style="color: #a8a29e;"></i>
                         <span>System Settings</span>
                     </a>
                 </li>
                 ` : ''}
+
+                <li class="menu-item">
+                    <a href="#" id="themeToggleBtnPC">
+                        <i class="fa-solid fa-sun" id="themeIconPC" style="color: #eab308;"></i>
+                        <span>Theme Toggle</span>
+                    </a>
+                </li>
                 
                 <li class="menu-item" style="margin-top: auto;">
                     <a href="#" id="signOutBtn">
-                        <i class="fa-solid fa-right-from-bracket"></i>
+                        <i class="fa-solid fa-right-from-bracket" style="color: #ef4444;"></i>
                         <span>Sign Out</span>
                     </a>
                 </li>
@@ -295,23 +302,23 @@
         <!-- Mobile Bottom Navigation Bar (Quick Actions) -->
         <div class="mobile-bottom-nav">
             <a href="index.html" class="nav-item ${activePage === 'index' ? 'active' : ''}">
-                <i class="fa-solid fa-chart-pie"></i>
+                <i class="fa-solid fa-chart-pie" style="color: #3b82f6;"></i>
                 <span>Home</span>
             </a>
             <a href="income.html" class="nav-item ${activePage === 'income' ? 'active' : ''}">
-                <i class="fa-solid fa-circle-plus" style="color:#10b981;"></i>
+                <i class="fa-solid fa-circle-plus" style="color: #10b981;"></i>
                 <span>Income</span>
             </a>
             <a href="expense.html" class="nav-item ${activePage === 'expense' ? 'active' : ''}">
-                <i class="fa-solid fa-circle-minus" style="color:#ef4444;"></i>
+                <i class="fa-solid fa-circle-minus" style="color: #ef4444;"></i>
                 <span>Expense</span>
             </a>
             <a href="reports.html" class="nav-item ${activePage === 'reports' ? 'active' : ''}">
-                <i class="fa-solid fa-file-chart-column"></i>
+                <i class="fa-solid fa-chart-column" style="color: #8b5cf6;"></i>
                 <span>Reports</span>
             </a>
             <a href="#" class="nav-item" id="mobileMoreBtn">
-                <i class="fa-solid fa-grid-2"></i>
+                <i class="fa-solid fa-ellipsis" style="color: #f59e0b;"></i>
                 <span>More</span>
             </a>
         </div>`;
@@ -387,15 +394,22 @@
             });
         }
 
-        // Theme Toggle Action
+        // Theme Toggle Action (Mobile + PC)
+        const toggleTheme = () => {
+            const currentTheme = document.documentElement.getAttribute("data-theme") || "dark";
+            const newTheme = currentTheme === "light" ? "dark" : "light";
+            document.documentElement.setAttribute("data-theme", newTheme);
+            localStorage.setItem("theme", newTheme);
+            syncThemeDisplay();
+        };
+
         const themeBtn = document.getElementById("themeToggleBtn");
-        if (themeBtn) {
-            themeBtn.addEventListener("click", () => {
-                const currentTheme = document.documentElement.getAttribute("data-theme") || "dark";
-                const newTheme = currentTheme === "light" ? "dark" : "light";
-                document.documentElement.setAttribute("data-theme", newTheme);
-                localStorage.setItem("theme", newTheme);
-                syncThemeDisplay();
+        const themeBtnPC = document.getElementById("themeToggleBtnPC");
+        if (themeBtn) themeBtn.addEventListener("click", toggleTheme);
+        if (themeBtnPC) {
+            themeBtnPC.addEventListener("click", (e) => {
+                e.preventDefault();
+                toggleTheme();
             });
         }
 
@@ -428,13 +442,16 @@
     function syncThemeDisplay() {
         const currentTheme = localStorage.getItem("theme") || "dark";
         document.documentElement.setAttribute("data-theme", currentTheme);
+        
         const icon = document.getElementById("themeIcon");
+        const iconPC = document.getElementById("themeIconPC");
+        
         if (icon) {
-            if (currentTheme === "light") {
-                icon.className = "fa-solid fa-moon";
-            } else {
-                icon.className = "fa-solid fa-sun";
-            }
+            icon.className = currentTheme === "light" ? "fa-solid fa-moon" : "fa-solid fa-sun";
+        }
+        if (iconPC) {
+            iconPC.className = currentTheme === "light" ? "fa-solid fa-moon" : "fa-solid fa-sun";
+            iconPC.style.color = currentTheme === "light" ? "#6366f1" : "#eab308";
         }
     }
 
