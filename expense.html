@@ -509,29 +509,51 @@
         function handleSave(isMobile) {
             const prefix = isMobile ? 'm_' : '';
             const saveBtn = document.getElementById(isMobile ? 'm_saveBtn' : 'saveBtn');
-            saveBtn.disabled = true;
 
-            const title = document.getElementById(prefix + 'title').value.trim();
+            const title    = document.getElementById(prefix + 'title').value.trim();
             const category = document.getElementById(prefix + 'category').value;
-            const amount = parseFloat(document.getElementById(prefix + 'amount').value);
-            const accountId = document.getElementById(prefix + 'account_id').value;
-            const method = document.getElementById(prefix + 'payment_method').value;
-            const date = document.getElementById(prefix + 'expense_date').value;
-            const refNo = document.getElementById(prefix + 'reference_no').value.trim();
-            const desc = document.getElementById(prefix + 'description').value.trim();
+            const amount   = parseFloat(document.getElementById(prefix + 'amount').value);
+            const accountId= document.getElementById(prefix + 'account_id').value;
+            const method   = document.getElementById(prefix + 'payment_method').value;
+            const date     = document.getElementById(prefix + 'expense_date').value;
+            const refNo    = document.getElementById(prefix + 'reference_no').value.trim();
+            const desc     = document.getElementById(prefix + 'description').value.trim();
             const cameraPhoto = document.getElementById(prefix + 'cameraPhotoInput').value;
-            const fileInput = document.getElementById(prefix + 'attachment').files[0];
+            const fileInput   = document.getElementById(prefix + 'attachment').files[0];
 
+            // ── Validation ──
+            if (!title) {
+                return Swal.fire({ icon: 'warning', title: 'Title Required', text: 'Please enter a title / description for this expense.' });
+            }
+            if (!category) {
+                return Swal.fire({ icon: 'warning', title: 'Category Required', text: 'Please select a category.' });
+            }
+            if (!amount || isNaN(amount) || amount <= 0) {
+                return Swal.fire({ icon: 'warning', title: 'Invalid Amount', text: 'Please enter a valid amount greater than 0.' });
+            }
+            if (!accountId) {
+                return Swal.fire({ icon: 'warning', title: 'Account Required', text: 'Please select the payment account.' });
+            }
+            if (!date) {
+                return Swal.fire({ icon: 'warning', title: 'Date Required', text: 'Please select the expense date.' });
+            }
+
+            saveBtn.disabled = true;
             let docId = editMode ? activeEditId : db.collection('expenses').doc().id;
 
             let uploadPromise = Promise.resolve(null);
             if (cameraPhoto) {
                 const storageRef = storage.ref(`expense_receipts/${docId}/cam_receipt.jpg`);
-                uploadPromise = storageRef.putString(cameraPhoto, 'data_url').then(snapshot => snapshot.ref.getDownloadURL());
+                uploadPromise = storageRef.putString(cameraPhoto, 'data_url')
+                    .then(snap => snap.ref.getDownloadURL())
+                    .catch(() => null);
             } else if (fileInput) {
                 const storageRef = storage.ref(`expense_receipts/${docId}/${fileInput.name}`);
-                uploadPromise = storageRef.put(fileInput).then(snapshot => snapshot.ref.getDownloadURL());
+                uploadPromise = storageRef.put(fileInput)
+                    .then(snap => snap.ref.getDownloadURL())
+                    .catch(() => null);
             }
+
 
             uploadPromise.then(attachmentUrl => {
                 const currentUser = auth.currentUser;
