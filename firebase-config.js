@@ -18,6 +18,15 @@ if (!firebase.apps.length) {
 // Global instances
 const auth = firebase.auth();
 const db = firebase.firestore();
+
+// Enable Firestore multi-tab offline persistence for maximum speed
+db.enablePersistence({ synchronizeTabs: true }).catch((err) => {
+    if (err.code == 'failed-precondition') {
+        console.warn("Multiple tabs open, persistence enabled in first tab only.");
+    } else if (err.code == 'unimplemented') {
+        console.warn("Offline persistence not supported by this browser.");
+    }
+});
 const storage = firebase.storage();
 storage.setMaxUploadRetryTime(5000); // 5 seconds upload timeout
 storage.setMaxOperationRetryTime(5000); // 5 seconds operation timeout

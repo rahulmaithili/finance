@@ -249,7 +249,7 @@
         function loadTransfersTable(currentUser) {
             const tableBody = document.getElementById('transfersTableBody');
 
-            db.collection('transfers').orderBy('transfer_date', 'desc').onSnapshot(snapshot => {
+            db.collection('transfers').orderBy('transfer_date', 'desc').limit(300).onSnapshot(snapshot => {
                 // Always destroy before repopulating
                 if ($.fn.DataTable.isDataTable('#transfersTable')) {
                     $('#transfersTable').DataTable().destroy();

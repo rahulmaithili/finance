@@ -217,46 +217,41 @@
             const currentYearMonth = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
             const monthName = today.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
 
-            // 1. Current Month Income Total
-            db.collection('income')
+            const pInc = db.collection('income')
                 .where('income_date', '>=', currentYearMonth + '-01')
                 .where('income_date', '<=', currentYearMonth + '-31')
-                .get()
-                .then(snapshot => {
-                    let totalInc = 0;
-                    snapshot.forEach(doc => { totalInc += parseFloat(doc.data().amount || 0); });
-                    document.getElementById('kpiIncome').textContent = formatCurrency(totalInc);
-                    document.getElementById('kpiIncomeSub').textContent = snapshot.size + ' entries in ' + monthName;
-                    updateMargin();
-                });
+                .get();
 
-            // 2. Current Month Expense Total
-            db.collection('expenses')
+            const pExp = db.collection('expenses')
                 .where('expense_date', '>=', currentYearMonth + '-01')
                 .where('expense_date', '<=', currentYearMonth + '-31')
-                .get()
-                .then(snapshot => {
-                    let totalExp = 0;
-                    snapshot.forEach(doc => { totalExp += parseFloat(doc.data().amount || 0); });
-                    document.getElementById('kpiExpense').textContent = formatCurrency(totalExp);
-                    document.getElementById('kpiExpenseSub').textContent = snapshot.size + ' entries in ' + monthName;
-                    updateMargin();
-                });
+                .get();
 
-            // 3. Bank Balance Sum
-            db.collection('bank_accounts')
+            const pBal = db.collection('bank_accounts')
                 .where('status', '==', 'active')
-                .get()
-                .then(snapshot => {
-                    let totalBal = 0;
-                    snapshot.forEach(doc => { totalBal += parseFloat(doc.data().current_balance || 0); });
-                    document.getElementById('kpiBalance').textContent = formatCurrency(totalBal);
-                });
+                .get();
 
-            // 4. Loan Outstanding
-            db.collection('loans').where('status', '==', 'active').get().then(snapshot => {
+            const pLoan = db.collection('loans')
+                .where('status', '==', 'active')
+                .get();
+
+            Promise.all([pInc, pExp, pBal, pLoan]).then(([incSnap, expSnap, balSnap, loanSnap]) => {
+                let totalInc = 0;
+                incSnap.forEach(doc => { totalInc += parseFloat(doc.data().amount || 0); });
+                document.getElementById('kpiIncome').textContent = formatCurrency(totalInc);
+                document.getElementById('kpiIncomeSub').textContent = incSnap.size + ' entries in ' + monthName;
+
+                let totalExp = 0;
+                expSnap.forEach(doc => { totalExp += parseFloat(doc.data().amount || 0); });
+                document.getElementById('kpiExpense').textContent = formatCurrency(totalExp);
+                document.getElementById('kpiExpenseSub').textContent = expSnap.size + ' entries in ' + monthName;
+
+                let totalBal = 0;
+                balSnap.forEach(doc => { totalBal += parseFloat(doc.data().current_balance || 0); });
+                document.getElementById('kpiBalance').textContent = formatCurrency(totalBal);
+
                 let outstanding = 0, count = 0;
-                snapshot.forEach(doc => {
+                loanSnap.forEach(doc => {
                     const l = doc.data();
                     const r = (l.interest_rate / 12) / 100;
                     const n = l.tenure_months;
@@ -267,24 +262,19 @@
                 });
                 document.getElementById('kpiLoan').textContent = formatCurrency(outstanding);
                 document.getElementById('kpiLoanSub').textContent = count + ' active loan' + (count !== 1 ? 's' : '') + ' → click to manage';
-            }).catch(() => {
-                document.getElementById('kpiLoan').textContent = formatCurrency(0);
-                document.getElementById('kpiLoanSub').textContent = 'No loans recorded';
-            });
-        }
 
-        function updateMargin() {
-            const incText = document.getElementById('kpiIncome').textContent.replace(/[^\d.-]/g, '');
-            const expText = document.getElementById('kpiExpense').textContent.replace(/[^\d.-]/g, '');
-            const margin = parseFloat(incText) - parseFloat(expText);
-            const marginElement = document.getElementById('kpiMargin');
-            marginElement.textContent = formatCurrency(margin);
-            const sub = document.getElementById('kpiMarginSub');
-            if (margin >= 0) {
-                sub.innerHTML = '&#9650; Profit this month';
-            } else {
-                sub.innerHTML = '&#9660; Loss this month';
-            }
+                // Calculate Net Margin
+                const margin = totalInc - totalExp;
+                document.getElementById('kpiMargin').textContent = formatCurrency(margin);
+                const sub = document.getElementById('kpiMarginSub');
+                if (margin >= 0) {
+                    sub.innerHTML = '&#9650; Profit this month';
+                } else {
+                    sub.innerHTML = '&#9660; Loss this month';
+                }
+            }).catch(err => {
+                console.error("Error loading KPIs:", err);
+            });
         }
 
         function loadRecentTransactions() {
@@ -402,9 +392,10 @@
             let incomeValues = new Array(6).fill(0);
             let expenseValues = new Array(6).fill(0);
 
-            // Fetch income and expense sums
-            const p1 = db.collection('income').get();
-            const p2 = db.collection('expenses').get();
+            // Fetch income and expense sums only for the last 6 months (optimized query)
+            const minDateStr = monthKeys[0] + '-01';
+            const p1 = db.collection('income').where('income_date', '>=', minDateStr).get();
+            const p2 = db.collection('expenses').where('expense_date', '>=', minDateStr).get();
 
             Promise.all([p1, p2]).then(([incSnap, expSnap]) => {
                 incSnap.forEach(doc => {

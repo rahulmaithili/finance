@@ -82,7 +82,7 @@
                 query = query.where('user_id', '==', user.uid);
             }
 
-            query.orderBy('created_at', 'desc').onSnapshot(snapshot => {
+            query.orderBy('created_at', 'desc').limit(100).onSnapshot(snapshot => {
                 tableBody.innerHTML = '';
                 snapshot.forEach(doc => {
                     const log = doc.data();

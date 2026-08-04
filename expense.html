@@ -387,7 +387,7 @@
         function loadExpenseTable(currentUser) {
             const tableBody = document.getElementById('expenseTableBody');
 
-            db.collection('expenses').orderBy('expense_date', 'desc').onSnapshot(snapshot => {
+            db.collection('expenses').orderBy('expense_date', 'desc').limit(300).onSnapshot(snapshot => {
                 // Always destroy before repopulating
                 if ($.fn.DataTable.isDataTable('#expenseTable')) {
                     $('#expenseTable').DataTable().destroy();

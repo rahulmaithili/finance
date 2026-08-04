@@ -379,7 +379,7 @@
         function loadIncomeTable(currentUser) {
             const tableBody = document.getElementById('incomeTableBody');
 
-            db.collection('income').orderBy('income_date', 'desc').onSnapshot(snapshot => {
+            db.collection('income').orderBy('income_date', 'desc').limit(300).onSnapshot(snapshot => {
                 // Always destroy before repopulating
                 if ($.fn.DataTable.isDataTable('#incomeTable')) {
                     $('#incomeTable').DataTable().destroy();
