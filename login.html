@@ -47,7 +47,7 @@
             <div class="form-group" style="margin-bottom: 30px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                     <label class="form-label" for="password" style="margin-bottom: 0;">Password</label>
-                    <a href="javascript:void(0);" onclick="forgotPassword()" style="font-size: 0.78rem; color: var(--primary); text-decoration: none; font-weight: 600;">Forgot Password?</a>
+                    <a href="javascript:void(0);" onclick="openForgotModal()" style="font-size: 0.78rem; color: var(--primary); text-decoration: none; font-weight: 600;">Forgot Password?</a>
                 </div>
                 <div class="input-icon-wrapper">
                     <input type="password" id="password" class="form-control" placeholder="••••••••" required>
@@ -95,6 +95,36 @@
                 </div>
                 <button type="submit" class="btn-primary" style="margin-top:15px;">Register & Sign In</button>
                 <button type="button" class="btn-secondary" style="margin-top:10px; width:100%;" id="cancelSignup">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Forgot Password Modal -->
+    <div id="forgotPasswordModal" style="display:none; position: fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
+        <div class="login-card" style="width:90%; max-width:400px; margin:auto;">
+            <div class="login-header">
+                <h2>Reset Password</h2>
+                <p>Enter your email to receive a secure password reset link on Gmail</p>
+            </div>
+            <div id="forgotErrorAlert" class="alert alert-danger" style="margin-bottom: 20px; display: none;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                    <span id="forgotErrorMessage">Failed to send reset link.</span>
+                </div>
+            </div>
+            <form id="forgotPasswordForm">
+                <div class="form-group">
+                    <label class="form-label">Registered Email Address</label>
+                    <div class="input-icon-wrapper">
+                        <input type="email" id="forgotEmail" class="form-control" style="padding-left:42px;" placeholder="name@domain.com" required>
+                        <i class="fa-solid fa-envelope" style="left: 14px;"></i>
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary" style="margin-top:20px;" id="sendResetBtn">
+                    <span id="sendResetBtnText">Send Reset Link</span>
+                    <i class="fa-solid fa-paper-plane"></i>
+                </button>
+                <button type="button" class="btn-secondary" style="margin-top:10px; width:100%;" id="cancelForgot">Cancel</button>
             </form>
         </div>
     </div>
@@ -184,45 +214,50 @@
                 });
         });
 
-        function forgotPassword() {
-            const email = document.getElementById('email').value.trim();
-            if (!email) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Email Required',
-                    text: 'Please enter your email address first in the input field above, then click Forgot Password.',
-                    confirmButtonColor: 'var(--primary)'
-                });
-                return;
-            }
-
-            Swal.fire({
-                title: 'Reset Password?',
-                text: `Send a password reset email to ${email}?`,
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: 'var(--primary)',
-                confirmButtonText: 'Yes, send reset link'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    auth.sendPasswordResetEmail(email).then(() => {
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Email Sent',
-                            text: 'A password reset link has been sent to your email inbox.',
-                            confirmButtonColor: 'var(--primary)'
-                        });
-                    }).catch(error => {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Failed to Send',
-                            text: error.message,
-                            confirmButtonColor: 'var(--primary)'
-                        });
-                    });
-                }
-            });
+        // Toggle forgot password modal
+        function openForgotModal() {
+            const emailInput = document.getElementById('email').value.trim();
+            document.getElementById('forgotEmail').value = emailInput;
+            document.getElementById('forgotErrorAlert').style.display = 'none';
+            document.getElementById('forgotPasswordModal').style.display = 'flex';
         }
+        
+        document.getElementById('cancelForgot').addEventListener('click', () => {
+            document.getElementById('forgotPasswordModal').style.display = 'none';
+        });
+
+        // Handle Forgot Password Form Submission
+        document.getElementById('forgotPasswordForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const email = document.getElementById('forgotEmail').value.trim();
+            const sendResetBtn = document.getElementById('sendResetBtn');
+            const sendResetBtnText = document.getElementById('sendResetBtnText');
+            const forgotErrorAlert = document.getElementById('forgotErrorAlert');
+            const forgotErrorMessage = document.getElementById('forgotErrorMessage');
+
+            sendResetBtn.disabled = true;
+            sendResetBtnText.textContent = "Sending Link...";
+            forgotErrorAlert.style.display = "none";
+
+            auth.sendPasswordResetEmail(email)
+                .then(() => {
+                    document.getElementById('forgotPasswordModal').style.display = 'none';
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Reset Link Sent!',
+                        text: `A secure password reset link has been successfully sent to ${email}. Please check your Gmail inbox and spam folders.`,
+                        confirmButtonColor: 'var(--primary)'
+                    });
+                    sendResetBtn.disabled = false;
+                    sendResetBtnText.textContent = "Send Reset Link";
+                })
+                .catch((error) => {
+                    sendResetBtn.disabled = false;
+                    sendResetBtnText.textContent = "Send Reset Link";
+                    forgotErrorAlert.style.display = "block";
+                    forgotErrorMessage.textContent = error.message;
+                });
+        });
     </script>
 </body>
 </html>
