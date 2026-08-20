@@ -70,6 +70,11 @@
         .payment-hist-item{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg-secondary);border-radius:10px;border:1px solid var(--border);font-size:0.83rem;}
         .mark-paid-btn{background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);color:#fff;padding:7px 14px;border-radius:8px;cursor:pointer;font-size:0.78rem;font-weight:600;transition:background 0.2s;}
         .mark-paid-btn:hover{background:rgba(255,255,255,0.3);}
+        
+        /* Force SweetAlert over the modal overlays */
+        .swal2-container {
+            z-index: 99999 !important;
+        }
     </style>
 </head>
 <body>
