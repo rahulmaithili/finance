@@ -67,7 +67,7 @@
 
     // 2. Render Sidebar & Mobile menu elements
     function renderNavigation(user) {
-        const activePage = window.location.pathname.split("/").pop().replace(".html", "") || 'index';
+        const activePage = window.location.pathname.split("/").pop().replace(".html", "").replace("-", "_") || 'index';
         
         // Generate Initials
         let initials = '';
