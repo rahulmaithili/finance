@@ -117,6 +117,117 @@ try {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     echo "Table `activity_logs` created or already exists.<br>";
     
+    // Create loans table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `loans` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `lender_name` VARCHAR(100) NOT NULL,
+        `principal` DECIMAL(12,2) NOT NULL,
+        `interest_rate` DECIMAL(5,2) NOT NULL,
+        `tenure_months` INT NOT NULL,
+        `emi_amount` DECIMAL(12,2) NOT NULL,
+        `start_date` DATE NOT NULL,
+        `emi_day` INT NOT NULL DEFAULT 5,
+        `repayment_account_id` INT NOT NULL,
+        `total_paid` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        `emi_paid` INT NOT NULL DEFAULT 0,
+        `status` ENUM('active', 'closed') NOT NULL DEFAULT 'active',
+        `attachment` VARCHAR(255) DEFAULT NULL,
+        `created_by` INT NOT NULL,
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (`repayment_account_id`) REFERENCES `bank_accounts`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+        FOREIGN KEY (`created_by`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    echo "Table `loans` created or already exists.<br>";
+
+    // Create loan_payments table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `loan_payments` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `loan_id` INT NOT NULL,
+        `amount` DECIMAL(12,2) NOT NULL,
+        `payment_date` DATE NOT NULL,
+        `payment_method` ENUM('cash', 'bank', 'upi') NOT NULL DEFAULT 'cash',
+        `note` VARCHAR(255) DEFAULT NULL,
+        `account_id` INT NOT NULL,
+        `recorded_by` INT NOT NULL,
+        `recorded_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (`loan_id`) REFERENCES `loans`(`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+        FOREIGN KEY (`account_id`) REFERENCES `bank_accounts`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+        FOREIGN KEY (`recorded_by`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    echo "Table `loan_payments` created or already exists.<br>";
+
+    // Create loans_given table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `loans_given` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `debtor_name` VARCHAR(100) NOT NULL,
+        `debtor_address` VARCHAR(255) NOT NULL,
+        `debtor_email` VARCHAR(150) DEFAULT NULL,
+        `debtor_phone` VARCHAR(20) NOT NULL,
+        `principal` DECIMAL(12,2) NOT NULL,
+        `interest_rate` DECIMAL(5,2) NOT NULL,
+        `tenure_months` INT NOT NULL,
+        `emi_amount` DECIMAL(12,2) NOT NULL,
+        `start_date` DATE NOT NULL,
+        `emi_day` INT NOT NULL DEFAULT 5,
+        `repayment_account_id` INT NOT NULL,
+        `repayment_upi` VARCHAR(100) DEFAULT NULL,
+        `total_paid` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        `emi_paid` INT NOT NULL DEFAULT 0,
+        `status` ENUM('active', 'closed') NOT NULL DEFAULT 'active',
+        `attachment` VARCHAR(255) DEFAULT NULL,
+        `created_by` INT NOT NULL,
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (`repayment_account_id`) REFERENCES `bank_accounts`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+        FOREIGN KEY (`created_by`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    echo "Table `loans_given` created or already exists.<br>";
+
+    // Create loan_given_payments table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `loan_given_payments` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `loan_given_id` INT NOT NULL,
+        `amount` DECIMAL(12,2) NOT NULL,
+        `payment_date` DATE NOT NULL,
+        `payment_method` ENUM('cash', 'bank', 'upi') NOT NULL DEFAULT 'cash',
+        `note` VARCHAR(255) DEFAULT NULL,
+        `account_id` INT NOT NULL,
+        `recorded_by` INT NOT NULL,
+        `recorded_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (`loan_given_id`) REFERENCES `loans_given`(`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+        FOREIGN KEY (`account_id`) REFERENCES `bank_accounts`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+        FOREIGN KEY (`recorded_by`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    echo "Table `loan_given_payments` created or already exists.<br>";
+
+    // Create quick_collections table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `quick_collections` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `payer_name` VARCHAR(100) NOT NULL,
+        `payer_phone` VARCHAR(20) DEFAULT NULL,
+        `purpose` VARCHAR(255) NOT NULL,
+        `amount` DECIMAL(12,2) NOT NULL,
+        `account_id` INT NOT NULL,
+        `payment_method` ENUM('cash', 'upi', 'razorpay') NOT NULL DEFAULT 'cash',
+        `rzp_payment_id` VARCHAR(100) DEFAULT NULL,
+        `income_id` INT DEFAULT NULL,
+        `status` VARCHAR(20) NOT NULL DEFAULT 'paid',
+        `recorded_by` INT NOT NULL,
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (`account_id`) REFERENCES `bank_accounts`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+        FOREIGN KEY (`recorded_by`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    echo "Table `quick_collections` created or already exists.<br>";
+
+    // Create password_reset_otps table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `password_reset_otps` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `email` VARCHAR(150) NOT NULL,
+        `otp` VARCHAR(10) NOT NULL,
+        `expires_at` BIGINT NOT NULL,
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    echo "Table `password_reset_otps` created or already exists.<br>";
+    
     // 10. Seed Default Admin User if not exists
     $adminEmail = 'admin@demo.com';
     $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");

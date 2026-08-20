@@ -81,6 +81,24 @@ $initials = substr($initials, 0, 2);
                 <span>Reports</span>
             </a>
         </li>
+        <li class="menu-item <?= is_active('loans', $active_page ?? '') ?>">
+            <a href="loans.php">
+                <i class="fa-solid fa-hand-holding-dollar" style="color: #f59e0b;"></i>
+                <span>Loans</span>
+            </a>
+        </li>
+        <li class="menu-item <?= is_active('loans_given', $active_page ?? '') ?>">
+            <a href="loans-given.php">
+                <i class="fa-solid fa-hand-holding-hand" style="color: #a855f7;"></i>
+                <span>Given Loans</span>
+            </a>
+        </li>
+        <li class="menu-item <?= is_active('quick_collect', $active_page ?? '') ?>">
+            <a href="quick-collect.php">
+                <i class="fa-solid fa-qrcode" style="color: #06b6d4;"></i>
+                <span>Quick Collect</span>
+            </a>
+        </li>
         
         <?php if (in_array($current_user_role, ['super_admin', 'admin'])): ?>
         <li class="menu-item <?= is_active('users', $active_page ?? '') ?>">

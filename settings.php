@@ -81,6 +81,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 'site_logo'        => getSetting('site_logo', ''),
                 'maintenance_mode' => getSetting('maintenance_mode', '0'),
                 'allow_user_uploads' => getSetting('allow_user_uploads', '1'),
+                'upi_id'           => getSetting('upi_id', ''),
+                'upi_name'         => getSetting('upi_name', ''),
             ]
         ]);
         exit;
@@ -94,6 +96,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             saveSetting('currency_symbol',   clean($_POST['currency_symbol'] ?? '₹'));
             saveSetting('maintenance_mode',  ($_POST['maintenance_mode'] ?? '0') === '1' ? '1' : '0');
             saveSetting('allow_user_uploads', ($_POST['allow_user_uploads'] ?? '0') === '1' ? '1' : '0');
+            saveSetting('upi_id',            clean($_POST['upi_id'] ?? ''));
+            saveSetting('upi_name',          clean($_POST['upi_name'] ?? ''));
             log_activity('System Settings Updated');
             echo json_encode(['success' => true, 'message' => 'Settings saved successfully!']);
         } catch (Exception $e) {
@@ -629,6 +633,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                             </div>
                         </div>
 
+                        <!-- UPI Repayment Settings -->
+                        <h4 style="margin-top: 24px; margin-bottom: 12px; font-weight: 700; font-size: 0.95rem; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;"><i class="fa-solid fa-qrcode" style="margin-right: 6px; color: var(--primary);"></i>UPI Repayment Settings</h4>
+                        <div class="form-grid-2" style="margin-bottom: 20px;">
+                            <div class="sform-group">
+                                <label><i class="fa-solid fa-hashtag"></i> UPI ID (VPA) *</label>
+                                <input type="text" id="upiId" placeholder="e.g. corporate@upi" maxlength="100">
+                            </div>
+                            <div class="sform-group">
+                                <label><i class="fa-solid fa-user"></i> Payee Name (Merchant/Payee Name) *</label>
+                                <input type="text" id="upiName" placeholder="e.g. IEMS ERP Financials" maxlength="100">
+                            </div>
+                        </div>
+
                         <!-- Logo Upload -->
                         <div class="sform-group" style="margin-top:16px;">
                             <label><i class="fa-solid fa-image"></i> Site Logo</label>
@@ -985,6 +1002,8 @@ function loadSettings() {
             document.getElementById('siteName').value        = d.site_name || '';
             document.getElementById('copyrightText').value   = d.copyright_text || '';
             document.getElementById('currencySymbol').value  = d.currency_symbol || '₹';
+            document.getElementById('upiId').value           = d.upi_id || '';
+            document.getElementById('upiName').value         = d.upi_name || '';
             document.getElementById('allowUserUploads').checked = (d.allow_user_uploads === '1');
             document.getElementById('maintenanceMode').checked  = (d.maintenance_mode === '1');
             if (d.site_logo) {
@@ -1006,6 +1025,8 @@ function saveSettings() {
         currency_symbol:   document.getElementById('currencySymbol').value,
         allow_user_uploads: document.getElementById('allowUserUploads').checked ? '1' : '0',
         maintenance_mode:  document.getElementById('maintenanceMode').checked  ? '1' : '0',
+        upi_id:            document.getElementById('upiId').value.trim(),
+        upi_name:          document.getElementById('upiName').value.trim(),
     }, function(r) {
         showToast(r.success, r.message);
     }, 'json').fail(function() {
