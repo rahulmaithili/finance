@@ -23,6 +23,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
     <script src="firebase-config.js"></script>
     <script src="nav-loader.js"></script>
     
@@ -49,17 +50,17 @@
         }
         
         @media (max-width: 991px) {
-            .module-grid {
+            .app-wrapper .main-content .module-grid {
                 display: flex !important;
                 flex-direction: column !important;
                 gap: 20px;
             }
-            .module-grid > div:first-child {
-                order: 2; /* Table goes below on mobile */
+            .app-wrapper .main-content .module-grid > div:first-child {
+                order: 2 !important; /* Table goes below on mobile */
             }
-            .module-grid > div:last-child {
+            .app-wrapper .main-content .module-grid > div:last-child {
                 display: block !important;
-                order: 1; /* Form goes above on mobile */
+                order: 1 !important; /* Form goes above on mobile */
             }
         }
         
@@ -317,14 +318,15 @@
 </div>
 
 <script>
-    loadNav('quick_collect');
-    
+    // Declare state variables at the very top of script block to prevent TDZ reference errors during browser auto-fill/input events
     let currentUser = null, currentUserData = null;
     let paymentConfig = null;
     let selectedMethod = 'cash'; // Default method
     let activeAccountsMap = {};
     let activeAccountsFullMap = {};
     let collectionsTable = null;
+
+    loadNav('quick_collect');
 
     window.onNavigationLoaded = function(user, userData) {
         if (currentUser) return; // Prevent double execution
@@ -370,8 +372,12 @@
     }
 
     function updateDynamicQR() {
-        const amountVal = parseFloat(document.getElementById('amount').value);
-        const nameVal = document.getElementById('payerName').value.trim() || 'Quick Payer';
+        if (typeof selectedMethod === 'undefined') return;
+        const amountEl = document.getElementById('amount');
+        if (!amountEl) return;
+        const amountVal = parseFloat(amountEl.value);
+        const payerNameEl = document.getElementById('payerName');
+        const nameVal = payerNameEl ? (payerNameEl.value.trim() || 'Quick Payer') : 'Quick Payer';
         const qrCard = document.getElementById('qrPreviewCard');
         const qrContainer = document.getElementById('qrContainer');
         const qrPlaceholder = document.getElementById('qrPlaceholder');
