@@ -327,6 +327,7 @@
     let collectionsTable = null;
 
     window.onNavigationLoaded = function(user, userData) {
+        if (currentUser) return; // Prevent double execution
         currentUser = user;
         currentUserData = userData;
         
@@ -341,13 +342,25 @@
                     document.getElementById('rzpCollectBtn').style.display = 'block';
                 }
             }
+            updateDynamicQR(); // Re-trigger QR calculation after config loads
         }).catch(err => console.log("Failed to load payment config: ", err));
 
         // Load Bank Accounts & Collection logs
         loadAccountsList().then(() => {
             loadCollectionHistory();
-        });
+        }).catch(err => console.error("Initialization failed: ", err));
     };
+
+    // Fallback: If auth state listener inside IIFE fired before this block parsed
+    setTimeout(() => {
+        if (!currentUser && firebase.auth().currentUser) {
+            db.collection('users').doc(firebase.auth().currentUser.uid).get().then(doc => {
+                if (doc.exists && !currentUser) {
+                    window.onNavigationLoaded(firebase.auth().currentUser, doc.data());
+                }
+            }).catch(e => console.error("Fallback load failed: ", e));
+        }
+    }, 600);
 
     function setMethod(method) {
         selectedMethod = method;
