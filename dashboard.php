@@ -23,6 +23,34 @@ $net_profit = $total_income_this_month - $total_expense_this_month;
 $stmt = $pdo->query("SELECT SUM(current_balance) as total FROM bank_accounts WHERE status = 'active'");
 $total_bank_balance = $stmt->fetch()['total'] ?? 0.00;
 
+// Fetch total outstanding borrowed loans (Liability)
+$total_loans_outstanding = 0.00;
+try {
+    $stmt = $pdo->query("SELECT emi_amount, tenure_months, total_paid, status FROM loans");
+    while ($row = $stmt->fetch()) {
+        if ($row['status'] === 'active') {
+            $total_payable = (float)$row['emi_amount'] * (int)$row['tenure_months'];
+            $total_loans_outstanding += max(0, $total_payable - (float)$row['total_paid']);
+        }
+    }
+} catch (PDOException $e) {
+    $total_loans_outstanding = 0.00;
+}
+
+// Fetch total outstanding given/lent loans (Asset)
+$total_given_outstanding = 0.00;
+try {
+    $stmt = $pdo->query("SELECT emi_amount, tenure_months, total_paid, status FROM loans_given");
+    while ($row = $stmt->fetch()) {
+        if ($row['status'] === 'active') {
+            $total_payable = (float)$row['emi_amount'] * (int)$row['tenure_months'];
+            $total_given_outstanding += max(0, $total_payable - (float)$row['total_paid']);
+        }
+    }
+} catch (PDOException $e) {
+    $total_given_outstanding = 0.00;
+}
+
 // Recent Transactions (Last 10)
 $recent_tx_query = "
     (SELECT 'income' as type, id, title, amount, category, payment_method, reference_no, income_date as txn_date, created_at 
@@ -165,6 +193,26 @@ foreach ($chart_months as $m => $data) {
                         </div>
                         <div class="kpi-icon">
                             <i class="fa-solid fa-building-columns"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="kpi-card kpi-loan" style="background: linear-gradient(135deg, #78350f, #f59e0b); cursor: pointer;" onclick="window.location='loans.php'">
+                        <div class="kpi-details">
+                            <h3>Loan Outstanding</h3>
+                            <div class="kpi-value"><?= format_currency($total_loans_outstanding) ?></div>
+                        </div>
+                        <div class="kpi-icon">
+                            <i class="fa-solid fa-landmark" style="color: white; opacity: 0.85;"></i>
+                        </div>
+                    </div>
+
+                    <div class="kpi-card kpi-lent" style="background: linear-gradient(135deg, #581c87, #8b5cf6); cursor: pointer;" onclick="window.location='loans-given.php'">
+                        <div class="kpi-details">
+                            <h3>Lent Receivables</h3>
+                            <div class="kpi-value"><?= format_currency($total_given_outstanding) ?></div>
+                        </div>
+                        <div class="kpi-icon">
+                            <i class="fa-solid fa-hand-holding-hand" style="color: white; opacity: 0.85;"></i>
                         </div>
                     </div>
                 </div>
