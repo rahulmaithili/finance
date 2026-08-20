@@ -160,7 +160,34 @@ function format_currency($amount) {
     }
     return $symbol . number_format((float)$amount, 2);
 }
-
+// Format Category Badges with custom colors
+function get_category_badge($category) {
+    $colors = [
+        'salary' => ['bg' => 'rgba(16, 185, 129, 0.1)', 'color' => '#10b981', 'border' => 'rgba(16, 185, 129, 0.25)'],
+        'freelance / projects' => ['bg' => 'rgba(139, 92, 246, 0.1)', 'color' => '#8b5cf6', 'border' => 'rgba(139, 92, 246, 0.25)'],
+        'investments' => ['bg' => 'rgba(59, 130, 246, 0.1)', 'color' => '#3b82f6', 'border' => 'rgba(59, 130, 246, 0.25)'],
+        'sales' => ['bg' => 'rgba(6, 182, 212, 0.1)', 'color' => '#06b6d4', 'border' => 'rgba(6, 182, 212, 0.25)'],
+        'rent / royalty' => ['bg' => 'rgba(236, 72, 153, 0.1)', 'color' => '#ec4899', 'border' => 'rgba(236, 72, 153, 0.25)'],
+        'gifts' => ['bg' => 'rgba(245, 158, 11, 0.1)', 'color' => '#f59e0b', 'border' => 'rgba(245, 158, 11, 0.25)'],
+        'refunds' => ['bg' => 'rgba(16, 185, 129, 0.1)', 'color' => '#10b981', 'border' => 'rgba(16, 185, 129, 0.25)'],
+        'other' => ['bg' => 'rgba(100, 116, 139, 0.1)', 'color' => '#64748b', 'border' => 'rgba(100, 116, 139, 0.25)'],
+        // Expense categories
+        'rent' => ['bg' => 'rgba(239, 68, 68, 0.1)', 'color' => '#ef4444', 'border' => 'rgba(239, 68, 68, 0.25)'],
+        'utilities' => ['bg' => 'rgba(245, 158, 11, 0.1)', 'color' => '#f59e0b', 'border' => 'rgba(245, 158, 11, 0.25)'],
+        'salary / wages' => ['bg' => 'rgba(59, 130, 246, 0.1)', 'color' => '#3b82f6', 'border' => 'rgba(59, 130, 246, 0.25)'],
+        'office supplies' => ['bg' => 'rgba(6, 182, 212, 0.1)', 'color' => '#06b6d4', 'border' => 'rgba(6, 182, 212, 0.25)'],
+        'marketing' => ['bg' => 'rgba(139, 92, 246, 0.1)', 'color' => '#8b5cf6', 'border' => 'rgba(139, 92, 246, 0.25)'],
+        'travel' => ['bg' => 'rgba(236, 72, 153, 0.1)', 'color' => '#ec4899', 'border' => 'rgba(236, 72, 153, 0.25)'],
+        'tax' => ['bg' => 'rgba(239, 68, 68, 0.1)', 'color' => '#ef4444', 'border' => 'rgba(239, 68, 68, 0.25)'],
+        'loan emi' => ['bg' => 'rgba(245, 158, 11, 0.1)', 'color' => '#f59e0b', 'border' => 'rgba(245, 158, 11, 0.25)'],
+        'loan recovery' => ['bg' => 'rgba(16, 185, 129, 0.1)', 'color' => '#10b981', 'border' => 'rgba(16, 185, 129, 0.25)'],
+        'instant biller' => ['bg' => 'rgba(6, 182, 212, 0.1)', 'color' => '#06b6d4', 'border' => 'rgba(6, 182, 212, 0.25)'],
+    ];
+    $cat_key = strtolower(trim($category));
+    $style = $colors[$cat_key] ?? ['bg' => 'rgba(100, 116, 139, 0.1)', 'color' => '#64748b', 'border' => 'rgba(100, 116, 139, 0.25)'];
+    
+    return '<span class="badge" style="background: ' . $style['bg'] . '; color: ' . $style['color'] . '; border: 1px solid ' . $style['border'] . '; font-weight: 600; text-transform: capitalize;">' . clean($category) . '</span>';
+}
 // Activity Logging helper
 function log_activity($action) {
     global $pdo;

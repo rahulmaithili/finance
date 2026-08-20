@@ -252,7 +252,7 @@ $categories = ['Salary', 'Freelance / Projects', 'Investments', 'Sales', 'Rent /
                                                 <span style="font-size:0.75rem; color:var(--text-secondary);"><?= clean($inc['reference_no']) ?></span>
                                             </td>
                                             <td>
-                                                <span class="badge badge-success"><?= clean($inc['category']) ?></span>
+                                                <?= get_category_badge($inc['category']) ?>
                                             </td>
                                             <td><?= clean($inc['account_name']) ?> <span style="font-size:0.75rem; color:var(--text-secondary);">(<?= clean($inc['bank_name']) ?>)</span></td>
                                             <td><span style="text-transform:uppercase; font-size:0.8rem;"><?= clean($inc['payment_method']) ?></span></td>

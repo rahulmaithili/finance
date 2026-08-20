@@ -274,7 +274,7 @@ $categories = ['Office Rent', 'Utilities (Electricity/Water)', 'Internet / Subsc
                                                 <span style="font-size:0.75rem; color:var(--text-secondary);"><?= clean($exp['reference_no']) ?></span>
                                             </td>
                                             <td>
-                                                <span class="badge badge-danger"><?= clean($exp['category']) ?></span>
+                                                <?= get_category_badge($exp['category']) ?>
                                             </td>
                                             <td><?= clean($exp['account_name']) ?> <span style="font-size:0.75rem; color:var(--text-secondary);">(<?= clean($exp['bank_name']) ?>)</span></td>
                                             <td><span style="text-transform:uppercase; font-size:0.8rem;"><?= clean($exp['payment_method']) ?></span></td>
