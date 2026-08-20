@@ -328,41 +328,40 @@
 
     loadNav('quick_collect');
 
-    window.onNavigationLoaded = function(user, userData) {
-        if (currentUser) return; // Prevent double execution
-        currentUser = user;
-        currentUserData = userData;
-        
-        // Load Payment credentials
-        db.collection('system_settings').doc('payment').get().then(doc => {
-            if (doc.exists) {
-                paymentConfig = doc.data();
-                if (paymentConfig.razorpay_enabled) {
-                    const s = document.createElement('script');
-                    s.src = 'https://checkout.razorpay.com/v1/checkout.js';
-                    document.body.appendChild(s);
-                    document.getElementById('rzpCollectBtn').style.display = 'block';
+    firebase.auth().onAuthStateChanged(user => {
+        if (user) {
+            currentUser = user;
+            
+            // Get user info
+            db.collection('users').doc(user.uid).get().then(doc => {
+                if (doc.exists) {
+                    currentUserData = doc.data();
                 }
-            }
-            updateDynamicQR(); // Re-trigger QR calculation after config loads
-        }).catch(err => console.log("Failed to load payment config: ", err));
+            }).catch(err => console.log("Failed to load user profile:", err));
 
-        // Load Bank Accounts & Collection logs
-        loadAccountsList().then(() => {
-            loadCollectionHistory();
-        }).catch(err => console.error("Initialization failed: ", err));
-    };
-
-    // Fallback: If auth state listener inside IIFE fired before this block parsed
-    setTimeout(() => {
-        if (!currentUser && firebase.auth().currentUser) {
-            db.collection('users').doc(firebase.auth().currentUser.uid).get().then(doc => {
-                if (doc.exists && !currentUser) {
-                    window.onNavigationLoaded(firebase.auth().currentUser, doc.data());
+            // Load Payment credentials
+            db.collection('system_settings').doc('payment').get().then(doc => {
+                if (doc.exists) {
+                    paymentConfig = doc.data();
+                    if (paymentConfig.razorpay_enabled) {
+                        const s = document.createElement('script');
+                        s.src = 'https://checkout.razorpay.com/v1/checkout.js';
+                        document.body.appendChild(s);
+                        document.getElementById('rzpCollectBtn').style.display = 'block';
+                    }
                 }
-            }).catch(e => console.error("Fallback load failed: ", e));
+                updateDynamicQR(); // Re-trigger QR calculation after config loads
+            }).catch(err => console.log("Failed to load payment config: ", err));
+
+            // Load Bank Accounts & Collection logs
+            loadAccountsList().then(() => {
+                loadCollectionHistory();
+            }).catch(err => console.error("Initialization failed: ", err));
+        } else {
+            // Redirect to login if not authenticated
+            window.location.href = 'login.html';
         }
-    }, 600);
+    });
 
     function setMethod(method) {
         selectedMethod = method;
