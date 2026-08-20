@@ -490,7 +490,7 @@ select.form-control option {
     width: calc(100% - var(--sidebar-width));
 }
 
-.sidebar.collapsed + .main-content {
+.sidebar.collapsed ~ .main-content {
     margin-left: var(--sidebar-collapsed-width);
     width: calc(100% - var(--sidebar-collapsed-width));
 }
