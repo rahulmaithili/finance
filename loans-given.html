@@ -242,7 +242,24 @@
         <!-- Modal Body -->
         <div style="padding:22px;overflow-y:auto;flex:1;">
             <div class="form-group"><label class="form-label">Recovery Date *</label><input type="date" id="paymentDate" class="form-control"></div>
-            <div class="form-group"><label class="form-label">Amount Collected (Rs) *</label><input type="number" id="paymentAmount" class="form-control" placeholder="e.g. 10000" min="1"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                <div class="form-group"><label class="form-label">Amount Collected (Rs) *</label><input type="number" id="paymentAmount" class="form-control" placeholder="e.g. 10000" min="1" oninput="updateModalQrCode()"></div>
+                <div class="form-group">
+                    <label class="form-label">Payment Method *</label>
+                    <select id="paymentMethod" class="form-control" style="padding-left:14px;" onchange="updateModalQrCode()">
+                        <option value="cash" selected>Cash</option>
+                        <option value="upi">UPI (Scan Dynamic QR)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Dynamic UPI QR Container inside Modal -->
+            <div id="modalUpiQrContainer" style="display:none; text-align:center; margin: 0 0 16px; padding: 16px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;">
+                <p style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.04em;"><i class="fa-solid fa-qrcode" style="margin-right:5px;color:#a855f7;"></i>Scan Dynamic UPI QR</p>
+                <div id="modalQrCodeImgContainer" style="display:flex; justify-content:center; align-items:center; min-height:160px;"></div>
+                <p id="modalUpiIdText" style="font-size:0.85rem; font-weight:700; color:#a855f7; margin-top:8px; margin-bottom:0;"></p>
+            </div>
+
             <div class="form-group">
                 <label class="form-label">Deposit In Bank Account *</label>
                 <select id="paymentAccount" class="form-control" style="padding-left:14px;" required>
@@ -637,6 +654,9 @@
         document.getElementById('paymentNote').value='';
         document.getElementById('paymentAccount').value=l?l.repayment_account_id:'';
         
+        document.getElementById('paymentMethod').value='cash';
+        document.getElementById('modalUpiQrContainer').style.display='none';
+        
         if (paymentConfig && paymentConfig.razorpay_enabled) {
             document.getElementById('razorpayBtn').style.display = 'block';
         } else {
@@ -646,6 +666,35 @@
         loadPaymentHistory(loanId);
         document.getElementById('paymentModal').style.display='flex';
     }
+
+    function updateModalQrCode() {
+        const amount = parseFloat(document.getElementById('paymentAmount').value);
+        const method = document.getElementById('paymentMethod').value;
+        const qrContainer = document.getElementById('modalUpiQrContainer');
+        const imgContainer = document.getElementById('modalQrCodeImgContainer');
+        const upiText = document.getElementById('modalUpiIdText');
+        
+        if (method === 'upi' && amount > 0) {
+            const l = loansCache[activePaymentLoanId];
+            if (!l) return;
+            const upiVPA = l.repayment_upi || (paymentConfig ? paymentConfig.upi_id : '');
+            const payeeName = paymentConfig ? (paymentConfig.upi_name || 'IEMS ERP Finance') : 'IEMS ERP Finance';
+            
+            if (upiVPA) {
+                const upiUrl = `upi://pay?pa=${upiVPA}&pn=${encodeURIComponent(payeeName)}&am=${amount.toFixed(2)}&cu=INR`;
+                imgContainer.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(upiUrl)}" alt="Dynamic UPI QR" style="width:160px;height:160px;border:2px solid #fff;padding:6px;border-radius:8px;background:#fff;" />`;
+                upiText.textContent = upiVPA;
+                qrContainer.style.display = 'block';
+            } else {
+                imgContainer.innerHTML = `<p style="color:var(--danger);font-size:0.82rem;margin:10px 0;">Please configure repayment UPI ID first!</p>`;
+                upiText.textContent = 'No UPI ID Configured';
+                qrContainer.style.display = 'block';
+            }
+        } else {
+            qrContainer.style.display = 'none';
+        }
+    }
+
     function closePaymentModal(){document.getElementById('paymentModal').style.display='none';activePaymentLoanId=null;}
 
     function loadPaymentHistory(loanId){
@@ -677,6 +726,7 @@
         const date=document.getElementById('paymentDate').value;
         const note=document.getElementById('paymentNote').value.trim();
         const accountId=document.getElementById('paymentAccount').value;
+        const method=document.getElementById('paymentMethod').value;
         if(!amount||!date||!accountId){
             Swal.fire({icon:'warning',title:'Required Fields',text:'Please enter recovery amount, collection date and deposit account.'});
             return;
@@ -706,6 +756,7 @@
                 tx.set(pRef,{
                     amount,
                     payment_date:date,
+                    payment_method:method,
                     note: note || `EMI Recovery Payment from ${l.debtor_name}`,
                     account_id: accountId,
                     account_name: accountName,
@@ -720,7 +771,7 @@
                     category: 'Loan EMI Recovery',
                     amount: amount,
                     account_id: accountId,
-                    payment_method: 'bank',
+                    payment_method: method === 'upi' ? 'UPI' : 'Cash',
                     income_date: date,
                     reference_no: '',
                     description: note || `EMI month ${nEmi} recovery payment`,
