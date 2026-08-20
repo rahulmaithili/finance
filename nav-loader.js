@@ -149,6 +149,12 @@
                         <span>Given Loans</span>
                     </a>
                 </li>
+                <li class="menu-item ${activePage === 'quick_collect' ? 'active' : ''}">
+                    <a href="quick-collect.html">
+                        <i class="fa-solid fa-qrcode" style="color: #06b6d4;"></i>
+                        <span>Quick Collect</span>
+                    </a>
+                </li>
                 
                 ${(user.role === 'super_admin' || user.role === 'admin') ? `
                 <li class="menu-item ${activePage === 'users' ? 'active' : ''}">
@@ -278,6 +284,12 @@
                     <a href="loans-given.html">
                         <i class="fa-solid fa-hand-holding-hand" style="color: #a855f7;"></i>
                         <span>Given Loans</span>
+                    </a>
+                </li>
+                <li class="menu-item ${activePage === 'quick_collect' ? 'active' : ''}">
+                    <a href="quick-collect.html">
+                        <i class="fa-solid fa-qrcode" style="color: #06b6d4;"></i>
+                        <span>Quick Collect</span>
                     </a>
                 </li>
                 ${(user.role === 'super_admin' || user.role === 'admin') ? `

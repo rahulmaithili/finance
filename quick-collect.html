@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick Collect | IEMS ERP</title>
+    <!-- Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- DataTables & jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.5/css/jquery.dataTables.min.css">
+    <script src="https://cdn.datatables.net/1.13.5/js/jquery.dataTables.min.js"></script>
+    
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
+    <!-- Global CSS Variables -->
+    <link rel="stylesheet" href="css/style.css">
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="js/firebase-config.js"></script>
+    
+    <!-- Theme Manager -->
+    <script src="js/theme-manager.js"></script>
+    
+    <style>
+        :root {
+            --accent-cyan: #06b6d4;
+            --accent-cyan-hover: #0891b2;
+            --accent-cyan-bg: rgba(6,182,212,0.1);
+        }
+        
+        .collect-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 1.8fr;
+            gap: 24px;
+            margin-top: 20px;
+        }
+        
+        @media (max-width: 1024px) {
+            .collect-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .collect-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .qr-preview-box {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.02);
+            border: 2px dashed rgba(6, 182, 212, 0.3);
+            border-radius: 16px;
+            padding: 24px;
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 250px;
+            transition: all 0.3s ease;
+        }
+        
+        .qr-preview-box.active {
+            background: rgba(6, 182, 212, 0.02);
+            border-color: var(--accent-cyan);
+        }
+        
+        .qr-placeholder-text {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin: 10px 0 0;
+        }
+
+        .qr-placeholder-icon {
+            font-size: 3.5rem;
+            color: var(--text-secondary);
+            opacity: 0.3;
+            margin-bottom: 12px;
+        }
+        
+        .method-btn-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        
+        .method-btn {
+            background: var(--bg-secondary);
+            border: 1.5px solid var(--border);
+            border-radius: 12px;
+            padding: 12px;
+            color: var(--text-secondary);
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.25s ease;
+        }
+        
+        .method-btn.active {
+            border-color: var(--accent-cyan);
+            background: var(--accent-cyan-bg);
+            color: var(--accent-cyan);
+        }
+
+        .method-btn:hover {
+            border-color: var(--accent-cyan);
+        }
+        
+        /* Table styling */
+        .history-table-wrapper {
+            margin-top: 15px;
+            overflow-x: auto;
+        }
+        
+        table.dataTable {
+            border-collapse: collapse !important;
+            width: 100% !important;
+            background: transparent !important;
+        }
+        
+        table.dataTable thead th {
+            background: var(--bg-secondary) !important;
+            color: var(--text-light) !important;
+            border-bottom: 1px solid var(--border) !important;
+            font-weight: 700 !important;
+            font-size: 0.8rem !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.05em !important;
+            padding: 12px 16px !important;
+        }
+        
+        table.dataTable tbody td {
+            background: transparent !important;
+            color: var(--text-light) !important;
+            border-bottom: 1px solid var(--border) !important;
+            padding: 12px 16px !important;
+            font-size: 0.85rem !important;
+        }
+        
+        table.dataTable tbody tr:hover td {
+            background: rgba(255,255,255,0.02) !important;
+        }
+        
+        .dataTables_wrapper .dataTables_length, 
+        .dataTables_wrapper .dataTables_filter,
+        .dataTables_wrapper .dataTables_info,
+        .dataTables_wrapper .dataTables_paginate {
+            color: var(--text-secondary) !important;
+            font-size: 0.82rem !important;
+            margin-top: 14px;
+        }
+        
+        .dataTables_wrapper .dataTables_filter input {
+            background: var(--bg-secondary) !important;
+            border: 1px solid var(--border) !important;
+            border-radius: 8px !important;
+            color: var(--text-light) !important;
+            padding: 6px 12px !important;
+        }
+        
+        .dataTables_wrapper .dataTables_paginate .paginate_button {
+            color: var(--text-secondary) !important;
+            border: 1px solid var(--border) !important;
+            background: var(--bg-secondary) !important;
+            border-radius: 6px !important;
+        }
+        
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current {
+            background: var(--accent-cyan) !important;
+            color: #fff !important;
+            border-color: var(--accent-cyan) !important;
+        }
+        
+        .status-badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        
+        .status-badge.cash {
+            background: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+        }
+        
+        .status-badge.upi {
+            background: rgba(6, 182, 212, 0.15);
+            color: #06b6d4;
+        }
+        
+        .status-badge.razorpay {
+            background: rgba(99, 102, 241, 0.15);
+            color: #6366f1;
+        }
+
+        .delete-btn {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        
+        .delete-btn:hover {
+            background: rgba(239, 68, 68, 0.25);
+            border-color: #ef4444;
+        }
+
+        /* Force SweetAlert over modal z-index */
+        .swal2-container {
+            z-index: 99999 !important;
+        }
+    </style>
+</head>
+<body>
+<div class="app-wrapper">
+    <!-- Navigation Container -->
+    <div class="main-content">
+        <!-- Top Navbar -->
+        <div class="navbar">
+            <div class="page-title">Quick Collect Manager</div>
+        </div>
+
+        <div class="page-content">
+            <div class="page-header">
+                <h2>Quick Payment Collections</h2>
+                <p>Generate on-the-spot dynamic UPI QR codes, collect custom payment amounts, and record transactions to your bank ledger.</p>
+            </div>
+            
+            <div class="collect-grid">
+                <!-- Left Form Panel -->
+                <div class="collect-card">
+                    <h3 style="color:#fff;margin:0 0 20px;font-size:1.1rem;"><i class="fa-solid fa-calculator" style="margin-right:8px;color:var(--accent-cyan);"></i>Instant Biller</h3>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Payer Name *</label>
+                        <input type="text" id="payerName" class="form-control" placeholder="e.g. Ramesh Kumar" oninput="updateDynamicQR()">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Payer Contact Number</label>
+                        <input type="tel" id="payerPhone" class="form-control" placeholder="e.g. 9876543210">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Purpose / Description *</label>
+                        <input type="text" id="purpose" class="form-control" placeholder="e.g. Custom service bill / Item sale">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Amount to Collect (Rs) *</label>
+                        <input type="number" id="amount" class="form-control" placeholder="e.g. 500" min="1" oninput="updateDynamicQR()">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Deposit In Bank Account *</label>
+                        <select id="depositAccount" class="form-control" style="padding-left:14px;" required>
+                            <option value="" disabled selected>Select Account</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Payment Method *</label>
+                        <div class="method-btn-group">
+                            <button id="methodCash" class="method-btn active" onclick="setMethod('cash')"><i class="fa-solid fa-money-bill-wave"></i> Cash</button>
+                            <button id="methodUpi" class="method-btn" onclick="setMethod('upi')"><i class="fa-solid fa-qrcode"></i> UPI QR</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Dynamic UPI QR Box -->
+                    <div id="qrPreviewCard" class="qr-preview-box">
+                        <div id="qrPlaceholder" style="text-align:center;">
+                            <i class="fa-solid fa-qrcode qr-placeholder-icon"></i>
+                            <p class="qr-placeholder-text">Enter Amount and select **UPI QR** to generate scanning code.</p>
+                        </div>
+                        <div id="qrContainer" style="display:none; text-align:center;">
+                            <p style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:12px; text-transform:uppercase; letter-spacing:0.04em;">Scan to Pay Merchant</p>
+                            <div id="qrImage"></div>
+                            <p id="qrUpiText" style="font-size:0.85rem; font-weight:700; color:var(--accent-cyan); margin-top:10px; margin-bottom:4px;"></p>
+                            <p id="qrAmountText" style="font-size:1.1rem; font-weight:800; color:#fff; margin:0;"></p>
+                        </div>
+                    </div>
+                    
+                    <!-- Submission Button -->
+                    <button class="btn-primary" id="saveCollectionBtn" onclick="saveCollection()" style="width:100%;height:48px;border-radius:12px;font-size:1rem;font-weight:700;margin-top:20px;background:linear-gradient(135deg,#0891b2,#06b6d4);border:none;">
+                        <i class="fa-solid fa-check-circle"></i> Log Received Payment
+                    </button>
+                    
+                    <button id="rzpCollectBtn" class="btn-primary" onclick="collectViaRazorpay()" style="display:none;width:100%;height:48px;border-radius:12px;font-size:1rem;font-weight:700;margin-top:10px;background:linear-gradient(135deg,#2563eb,#1d4ed8);border:none;">
+                        <i class="fa-solid fa-credit-card"></i> Collect via Razorpay (Online)
+                    </button>
+                </div>
+                
+                <!-- Right History Panel -->
+                <div class="collect-card">
+                    <h3 style="color:#fff;margin:0 0 20px;font-size:1.1rem;"><i class="fa-solid fa-history" style="margin-right:8px;color:var(--accent-cyan);"></i>Collection Logs History</h3>
+                    <div class="history-table-wrapper">
+                        <table id="historyTable" class="display">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Payer Name</th>
+                                    <th>Purpose</th>
+                                    <th>Amount</th>
+                                    <th>Account</th>
+                                    <th>Method</th>
+                                    <th style="width:40px;text-align:center;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Nav Loader Connection Script -->
+<script src="nav-loader.js"></script>
+<script>
+    loadNav('quick_collect');
+    
+    let currentUser = null, currentUserData = null;
+    let paymentConfig = null;
+    let selectedMethod = 'cash'; // Default method
+    let activeAccountsMap = {};
+    let activeAccountsFullMap = {};
+    let collectionsTable = null;
+
+    window.onNavigationLoaded = function(user, userData) {
+        currentUser = user;
+        currentUserData = userData;
+        
+        // Load Payment credentials
+        db.collection('system_settings').doc('payment').get().then(doc => {
+            if (doc.exists) {
+                paymentConfig = doc.data();
+                if (paymentConfig.razorpay_enabled) {
+                    const s = document.createElement('script');
+                    s.src = 'https://checkout.razorpay.com/v1/checkout.js';
+                    document.body.appendChild(s);
+                    document.getElementById('rzpCollectBtn').style.display = 'block';
+                }
+            }
+        }).catch(err => console.log("Failed to load payment config: ", err));
+
+        // Load Bank Accounts & Collection logs
+        loadAccountsList().then(() => {
+            loadCollectionHistory();
+        });
+    };
+
+    function setMethod(method) {
+        selectedMethod = method;
+        document.getElementById('methodCash').classList.toggle('active', method === 'cash');
+        document.getElementById('methodUpi').classList.toggle('active', method === 'upi');
+        updateDynamicQR();
+    }
+
+    function updateDynamicQR() {
+        const amountVal = parseFloat(document.getElementById('amount').value);
+        const nameVal = document.getElementById('payerName').value.trim() || 'Quick Payer';
+        const qrCard = document.getElementById('qrPreviewCard');
+        const qrContainer = document.getElementById('qrContainer');
+        const qrPlaceholder = document.getElementById('qrPlaceholder');
+        const imgDiv = document.getElementById('qrImage');
+        const upiText = document.getElementById('qrUpiText');
+        const amountText = document.getElementById('qrAmountText');
+        
+        if (selectedMethod === 'upi' && amountVal > 0) {
+            const upiVPA = paymentConfig ? paymentConfig.upi_id : '';
+            const payeeName = paymentConfig ? (paymentConfig.upi_name || 'IEMS ERP Finance') : 'IEMS ERP Finance';
+
+            if (upiVPA) {
+                const upiUrl = `upi://pay?pa=${upiVPA}&pn=${encodeURIComponent(payeeName)}&am=${amountVal.toFixed(2)}&cu=INR`;
+                imgDiv.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(upiUrl)}" alt="Dynamic QR" style="width:180px;height:180px;border:4px solid #fff;padding:6px;border-radius:10px;background:#fff;" />`;
+                upiText.textContent = upiVPA;
+                amountText.textContent = formatCurrency(amountVal);
+                
+                qrPlaceholder.style.display = 'none';
+                qrContainer.style.display = 'block';
+                qrCard.classList.add('active');
+            } else {
+                imgDiv.innerHTML = `<p style="color:var(--danger);font-size:0.85rem;margin:10px 0;">Configure your UPI VPA ID in Settings -> Payments to generate Dynamic QR code.</p>`;
+                upiText.textContent = 'UPI Not Setup';
+                amountText.textContent = '';
+                qrPlaceholder.style.display = 'none';
+                qrContainer.style.display = 'block';
+                qrCard.classList.remove('active');
+            }
+        } else {
+            qrPlaceholder.style.display = 'block';
+            qrContainer.style.display = 'none';
+            qrCard.classList.remove('active');
+        }
+    }
+
+    function loadAccountsList() {
+        const select = document.getElementById('depositAccount');
+        select.innerHTML = '<option value="" disabled selected>Loading Accounts...</option>';
+        return db.collection('bank_accounts').where('status','==','active').get().then(snap => {
+            select.innerHTML = '<option value="" disabled selected>Select Account</option>';
+            snap.forEach(doc => {
+                const d = doc.data();
+                activeAccountsMap[doc.id] = d.account_name;
+                activeAccountsFullMap[doc.id] = d;
+                const option = document.createElement('option');
+                option.value = doc.id;
+                option.textContent = `${d.account_name} (${formatCurrency(d.current_balance)})`;
+                select.appendChild(option);
+            });
+        });
+    }
+
+    function saveCollection() {
+        const payerName = document.getElementById('payerName').value.trim();
+        const payerPhone = document.getElementById('payerPhone').value.trim();
+        const purpose = document.getElementById('purpose').value.trim();
+        const amount = parseFloat(document.getElementById('amount').value);
+        const accountId = document.getElementById('depositAccount').value;
+        
+        if (!payerName || !purpose || isNaN(amount) || amount <= 0 || !accountId) {
+            Swal.fire({icon:'warning',title:'Validation Error',text:'Please fill out all required fields (*).'});
+            return;
+        }
+
+        const saveBtn = document.getElementById('saveCollectionBtn');
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...';
+
+        const colId = db.collection('quick_collections').doc().id;
+        executeCollectionReceipt(colId, payerName, payerPhone, purpose, amount, accountId, selectedMethod, '');
+    }
+
+    function collectViaRazorpay() {
+        const payerName = document.getElementById('payerName').value.trim();
+        const payerPhone = document.getElementById('payerPhone').value.trim();
+        const purpose = document.getElementById('purpose').value.trim();
+        const amount = parseFloat(document.getElementById('amount').value);
+        const accountId = document.getElementById('depositAccount').value;
+        
+        if (!payerName || !purpose || isNaN(amount) || amount <= 0 || !accountId || !paymentConfig) {
+            Swal.fire({icon:'warning',title:'Validation Error',text:'Please fill out all required fields (*) and verify payments config.'});
+            return;
+        }
+
+        const options = {
+            "key": paymentConfig.razorpay_key_id,
+            "amount": amount * 100, // paise
+            "currency": "INR",
+            "name": "IEMS ERP Instant Biller",
+            "description": purpose,
+            "image": paymentConfig.site_logo_url || "",
+            "handler": function (response) {
+                const colId = db.collection('quick_collections').doc().id;
+                executeCollectionReceipt(colId, payerName, payerPhone, purpose, amount, accountId, 'razorpay', response.razorpay_payment_id);
+            },
+            "prefill": {
+                "name": payerName,
+                "contact": payerPhone || ""
+            },
+            "theme": {
+                "color": "#06b6d4"
+            }
+        };
+
+        const rzp = new Razorpay(options);
+        rzp.open();
+    }
+
+    function executeCollectionReceipt(colId, name, phone, purpose, amount, accountId, method, rzpPayId) {
+        const cRef = db.collection('quick_collections').doc(colId);
+        const accRef = db.collection('bank_accounts').doc(accountId);
+        const incRef = db.collection('income').doc(); // Create income collection entry
+
+        db.runTransaction(tx => {
+            return tx.get(accRef).then(accDoc => {
+                if (!accDoc.exists) throw new Error("Selected Bank Account does not exist!");
+                const currentBal = parseFloat(accDoc.data().current_balance || 0);
+                const accountName = accDoc.data().account_name;
+
+                // Sync Bank Balance (Increase cash/bank balance)
+                tx.update(accRef, {current_balance: currentBal + amount});
+
+                // Write to Collection Document
+                tx.set(cRef, {
+                    payer_name: name,
+                    payer_phone: phone,
+                    purpose: purpose,
+                    amount: amount,
+                    account_id: accountId,
+                    account_name: accountName,
+                    payment_method: method,
+                    rzp_payment_id: rzpPayId || '',
+                    income_id: incRef.id,
+                    status: 'paid',
+                    created_at: firebase.firestore.FieldValue.serverTimestamp(),
+                    recorded_by_uid: currentUser.uid,
+                    recorded_by_name: currentUserData ? currentUserData.full_name : currentUser.email.split('@')[0]
+                });
+
+                // Write to global Income ledger
+                tx.set(incRef, {
+                    title: `Quick Collection - ${name}`,
+                    category: 'Quick Collection',
+                    amount: amount,
+                    account_id: accountId,
+                    payment_method: method === 'cash' ? 'Cash' : (method === 'upi' ? 'UPI' : 'Razorpay Gateway'),
+                    income_date: new Date().toISOString().split('T')[0],
+                    reference_no: rzpPayId || '',
+                    description: purpose + (phone ? ` | Contact: ${phone}` : ''),
+                    attachment_url: '',
+                    recorded_by_uid: currentUser.uid,
+                    recorded_by_name: currentUserData ? currentUserData.full_name : currentUser.email.split('@')[0],
+                    created_at: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            });
+        }).then(() => {
+            Swal.fire({icon:'success',title:'Payment Logged!',timer:1500,showConfirmButton:false});
+            logActivity(`Instant Collection of ${formatCurrency(amount)} logged from payer: ${name}`);
+            
+            // Reset Form fields
+            document.getElementById('payerName').value = '';
+            document.getElementById('payerPhone').value = '';
+            document.getElementById('purpose').value = '';
+            document.getElementById('amount').value = '';
+            document.getElementById('depositAccount').value = '';
+            setMethod('cash');
+
+            const saveBtn = document.getElementById('saveCollectionBtn');
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i class="fa-solid fa-check-circle"></i> Log Received Payment';
+
+            loadAccountsList();
+        }).catch(err => {
+            Swal.fire({icon:'error',title:'Log Failed',text:err.message});
+            const saveBtn = document.getElementById('saveCollectionBtn');
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i class="fa-solid fa-check-circle"></i> Log Received Payment';
+        });
+    }
+
+    function loadCollectionHistory() {
+        if (collectionsTable) {
+            collectionsTable.destroy();
+        }
+        
+        const tableBody = document.getElementById('historyTableBody');
+        tableBody.innerHTML = '';
+
+        $.fn.dataTable.ext.errMode = 'none';
+
+        db.collection('quick_collections').orderBy('created_at','desc').onSnapshot(snap => {
+            if (collectionsTable) {
+                collectionsTable.destroy();
+            }
+            
+            tableBody.innerHTML = '';
+            
+            snap.forEach(doc => {
+                const c = doc.data();
+                const dStr = c.created_at ? new Date(c.created_at.seconds * 1000).toLocaleString('en-IN') : 'Just now';
+                
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${dStr}</td>
+                    <td>
+                        <strong>${c.payer_name}</strong>
+                        ${c.payer_phone ? `<br><small style="color:var(--text-secondary);"><i class="fa-solid fa-phone"></i> +91 ${c.payer_phone}</small>` : ''}
+                    </td>
+                    <td>${c.purpose}</td>
+                    <td style="font-weight:700;color:var(--accent-cyan);">${formatCurrency(c.amount)}</td>
+                    <td>${c.account_name}</td>
+                    <td><span class="status-badge ${c.payment_method}">${c.payment_method}</span></td>
+                    <td style="text-align:center;">
+                        <button class="delete-btn" onclick="deleteCollection('${doc.id}', ${c.amount}, '${c.account_id}', '${c.income_id}')" title="Undo Collection">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </td>
+                `;
+                tableBody.appendChild(tr);
+            });
+
+            collectionsTable = $('#historyTable').DataTable({
+                order: [[0, 'desc']],
+                pageLength: 10,
+                lengthMenu: [5, 10, 25, 50],
+                language: {
+                    searchPlaceholder: "Search collections...",
+                    search: ""
+                }
+            });
+        });
+    }
+
+    function deleteCollection(colId, amount, accountId, incomeId) {
+        Swal.fire({
+            icon: 'question',
+            title: 'Undo Payment Collection?',
+            text: `This will subtract ${formatCurrency(amount)} from your deposit account balance and remove this receipt from transaction records.`,
+            showCancelButton: true,
+            confirmButtonText: 'Undo & Delete',
+            confirmButtonColor: '#ef4444'
+        }).then(r => {
+            if (!r.isConfirmed) return;
+
+            const cRef = db.collection('quick_collections').doc(colId);
+            const accRef = db.collection('bank_accounts').doc(accountId);
+
+            db.runTransaction(tx => {
+                return tx.get(cRef).then(cDoc => {
+                    return tx.get(accRef).then(accDoc => {
+                        tx.delete(cRef);
+                        if (accDoc.exists) {
+                            const currentBal = parseFloat(accDoc.data().current_balance || 0);
+                            tx.update(accRef, {current_balance: Math.max(0, currentBal - amount)});
+                        }
+                    });
+                });
+            }).then(() => {
+                if (incomeId) {
+                    db.collection('income').doc(incomeId).delete().catch(e => console.log("Failed to delete income document: ", e));
+                }
+                Swal.fire({icon:'success',title:'Collection Undone',timer:1200,showConfirmButton:false});
+                logActivity(`Undid Quick Collection log of ${formatCurrency(amount)}`);
+                loadAccountsList();
+            }).catch(err => Swal.fire({icon:'error',title:'Failed to Undo',text:err.message}));
+        });
+    }
+
+    function formatCurrency(v) {
+        return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(v);
+    }
+</script>
+</body>
+</html>
