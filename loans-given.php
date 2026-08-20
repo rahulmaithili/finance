@@ -316,7 +316,7 @@ $payments = $pdo->query("
 
         .loans-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
             gap: 20px;
             margin-bottom: 30px;
         }
@@ -342,6 +342,19 @@ $payments = $pdo->query("
         }
         .emi-result-item label { display: block; font-size: 0.72rem; color: var(--text-secondary); margin-bottom: 6px; }
         .emi-result-item span { font-weight: 800; font-size: 1rem; color: var(--text-light); }
+        
+        @media (max-width: 480px) {
+            .loans-grid {
+                grid-template-columns: 1fr !important;
+            }
+            .emi-result-box {
+                grid-template-columns: 1fr !important;
+                gap: 15px;
+            }
+            .modal-grid-responsive {
+                grid-template-columns: 1fr !important;
+            }
+        }
 
         .qr-display-card {
             background: var(--bg-primary);
@@ -560,7 +573,7 @@ $payments = $pdo->query("
                 <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                 <input type="hidden" name="action" value="save_loan">
                 
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px;">
+                <div class="modal-grid-responsive" style="display:grid; grid-template-columns: 1fr 1fr; gap:14px;">
                     <div class="form-group" style="grid-column: 1/-1;">
                         <label class="form-label">Borrower Name *</label>
                         <input type="text" name="debtor_name" id="debtor_name" class="form-control" placeholder="e.g. Ramesh Kumar" required>
