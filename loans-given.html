@@ -248,7 +248,13 @@
         <div style="padding:22px;overflow-y:auto;flex:1;">
             <div class="form-group"><label class="form-label">Recovery Date *</label><input type="date" id="paymentDate" class="form-control"></div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-                <div class="form-group"><label class="form-label">Amount Collected (Rs) *</label><input type="number" id="paymentAmount" class="form-control" placeholder="e.g. 10000" min="1" oninput="updateModalQrCode()"></div>
+                <div class="form-group">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                        <label class="form-label" style="margin:0;">Amount Collected (Rs) *</label>
+                        <span id="settleFullLink" style="font-size:0.7rem;color:#10b981;cursor:pointer;font-weight:700;text-decoration:underline;" onclick="setToFullSettlement()">Settle Full (Rs. 0)</span>
+                    </div>
+                    <input type="number" id="paymentAmount" class="form-control" placeholder="e.g. 10000" min="1" oninput="updateModalQrCode()">
+                </div>
                 <div class="form-group">
                     <label class="form-label">Payment Method *</label>
                     <select id="paymentMethod" class="form-control" style="padding-left:14px;" onchange="updateModalQrCode()">
@@ -656,6 +662,9 @@
         document.getElementById('paymentLoanLabel').textContent=l?l.debtor_name+' | Expected EMI: '+formatCurrency(l.emi_amount):'';
         document.getElementById('paymentDate').value=new Date().toISOString().split('T')[0];
         document.getElementById('paymentAmount').value=l?Math.round(l.emi_amount):'';
+        const remainingVal = l ? Math.round((l.emi_amount * l.tenure_months) - (l.total_paid || 0)) : 0;
+        document.getElementById('settleFullLink').textContent = `Settle Full (${formatCurrency(remainingVal)})`;
+        document.getElementById('settleFullLink').setAttribute('data-remaining', remainingVal);
         document.getElementById('paymentNote').value='';
         document.getElementById('paymentAccount').value=l?l.repayment_account_id:'';
         
@@ -701,6 +710,16 @@
     }
 
     function closePaymentModal(){document.getElementById('paymentModal').style.display='none';activePaymentLoanId=null;}
+
+    function setToFullSettlement() {
+        const link = document.getElementById('settleFullLink');
+        const remainingVal = parseFloat(link.getAttribute('data-remaining') || '0');
+        if (remainingVal > 0) {
+            document.getElementById('paymentAmount').value = remainingVal;
+            document.getElementById('paymentNote').value = "Full Prepayment / Foreclosure Settlement";
+            updateModalQrCode();
+        }
+    }
 
     function loadPaymentHistory(loanId){
         const list=document.getElementById('paymentHistList');
@@ -750,9 +769,9 @@
                 const accountName = accDoc.data().account_name;
 
                 const nPaid=(l.total_paid||0)+amount;
-                const nEmi=(l.emi_paid||0)+1;
                 const tot=l.emi_amount*l.tenure_months;
                 const status=nPaid>=tot?'closed':'active';
+                const nEmi=status==='closed'?l.tenure_months:(l.emi_paid||0)+1;
 
                 tx.update(accRef, {current_balance: currentBal + amount});
                 tx.update(lRef, {total_paid:nPaid,emi_paid:nEmi,status,updated_at:firebase.firestore.FieldValue.serverTimestamp()});
@@ -848,9 +867,9 @@
                 const accountName = accDoc.data().account_name;
 
                 const nPaid=(l.total_paid||0)+amount;
-                const nEmi=(l.emi_paid||0)+1;
                 const tot=l.emi_amount*l.tenure_months;
                 const status=nPaid>=tot?'closed':'active';
+                const nEmi=status==='closed'?l.tenure_months:(l.emi_paid||0)+1;
 
                 tx.update(accRef, {current_balance: currentBal + amount});
                 tx.update(lRef, {total_paid:nPaid,emi_paid:nEmi,status,updated_at:firebase.firestore.FieldValue.serverTimestamp()});
