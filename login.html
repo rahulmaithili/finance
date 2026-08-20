@@ -104,15 +104,16 @@
         <div class="login-card" style="width:90%; max-width:400px; margin:auto;">
             <div class="login-header">
                 <h2>Reset Password</h2>
-                <p>Enter your email to receive a secure password reset link on Gmail</p>
+                <p id="forgotModalDesc">Enter your email to receive a 6-digit OTP code on Gmail</p>
             </div>
             <div id="forgotErrorAlert" class="alert alert-danger" style="margin-bottom: 20px; display: none;">
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <i class="fa-solid fa-circle-exclamation"></i>
-                    <span id="forgotErrorMessage">Failed to send reset link.</span>
+                    <span id="forgotErrorMessage">Failed to send verification code.</span>
                 </div>
             </div>
             <form id="forgotPasswordForm">
+                <!-- Step 1: Email Address -->
                 <div class="form-group">
                     <label class="form-label">Registered Email Address</label>
                     <div class="input-icon-wrapper">
@@ -120,9 +121,36 @@
                         <i class="fa-solid fa-envelope" style="left: 14px;"></i>
                     </div>
                 </div>
+
+                <!-- Step 2: OTP & New Password (Initially Hidden) -->
+                <div id="otpResetSection" style="display: none;">
+                    <div class="form-group">
+                        <label class="form-label">6-Digit OTP Code</label>
+                        <div class="input-icon-wrapper">
+                            <input type="text" id="forgotOtp" class="form-control" style="padding-left:42px;" placeholder="e.g. 123456" pattern="[0-9]{6}">
+                            <i class="fa-solid fa-key" style="left: 14px;"></i>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">New Password</label>
+                        <div class="input-icon-wrapper">
+                            <input type="password" id="forgotNewPassword" class="form-control" style="padding-left:42px;" placeholder="At least 6 characters">
+                            <i class="fa-solid fa-lock" style="left: 14px;"></i>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Confirm New Password</label>
+                        <div class="input-icon-wrapper">
+                            <input type="password" id="forgotConfirmPassword" class="form-control" style="padding-left:42px;" placeholder="Re-enter password">
+                            <i class="fa-solid fa-check" style="left: 14px;"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
                 <button type="submit" class="btn-primary" style="margin-top:20px;" id="sendResetBtn">
-                    <span id="sendResetBtnText">Send Reset Link</span>
-                    <i class="fa-solid fa-paper-plane"></i>
+                    <span id="sendResetBtnText">Send OTP Code</span>
+                    <i class="fa-solid fa-paper-plane" id="sendResetBtnIcon" style="margin-left: 5px;"></i>
                 </button>
                 <button type="button" class="btn-secondary" style="margin-top:10px; width:100%;" id="cancelForgot">Cancel</button>
             </form>
@@ -214,11 +242,29 @@
                 });
         });
 
+        let forgotStep = 1;
+
         // Toggle forgot password modal
         function openForgotModal() {
             const emailInput = document.getElementById('email').value.trim();
             document.getElementById('forgotEmail').value = emailInput;
+            document.getElementById('forgotEmail').readOnly = false;
+            document.getElementById('otpResetSection').style.display = 'none';
+            document.getElementById('sendResetBtnText').textContent = "Send OTP Code";
+            document.getElementById('sendResetBtnIcon').className = "fa-solid fa-paper-plane";
+            document.getElementById('forgotModalDesc').textContent = "Enter your email to receive a 6-digit OTP code on Gmail";
             document.getElementById('forgotErrorAlert').style.display = 'none';
+            
+            document.getElementById('forgotOtp').value = '';
+            document.getElementById('forgotNewPassword').value = '';
+            document.getElementById('forgotConfirmPassword').value = '';
+            
+            // Remove required state for hidden fields initially
+            document.getElementById('forgotOtp').required = false;
+            document.getElementById('forgotNewPassword').required = false;
+            document.getElementById('forgotConfirmPassword').required = false;
+
+            forgotStep = 1;
             document.getElementById('forgotPasswordModal').style.display = 'flex';
         }
         
@@ -232,31 +278,120 @@
             const email = document.getElementById('forgotEmail').value.trim();
             const sendResetBtn = document.getElementById('sendResetBtn');
             const sendResetBtnText = document.getElementById('sendResetBtnText');
+            const sendResetBtnIcon = document.getElementById('sendResetBtnIcon');
             const forgotErrorAlert = document.getElementById('forgotErrorAlert');
             const forgotErrorMessage = document.getElementById('forgotErrorMessage');
 
-            sendResetBtn.disabled = true;
-            sendResetBtnText.textContent = "Sending Link...";
             forgotErrorAlert.style.display = "none";
 
-            auth.sendPasswordResetEmail(email)
-                .then(() => {
-                    document.getElementById('forgotPasswordModal').style.display = 'none';
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Reset Link Sent!',
-                        text: `A secure password reset link has been successfully sent to ${email}. Please check your Gmail inbox and spam folders.`,
-                        confirmButtonColor: 'var(--primary)'
-                    });
-                    sendResetBtn.disabled = false;
-                    sendResetBtnText.textContent = "Send Reset Link";
+            if (forgotStep === 1) {
+                // Step 1: Send OTP code via Netlify serverless function
+                sendResetBtn.disabled = true;
+                sendResetBtnText.textContent = "Sending Code...";
+                sendResetBtnIcon.className = "fa-solid fa-spinner fa-spin";
+
+                fetch('/.netlify/functions/send-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: email })
                 })
-                .catch((error) => {
+                .then(res => res.json().then(data => ({ status: res.status, data })))
+                .then(({ status, data }) => {
                     sendResetBtn.disabled = false;
-                    sendResetBtnText.textContent = "Send Reset Link";
+                    if (status === 200) {
+                        forgotStep = 2;
+                        document.getElementById('forgotEmail').readOnly = true;
+                        document.getElementById('otpResetSection').style.display = 'block';
+                        
+                        // Make inputs required in step 2
+                        document.getElementById('forgotOtp').required = true;
+                        document.getElementById('forgotNewPassword').required = true;
+                        document.getElementById('forgotConfirmPassword').required = true;
+
+                        sendResetBtnText.textContent = "Verify & Reset Password";
+                        sendResetBtnIcon.className = "fa-solid fa-circle-check";
+                        document.getElementById('forgotModalDesc').textContent = "Enter the 6-digit OTP code sent to your email and set a new password.";
+                        
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'OTP Code Sent!',
+                            text: 'A 6-digit verification code has been successfully sent to your Gmail inbox.',
+                            confirmButtonColor: 'var(--primary)'
+                        });
+                    } else {
+                        sendResetBtnText.textContent = "Send OTP Code";
+                        sendResetBtnIcon.className = "fa-solid fa-paper-plane";
+                        forgotErrorAlert.style.display = "block";
+                        forgotErrorMessage.textContent = data.error || 'Failed to send OTP code.';
+                    }
+                })
+                .catch(error => {
+                    sendResetBtn.disabled = false;
+                    sendResetBtnText.textContent = "Send OTP Code";
+                    sendResetBtnIcon.className = "fa-solid fa-paper-plane";
                     forgotErrorAlert.style.display = "block";
-                    forgotErrorMessage.textContent = error.message;
+                    forgotErrorMessage.textContent = 'Server connection failed. Make sure your Netlify environment variables are configured.';
                 });
+            } else if (forgotStep === 2) {
+                // Step 2: Verify OTP and Reset password
+                const otp = document.getElementById('forgotOtp').value.trim();
+                const newPass = document.getElementById('forgotNewPassword').value;
+                const confirmPass = document.getElementById('forgotConfirmPassword').value;
+
+                if (newPass !== confirmPass) {
+                    forgotErrorAlert.style.display = "block";
+                    forgotErrorMessage.textContent = "New passwords do not match. Please verify.";
+                    return;
+                }
+
+                if (newPass.length < 6) {
+                    forgotErrorAlert.style.display = "block";
+                    forgotErrorMessage.textContent = "Password must be at least 6 characters long.";
+                    return;
+                }
+
+                sendResetBtn.disabled = true;
+                sendResetBtnText.textContent = "Resetting Password...";
+                sendResetBtnIcon.className = "fa-solid fa-spinner fa-spin";
+
+                fetch('/.netlify/functions/verify-otp-reset', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: email,
+                        otp: otp,
+                        newPassword: newPass
+                    })
+                })
+                .then(res => res.json().then(data => ({ status: res.status, data })))
+                .then(({ status, data }) => {
+                    sendResetBtn.disabled = false;
+                    if (status === 200) {
+                        document.getElementById('forgotPasswordModal').style.display = 'none';
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Password Updated!',
+                            text: 'Your password has been successfully reset! You can now log in using your new credentials.',
+                            confirmButtonColor: 'var(--primary)'
+                        });
+                        // Clear email/password fields in login form to let them type new ones
+                        document.getElementById('email').value = email;
+                        document.getElementById('password').value = '';
+                    } else {
+                        sendResetBtnText.textContent = "Verify & Reset Password";
+                        sendResetBtnIcon.className = "fa-solid fa-circle-check";
+                        forgotErrorAlert.style.display = "block";
+                        forgotErrorMessage.textContent = data.error || 'Verification failed.';
+                    }
+                })
+                .catch(error => {
+                    sendResetBtn.disabled = false;
+                    sendResetBtnText.textContent = "Verify & Reset Password";
+                    sendResetBtnIcon.className = "fa-solid fa-circle-check";
+                    forgotErrorAlert.style.display = "block";
+                    forgotErrorMessage.textContent = 'Server connection failed.';
+                });
+            }
         });
     </script>
 </body>

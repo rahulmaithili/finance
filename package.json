@@ -1,0 +1,10 @@
+{
+  "name": "iems-finance-erp",
+  "version": "1.0.0",
+  "description": "Income & Expense ERP with Firebase",
+  "main": "index.html",
+  "dependencies": {
+    "firebase-admin": "^11.8.0",
+    "nodemailer": "^6.9.1"
+  }
+}
