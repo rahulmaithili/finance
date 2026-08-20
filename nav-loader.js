@@ -143,6 +143,12 @@
                         <span>Loans</span>
                     </a>
                 </li>
+                <li class="menu-item ${activePage === 'loans_given' ? 'active' : ''}">
+                    <a href="loans-given.html">
+                        <i class="fa-solid fa-hand-holding-hand" style="color: #a855f7;"></i>
+                        <span>Given Loans</span>
+                    </a>
+                </li>
                 
                 ${(user.role === 'super_admin' || user.role === 'admin') ? `
                 <li class="menu-item ${activePage === 'users' ? 'active' : ''}">
@@ -266,6 +272,12 @@
                     <a href="loans.html">
                         <i class="fa-solid fa-hand-holding-dollar" style="color: #f59e0b;"></i>
                         <span>Loans</span>
+                    </a>
+                </li>
+                <li class="menu-item ${activePage === 'loans_given' ? 'active' : ''}">
+                    <a href="loans-given.html">
+                        <i class="fa-solid fa-hand-holding-hand" style="color: #a855f7;"></i>
+                        <span>Given Loans</span>
                     </a>
                 </li>
                 ${(user.role === 'super_admin' || user.role === 'admin') ? `

@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Given Loans Manager - IEMS ERP</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    <script src="nav-loader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        /* ── Premium KPI Stat Cards ── */
+        .loan-stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px;}
+        @media(max-width:900px){.loan-stats-grid{grid-template-columns:repeat(2,1fr);}}
+        @media(max-width:480px){.loan-stats-grid{grid-template-columns:1fr 1fr;}}
+
+        .loan-stat-card{
+            border-radius:18px;padding:22px 20px;
+            display:flex;flex-direction:column;gap:10px;
+            position:relative;overflow:hidden;
+            transition:transform 0.2s,box-shadow 0.2s;
+            border:1px solid rgba(255,255,255,0.08);
+        }
+        .loan-stat-card:hover{transform:translateY(-3px);box-shadow:0 16px 40px rgba(0,0,0,0.4);}
+        .loan-stat-card::before{content:'';position:absolute;top:-30px;right:-30px;width:90px;height:90px;border-radius:50%;opacity:0.12;background:rgba(255,255,255,0.6);}
+        .loan-stat-card::after{content:'';position:absolute;bottom:-20px;left:-20px;width:60px;height:60px;border-radius:50%;opacity:0.08;background:rgba(255,255,255,0.5);}
+        .loan-stat-card.blue{background:linear-gradient(135deg,#5b21b6,#a855f7);}
+        .loan-stat-card.green{background:linear-gradient(135deg,#064e3b,#10b981);}
+        .loan-stat-card.red{background:linear-gradient(135deg,#7f1d1d,#ef4444);}
+        .loan-stat-card.amber{background:linear-gradient(135deg,#78350f,#f59e0b);}
+        .loan-stat-icon{font-size:1.5rem;opacity:0.9;z-index:1;}
+        .loan-stat-label{font-size:0.72rem;color:rgba(255,255,255,0.75);text-transform:uppercase;letter-spacing:0.07em;font-weight:600;z-index:1;}
+        .loan-stat-value{font-size:1.55rem;font-weight:900;color:#ffffff;letter-spacing:-0.02em;z-index:1;}
+        .loan-stat-sub{font-size:0.73rem;color:rgba(255,255,255,0.65);z-index:1;}
+
+        /* ── Loan Cards Grid ── */
+        .loans-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:20px;}
+        @media(max-width:540px){.loans-grid{grid-template-columns:1fr;}}
+        .loan-card{
+            background:var(--bg-card);border:1px solid var(--border);
+            border-radius:18px;padding:22px;
+            display:flex;flex-direction:column;gap:14px;
+            transition:transform 0.2s,box-shadow 0.2s;
+        }
+        .loan-card:hover{transform:translateY(-2px);box-shadow:0 10px 32px rgba(0,0,0,0.3);}
+        .loan-card-header{display:flex;justify-content:space-between;align-items:flex-start;}
+        .loan-type-badge{font-size:0.7rem;font-weight:700;padding:4px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:0.05em;}
+        .loan-actions{display:flex;gap:6px;}
+        .loan-progress-bar-bg{background:var(--bg-secondary);border-radius:6px;height:10px;overflow:hidden;}
+        .loan-progress-bar-fill{height:100%;border-radius:6px;transition:width 0.8s ease;}
+        .loan-detail-row{display:flex;justify-content:space-between;font-size:0.82rem;padding:5px 0;border-bottom:1px solid var(--border);}
+        .loan-detail-row:last-child{border-bottom:none;}
+        .loan-detail-label{color:var(--text-secondary);display:flex;align-items:center;gap:7px;}
+        .loan-detail-value{font-weight:600;color:var(--text-light);}
+        .loan-emi-badge{border-radius:12px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;}
+        .emi-result-box{
+            background:linear-gradient(135deg,rgba(168,85,247,0.08),rgba(99,102,241,0.08));
+            border:1px solid rgba(168,85,247,0.25);border-radius:14px;
+            padding:18px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px;text-align:center;
+        }
+        .emi-result-item label{display:block;font-size:0.72rem;color:var(--text-secondary);margin-bottom:6px;}
+        .emi-result-item span{font-weight:800;font-size:1rem;color:var(--text-light);}
+        .loans-empty{text-align:center;padding:80px 20px;color:var(--text-secondary);}
+        .loans-empty i{font-size:4rem;opacity:0.3;margin-bottom:16px;display:block;}
+        .payment-hist-item{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg-secondary);border-radius:10px;border:1px solid var(--border);font-size:0.83rem;}
+        .mark-paid-btn{background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);color:#fff;padding:7px 14px;border-radius:8px;cursor:pointer;font-size:0.78rem;font-weight:600;transition:background 0.2s;}
+        .mark-paid-btn:hover{background:rgba(255,255,255,0.3);}
+        
+        .debtor-contact-bar{
+            display:flex;gap:12px;margin-top:2px;
+        }
+        .debtor-contact-btn{
+            font-size:0.8rem;text-decoration:none;display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-weight:600;
+        }
+        .debtor-contact-btn.whatsapp{background:rgba(34,197,94,0.15);color:#22c55e;}
+        .debtor-contact-btn.whatsapp:hover{background:rgba(34,197,94,0.25);}
+        .debtor-contact-btn.phone{background:rgba(59,130,246,0.15);color:#3b82f6;}
+        .debtor-contact-btn.phone:hover{background:rgba(59,130,246,0.25);}
+        
+        /* Mobile FAB */
+        .mobile-fab {
+            display: none;
+            position: fixed;
+            bottom: 85px;
+            right: 20px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg,#5b21b6,#a855f7);
+            color: #fff;
+            border: none;
+            box-shadow: 0 4px 16px rgba(168,85,247,0.4);
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            cursor: pointer;
+            z-index: 99;
+            transition: transform 0.2s;
+        }
+        .mobile-fab:active {
+            transform: scale(0.95);
+        }
+        @media (max-width: 768px) {
+            .mobile-fab {
+                display: flex !important;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="app-wrapper">
+    <div class="main-content">
+        <div class="navbar">
+            <div class="page-title">Given Loans Manager</div>
+            <div class="navbar-actions">
+                <button class="btn-primary" id="addLoanBtn" style="width:auto;padding:9px 18px;gap:8px;background:linear-gradient(135deg,#5b21b6,#a855f7);border:none;"><i class="fa-solid fa-plus"></i> <span>Give a Loan</span></button>
+            </div>
+        </div>
+        <div class="page-content">
+            <div class="page-header"><h2>Loans Distributed</h2><p>Track money given on interest, recover EMIs, generate repayment schedules, and print invoices.</p></div>
+            <div class="loan-stats-grid">
+                <!-- Card 1: Total Distributed (Purple) -->
+                <div class="loan-stat-card blue">
+                    <div class="loan-stat-icon"><i class="fa-solid fa-hand-holding-hand"></i></div>
+                    <div class="loan-stat-label">Total Outflow (Principal)</div>
+                    <div class="loan-stat-value" id="statTotalLoans">&#8377;0</div>
+                    <div class="loan-stat-sub" id="statLoanCount">0 debtors</div>
+                </div>
+                <!-- Card 2: Total Recovered (Green) -->
+                <div class="loan-stat-card green">
+                    <div class="loan-stat-icon"><i class="fa-solid fa-circle-check"></i></div>
+                    <div class="loan-stat-label">Total Recovered</div>
+                    <div class="loan-stat-value" id="statTotalPaid">&#8377;0</div>
+                    <div class="loan-stat-sub" id="statPaidPct">0% recovered</div>
+                </div>
+                <!-- Card 3: Outstanding (Red) -->
+                <div class="loan-stat-card red">
+                    <div class="loan-stat-icon"><i class="fa-solid fa-hourglass-half"></i></div>
+                    <div class="loan-stat-label">Outstanding Recoveries</div>
+                    <div class="loan-stat-value" id="statOutstanding">&#8377;0</div>
+                    <div class="loan-stat-sub" id="statActiveCount">0 active debtors</div>
+                </div>
+                <!-- Card 4: Monthly Collection (Amber) -->
+                <div class="loan-stat-card amber">
+                    <div class="loan-stat-icon"><i class="fa-solid fa-calendar-check"></i></div>
+                    <div class="loan-stat-label">Expected Monthly Collection</div>
+                    <div class="loan-stat-value" id="statMonthlyEmi">&#8377;0</div>
+                    <div class="loan-stat-sub">combined EMI collection</div>
+                </div>
+            </div>
+            <div class="loans-grid" id="loansGrid">
+                <div class="loans-empty" style="grid-column:1/-1;"><i class="fa-solid fa-hand-holding-dollar"></i><h3>No loans distributed yet.</h3><p style="font-size:0.85rem;">Click "Give a Loan" to record your first distribution.</p></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Given Loan Modal -->
+<div id="loanModal" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,0.85);align-items:center;justify-content:center;padding:16px;">
+    <div style="background:#1a1d2e;border-radius:20px;max-width:560px;width:100%;max-height:92vh;overflow:hidden;position:relative;box-shadow:0 30px 80px rgba(0,0,0,0.7);border:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;">
+        <!-- Modal Header -->
+        <div style="background:linear-gradient(135deg,#5b21b6,#a855f7);padding:20px 24px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+            <div style="display:flex;align-items:center;gap:12px;">
+                <div style="width:40px;height:40px;background:rgba(255,255,255,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                    <i class="fa-solid fa-hand-holding-hand" style="color:#fff;font-size:1.1rem;"></i>
+                </div>
+                <div>
+                    <h3 id="loanModalTitle" style="margin:0;color:#fff;font-size:1.05rem;font-weight:700;">Record Given Loan</h3>
+                    <p style="margin:0;color:rgba(255,255,255,0.65);font-size:0.75rem;">Disburse capital, compute EMI, collect repayments</p>
+                </div>
+            </div>
+            <button onclick="closeLoanModal()" style="width:34px;height:34px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);color:#fff;border-radius:8px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background='rgba(255,255,255,0.25)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <!-- Modal Body -->
+        <div style="padding:24px;overflow-y:auto;flex:1;">
+        <form id="loanForm" autocomplete="off">
+            <input type="hidden" id="loanId">
+            <h4 style="color:#a855f7;margin:0 0 14px;border-bottom:1px solid rgba(168,85,247,0.2);padding-bottom:6px;font-size:0.88rem;"><i class="fa-solid fa-user" style="margin-right:6px;"></i>Debtor Details</h4>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;">
+                <div class="form-group" style="grid-column:1/-1;"><label class="form-label">Debtor Name *</label><input type="text" id="debtor_name" class="form-control" placeholder="e.g. Ramesh Kumar" required></div>
+                <div class="form-group"><label class="form-label">WhatsApp / Phone *</label><input type="text" id="debtor_phone" class="form-control" placeholder="e.g. 9876543210" required></div>
+                <div class="form-group"><label class="form-label">Email ID (Optional)</label><input type="email" id="debtor_email" class="form-control" placeholder="e.g. ramesh@gmail.com"></div>
+                <div class="form-group" style="grid-column:1/-1;"><label class="form-label">Debtor Address *</label><input type="text" id="debtor_address" class="form-control" placeholder="e.g. Flat 102, Sector 15, Noida" required></div>
+            </div>
+
+            <h4 style="color:#a855f7;margin:0 0 14px;border-bottom:1px solid rgba(168,85,247,0.2);padding-bottom:6px;font-size:0.88rem;"><i class="fa-solid fa-calculator" style="margin-right:6px;"></i>Interest & Calculations</h4>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;">
+                <div class="form-group"><label class="form-label">Principal Amount *</label><input type="number" id="principal" class="form-control" placeholder="e.g. 100000" min="1" required oninput="calcEMI()"></div>
+                <div class="form-group"><label class="form-label">Interest Rate (% p.a.) *</label><input type="number" id="interest_rate" class="form-control" placeholder="e.g. 12" step="0.01" min="0.01" required oninput="calcEMI()"></div>
+                <div class="form-group"><label class="form-label">Tenure (Months) *</label><input type="number" id="tenure_months" class="form-control" placeholder="e.g. 12" min="1" required oninput="calcEMI()"></div>
+                <div class="form-group"><label class="form-label">Disbursed Date *</label><input type="date" id="start_date" class="form-control" required></div>
+                <div class="form-group"><label class="form-label">EMI Collection Day (1-28)</label><input type="number" id="emi_day" class="form-control" placeholder="e.g. 5" min="1" max="28" value="5"></div>
+                <div class="form-group"><label class="form-label">Disburse From Bank Account *</label><select id="disbursement_account" class="form-control" style="padding-left:14px;" required><option value="" disabled selected>Select Account</option></select></div>
+            </div>
+
+            <h4 style="color:#a855f7;margin:0 0 14px;border-bottom:1px solid rgba(168,85,247,0.2);padding-bottom:6px;font-size:0.88rem;"><i class="fa-solid fa-money-bill-transfer" style="margin-right:6px;"></i>Repayment Instructions (To Debtor)</h4>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;">
+                <div class="form-group"><label class="form-label">Repayment Bank Account *</label><select id="repayment_account" class="form-control" style="padding-left:14px;" required><option value="" disabled selected>Select Account</option></select></div>
+                <div class="form-group"><label class="form-label">Repayment UPI ID *</label><input type="text" id="repayment_upi" class="form-control" placeholder="e.g. corporate@upi" required></div>
+                <div class="form-group" style="grid-column:1/-1;"><label class="form-label">Loan Agreement / Document (PDF / Image)</label><input type="file" id="attachment" class="form-control" accept="image/*,application/pdf" style="height:auto;padding-top:10px;padding-bottom:10px;"></div>
+            </div>
+
+            <div style="margin:10px 0 20px;display:none;" id="emiPreview">
+                <p style="font-size:0.78rem;color:var(--text-secondary);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.04em;"><i class="fa-solid fa-calculator"></i> EMI Calculation Preview</p>
+                <div class="emi-result-box">
+                    <div class="emi-result-item"><label>Monthly EMI</label><span id="previewEMI">-</span></div>
+                    <div class="emi-result-item"><label>Total Interest</label><span id="previewInterest">-</span></div>
+                    <div class="emi-result-item"><label>Total Collection</label><span id="previewTotal">-</span></div>
+                </div>
+            </div>
+            <button type="submit" class="btn-primary" style="margin-top:4px;width:100%;height:48px;border-radius:12px;font-size:1rem;font-weight:700;background:linear-gradient(135deg,#5b21b6,#a855f7);border:none;"><i class="fa-solid fa-save"></i> <span id="loanSaveText">Save Loan Contract</span></button>
+        </form>
+        </div>
+    </div>
+</div>
+
+<!-- EMI Recovery/Payment Modal -->
+<div id="paymentModal" style="display:none;position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,0.85);align-items:center;justify-content:center;padding:16px;">
+    <div style="background:#1a1d2e;border-radius:20px;max-width:500px;width:100%;max-height:90vh;overflow:hidden;position:relative;box-shadow:0 30px 80px rgba(0,0,0,0.7);border:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;">
+        <!-- Modal Header -->
+        <div style="background:linear-gradient(135deg,#064e3b,#059669);padding:20px 24px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+            <div style="display:flex;align-items:center;gap:12px;">
+                <div style="width:40px;height:40px;background:rgba(255,255,255,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                    <i class="fa-solid fa-receipt" style="color:#fff;font-size:1.1rem;"></i>
+                </div>
+                <div>
+                    <h3 style="margin:0;color:#fff;font-size:1.05rem;font-weight:700;">Record Recovery Payment</h3>
+                    <p id="paymentLoanLabel" style="margin:0;color:rgba(255,255,255,0.65);font-size:0.75rem;"></p>
+                </div>
+            </div>
+            <button onclick="closePaymentModal()" style="width:34px;height:34px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);color:#fff;border-radius:8px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background='rgba(255,255,255,0.25)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <!-- Modal Body -->
+        <div style="padding:22px;overflow-y:auto;flex:1;">
+            <div class="form-group"><label class="form-label">Recovery Date *</label><input type="date" id="paymentDate" class="form-control"></div>
+            <div class="form-group"><label class="form-label">Amount Collected (Rs) *</label><input type="number" id="paymentAmount" class="form-control" placeholder="e.g. 10000" min="1"></div>
+            <div class="form-group">
+                <label class="form-label">Deposit In Bank Account *</label>
+                <select id="paymentAccount" class="form-control" style="padding-left:14px;" required>
+                    <option value="" disabled selected>Select Account</option>
+                </select>
+            </div>
+            <div class="form-group"><label class="form-label">Remarks / Collection Note</label><input type="text" id="paymentNote" class="form-control" placeholder="e.g. EMI Month 2 recovery"></div>
+            <button class="btn-primary" onclick="savePayment()" style="width:100%;height:48px;border-radius:12px;font-size:1rem;font-weight:700;margin-bottom:20px;background:linear-gradient(135deg,#064e3b,#059669);border:none;"><i class="fa-solid fa-check-circle"></i> Log Payment</button>
+            <hr style="border-color:rgba(255,255,255,0.07);margin:0 0 16px;">
+            <h4 style="color:#fff;margin:0 0 12px;font-size:0.9rem;"><i class="fa-solid fa-history" style="margin-right:6px;color:#10b981;"></i>Payment Collection History</h4>
+            <div id="paymentHistList" style="display:flex;flex-direction:column;gap:8px;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Mobile FAB Button -->
+<button class="mobile-fab" id="mobileLoanFab" title="Record Given Loan" aria-label="Add Given Loan">
+    <i class="fa-solid fa-plus"></i>
+</button>
+
+<script>
+    let currentUser=null,currentUserData=null,activePaymentLoanId=null,loansCache={},activeAccountsMap={},activeAccountsFullMap={};
+    window.onNavigationLoaded=function(user,userData){
+        currentUser=user;
+        currentUserData=userData;
+        loadAccountsList().then(() => {
+            loadLoans();
+        });
+    };
+
+    function calcEMI(){
+        const P=parseFloat(document.getElementById('principal').value);
+        const r=parseFloat(document.getElementById('interest_rate').value);
+        const n=parseInt(document.getElementById('tenure_months').value);
+        if(!P||!r||!n){document.getElementById('emiPreview').style.display='none';return;}
+        const mr=r/12/100;
+        const emi=P*mr*Math.pow(1+mr,n)/(Math.pow(1+mr,n)-1);
+        const tot=emi*n;
+        document.getElementById('previewEMI').textContent=formatCurrency(emi);
+        document.getElementById('previewInterest').textContent=formatCurrency(tot-P);
+        document.getElementById('previewTotal').textContent=formatCurrency(tot);
+        document.getElementById('emiPreview').style.display='block';
+    }
+    function computeEMI(P,rate,n){const r=rate/12/100;return P*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1);}
+    function formatCurrency(v){return new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',minimumFractionDigits:0}).format(v||0);}
+
+    function loadAccountsList() {
+        const selects = [
+            document.getElementById('disbursement_account'),
+            document.getElementById('repayment_account'),
+            document.getElementById('paymentAccount')
+        ];
+        return db.collection('bank_accounts').where('status', '==', 'active').get().then(snapshot => {
+            selects.forEach(sel => {
+                sel.innerHTML = '<option value="" disabled selected>Select Bank Account</option>';
+            });
+            snapshot.forEach(doc => {
+                const acc = doc.data();
+                const id = doc.id;
+                activeAccountsMap[id] = acc.account_name;
+                activeAccountsFullMap[id] = acc;
+                selects.forEach(sel => {
+                    sel.innerHTML += `<option value="${id}">${acc.account_name} (${formatCurrency(acc.current_balance)})</option>`;
+                });
+            });
+        });
+    }
+
+    function loadLoans(){
+        db.collection('loans_given').orderBy('start_date','desc').onSnapshot(snapshot=>{
+            const grid=document.getElementById('loansGrid');
+            loansCache={};
+            if(snapshot.empty){grid.innerHTML='<div class="loans-empty" style="grid-column:1/-1;"><i class="fa-solid fa-hand-holding-dollar"></i><h3>No loans distributed yet.</h3><p style="font-size:0.85rem;">Click "Give a Loan" to get started.</p></div>';updateStats([]);return;}
+            const loans=[];
+            snapshot.forEach(doc=>{loansCache[doc.id]=doc.data();loans.push({id:doc.id,...doc.data()});});
+            updateStats(loans);
+            renderLoans(loans);
+        });
+    }
+
+    function updateStats(loans){
+        let out=0,paid=0,tp=0,emi=0,ac=0;
+        loans.forEach(l=>{
+            const isAct=l.status==='active';
+            const tot=l.emi_amount*l.tenure_months;
+            tp+=l.principal;
+            paid+=l.total_paid||0;
+            out+=Math.max(0,tot-(l.total_paid||0));
+            if(isAct){emi+=l.emi_amount;ac++;}
+        });
+        document.getElementById('statTotalLoans').textContent=formatCurrency(tp);
+        document.getElementById('statTotalPaid').textContent=formatCurrency(paid);
+        document.getElementById('statOutstanding').textContent=formatCurrency(out);
+        document.getElementById('statMonthlyEmi').textContent=formatCurrency(emi);
+        document.getElementById('statLoanCount').textContent=loans.length+' debtors total';
+        document.getElementById('statPaidPct').textContent=tp>0?Math.round((paid/(tp))*100)+'% recovered':'0% recovered';
+        document.getElementById('statActiveCount').textContent=ac+' active debtors';
+    }
+
+    function renderLoans(loans){
+        const grid=document.getElementById('loansGrid');
+        grid.innerHTML=loans.map(l=>{
+            const emi=l.emi_amount;
+            const tot=emi*l.tenure_months;
+            const remaining=Math.max(0,tot-(l.total_paid||0));
+            const pct=Math.min(100,Math.round(((l.total_paid||0)/tot)*100));
+            const c=l.status==='closed'?'#10b981':'#a855f7';
+            const grad=l.status==='closed'?'135deg,#064e3b,#10b981':'135deg,#5b21b6,#a855f7';
+            const nextEmiDate=new Date(l.start_date);
+            nextEmiDate.setMonth(nextEmiDate.getMonth()+(l.emi_paid||0));
+            nextEmiDate.setDate(l.emi_day||5);
+            const nextStr=nextEmiDate.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+            const closed=l.status==='closed';
+            const emiPaid = l.emi_paid || 0;
+            const totInt = tot - l.principal;
+            
+            let attachButton = '';
+            if (l.attachment_url) {
+                attachButton = `<a href="${l.attachment_url}" target="_blank" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px;border-radius:10px;text-align:center;text-decoration:none;" title="View Agreement"><i class="fa-solid fa-file-contract"></i></a>`;
+            }
+
+            return `
+            <div class="loan-card" style="border-top:4px solid ${c};position:relative;background:#1a1d2e;">
+                <div class="loan-card-header">
+                    <div>
+                        <h3 style="margin:0;font-size:1.05rem;font-weight:700;color:#fff;">${l.debtor_name}</h3>
+                        <p style="margin:2px 0 0;font-size:0.75rem;color:rgba(255,255,255,0.5);">${l.debtor_address}</p>
+                    </div>
+                    <div class="loan-actions">
+                        ${attachButton}
+                        <button onclick="editLoan('${l.id}')" class="bank-btn" title="Edit Contract"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="deleteLoan('${l.id}')" class="bank-btn" title="Delete Records" style="color:var(--danger);"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+
+                <div class="debtor-contact-bar">
+                    <a href="https://wa.me/91${l.debtor_phone}" target="_blank" class="debtor-contact-btn whatsapp"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>
+                    <a href="tel:${l.debtor_phone}" class="debtor-contact-btn phone"><i class="fa-solid fa-phone"></i> Call</a>
+                </div>
+
+                <!-- Recovery Progress Bar -->
+                <div style="display:flex;flex-direction:column;gap:6px;margin:5px 0;">
+                    <div style="display:flex;justify-content:space-between;font-size:0.78rem;">
+                        <span style="color:rgba(255,255,255,0.5);">Recovered: <b style="color:#10b981;">${formatCurrency(l.total_paid)}</b></span>
+                        <span style="color:${c};font-weight:700;">${pct}% complete</span>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.07);border-radius:6px;height:8px;overflow:hidden;">
+                        <div style="width:${pct}%;height:100%;background:linear-gradient(90deg,${c},${c}99);border-radius:6px;transition:width 0.8s ease;"></div>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;font-size:0.74rem;">
+                        <span style="color:rgba(255,255,255,0.5);">Remaining Principal + Interest: <b style="color:#fff;">${formatCurrency(remaining)}</b></span>
+                        <span style="color:rgba(255,255,255,0.5);">EMIs: <b style="color:#fff;">${emiPaid}/${l.tenure_months}</b></span>
+                    </div>
+                </div>
+
+                <!-- Detail Rows -->
+                <div style="display:flex;flex-direction:column;gap:0;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:12px;overflow:hidden;">
+                    <div style="display:flex;justify-content:space-between;padding:9px 14px;border-bottom:1px solid rgba(255,255,255,0.05);">
+                        <span style="color:rgba(255,255,255,0.5);font-size:0.8rem;display:flex;align-items:center;gap:7px;"><i class="fa-solid fa-indian-rupee-sign" style="color:${c};width:14px;"></i>Principal Out</span>
+                        <span style="font-weight:700;color:#fff;font-size:0.85rem;">${formatCurrency(l.principal)}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:9px 14px;border-bottom:1px solid rgba(255,255,255,0.05);">
+                        <span style="color:rgba(255,255,255,0.5);font-size:0.8rem;display:flex;align-items:center;gap:7px;"><i class="fa-solid fa-percent" style="color:${c};width:14px;"></i>Interest Rate</span>
+                        <span style="font-weight:700;color:#fff;font-size:0.85rem;">${l.interest_rate}% p.a.</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:9px 14px;border-bottom:1px solid rgba(255,255,255,0.05);">
+                        <span style="color:rgba(255,255,255,0.5);font-size:0.8rem;display:flex;align-items:center;gap:7px;"><i class="fa-solid fa-coins" style="color:#f59e0b;width:14px;"></i>Interest Earnings</span>
+                        <span style="font-weight:700;color:#f59e0b;font-size:0.85rem;">${formatCurrency(totInt)}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:9px 14px;${!closed?'border-bottom:1px solid rgba(255,255,255,0.05);':''}">
+                        <span style="color:rgba(255,255,255,0.5);font-size:0.8rem;display:flex;align-items:center;gap:7px;"><i class="fa-solid fa-calendar" style="color:${c};width:14px;"></i>Start Date</span>
+                        <span style="font-weight:700;color:#fff;font-size:0.85rem;">${new Date(l.start_date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</span>
+                    </div>
+                    ${!closed?`
+                    <div style="display:flex;justify-content:space-between;padding:9px 14px;">
+                        <span style="color:rgba(255,255,255,0.5);font-size:0.8rem;display:flex;align-items:center;gap:7px;"><i class="fa-solid fa-clock" style="color:#ef4444;width:14px;"></i>Next EMI Due</span>
+                        <span style="font-weight:700;color:#ef4444;font-size:0.85rem;">${nextStr}</span>
+                    </div>`:''}
+                </div>
+
+                <!-- EMI Footer Badge -->
+                <div style="background:linear-gradient(${grad});border-radius:12px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+                    <div>
+                        <div style="font-size:0.68rem;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;">Monthly EMI</div>
+                        <div style="font-size:1.2rem;font-weight:900;color:#fff;">${formatCurrency(emi)}</div>
+                    </div>
+                    <div style="display:flex;gap:6px;">
+                        <button onclick="printLoanSchedule('${l.id}')" style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.2);color:#fff;padding:8px 12px;border-radius:8px;cursor:pointer;font-size:0.75rem;font-weight:700;display:flex;align-items:center;gap:5px;" title="Print Amortization Receipt"><i class="fa-solid fa-print"></i>Print</button>
+                        ${!closed?`<button onclick="openPaymentModal('${l.id}')" style="background:#fff;border:none;color:#5b21b6;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:0.75rem;font-weight:800;display:flex;align-items:center;gap:5px;"><i class="fa-solid fa-circle-check"></i>Recover</button>`:`<span style="color:rgba(255,255,255,0.8);font-size:0.8rem;font-weight:700;">✓ Fully Recovered</span>`}
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function openLoanModal(editId=null){
+        document.getElementById('loanForm').reset();
+        document.getElementById('emiPreview').style.display='none';
+        document.getElementById('loanId').value='';
+        document.getElementById('start_date').value=new Date().toISOString().split('T')[0];
+        document.getElementById('disbursement_account').disabled=false;
+        
+        if(editId&&loansCache[editId]){
+            const l=loansCache[editId];
+            document.getElementById('loanModalTitle').textContent='Edit Loan Contract';
+            document.getElementById('loanId').value=editId;
+            document.getElementById('debtor_name').value=l.debtor_name;
+            document.getElementById('debtor_phone').value=l.debtor_phone;
+            document.getElementById('debtor_email').value=l.debtor_email||'';
+            document.getElementById('debtor_address').value=l.debtor_address;
+            
+            document.getElementById('principal').value=l.principal;
+            document.getElementById('interest_rate').value=l.interest_rate;
+            document.getElementById('tenure_months').value=l.tenure_months;
+            document.getElementById('start_date').value=l.start_date;
+            document.getElementById('emi_day').value=l.emi_day||5;
+            
+            document.getElementById('disbursement_account').value=l.disbursement_account_id||'';
+            document.getElementById('disbursement_account').disabled=true; // Block account changes on edit to prevent balance leaks
+            document.getElementById('repayment_account').value=l.repayment_account_id||'';
+            document.getElementById('repayment_upi').value=l.repayment_upi||'';
+            calcEMI();
+        }else{
+            document.getElementById('loanModalTitle').textContent='Record New Given Loan';
+        }
+        document.getElementById('loanModal').style.display='flex';
+    }
+    function closeLoanModal(){document.getElementById('loanModal').style.display='none';}
+    function editLoan(id){openLoanModal(id);}
+
+    document.getElementById('loanForm').addEventListener('submit',function(e){
+        e.preventDefault();
+        const id=document.getElementById('loanId').value;
+        const debtorName=document.getElementById('debtor_name').value.trim();
+        const debtorPhone=document.getElementById('debtor_phone').value.trim();
+        const debtorEmail=document.getElementById('debtor_email').value.trim();
+        const debtorAddress=document.getElementById('debtor_address').value.trim();
+        const P=parseFloat(document.getElementById('principal').value);
+        const rate=parseFloat(document.getElementById('interest_rate').value);
+        const n=parseInt(document.getElementById('tenure_months').value);
+        const date=document.getElementById('start_date').value;
+        const emiDay=parseInt(document.getElementById('emi_day').value)||5;
+        const disbAccountId=document.getElementById('disbursement_account').value;
+        const repaymentAccountId=document.getElementById('repayment_account').value;
+        const repaymentUpi=document.getElementById('repayment_upi').value.trim();
+        const fileInput = document.getElementById('attachment').files[0];
+
+        if(!disbAccountId||!repaymentAccountId||!repaymentUpi){
+            Swal.fire({icon:'warning',title:'Selection Required',text:'Please select Bank Accounts and enter repayment UPI.'});
+            return;
+        }
+
+        const emiVal = computeEMI(P, rate, n);
+        
+        let docId = id ? id : db.collection('loans_given').doc().id;
+        document.getElementById('loanSaveText').textContent='Uploading & Saving...';
+
+        // File attachment handler
+        let uploadPromise = Promise.resolve(null);
+        if (fileInput) {
+            const storageRef = storage.ref(`given_loans_docs/${docId}/${fileInput.name}`);
+            uploadPromise = storageRef.put(fileInput)
+                .then(snap => snap.ref.getDownloadURL())
+                .catch(err => {
+                    console.log("File upload failed: ", err);
+                    return null;
+                });
+        } else if (id && loansCache[id] && loansCache[id].attachment_url) {
+            uploadPromise = Promise.resolve(loansCache[id].attachment_url);
+        }
+
+        uploadPromise.then(attachmentUrl => {
+            const data={
+                debtor_name: debtorName,
+                debtor_phone: debtorPhone,
+                debtor_email: debtorEmail,
+                debtor_address: debtorAddress,
+                principal: P,
+                interest_rate: rate,
+                tenure_months: n,
+                start_date: date,
+                emi_day: emiDay,
+                disbursement_account_id: disbAccountId,
+                repayment_account_id: repaymentAccountId,
+                repayment_upi: repaymentUpi,
+                emi_amount: emiVal,
+                updated_at: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            if(attachmentUrl) data.attachment_url = attachmentUrl;
+
+            if (id) {
+                // Edit mode
+                db.collection('loans_given').doc(id).update(data).then(()=>{
+                    closeLoanModal();
+                    document.getElementById('loanSaveText').textContent='Save Loan Contract';
+                    Swal.fire({icon:'success',title:'Contract Updated',timer:1500,showConfirmButton:false});
+                    logActivity('Updated given loan contract for: '+debtorName);
+                }).catch(err=>{
+                    document.getElementById('loanSaveText').textContent='Save Loan Contract';
+                    Swal.fire({icon:'error',title:'Failed',text:err.message});
+                });
+            } else {
+                // Create mode - Execute transaction to subtract principal from bank account
+                db.runTransaction(transaction => {
+                    const accRef = db.collection('bank_accounts').doc(disbAccountId);
+                    const lDocRef = db.collection('loans_given').doc(docId);
+                    const expRef = db.collection('expenses').doc(); // Auto expense log
+
+                    return transaction.get(accRef).then(accDoc => {
+                        if (!accDoc.exists) throw new Error("Selected Bank Account does not exist!");
+                        const currentBal = parseFloat(accDoc.data().current_balance || 0);
+                        
+                        // Deduct principal balance
+                        transaction.update(accRef, {current_balance: currentBal - P});
+                        
+                        // Set given loan contract
+                        transaction.set(lDocRef, {
+                            ...data,
+                            status: 'active',
+                            total_paid: 0,
+                            emi_paid: 0,
+                            created_at: firebase.firestore.FieldValue.serverTimestamp(),
+                            created_by: currentUser.uid
+                        });
+
+                        // Set expense transaction
+                        transaction.set(expRef, {
+                            title: `Disbursed Loan to ${debtorName}`,
+                            category: 'Loan Disbursement',
+                            amount: P,
+                            account_id: disbAccountId,
+                            payment_method: 'bank',
+                            expense_date: date,
+                            reference_no: '',
+                            description: `Principal amount given to debtor ${debtorName} on interest`,
+                            attachment_url: attachmentUrl || '',
+                            recorded_by_uid: currentUser.uid,
+                            recorded_by_name: currentUserData ? currentUserData.full_name : currentUser.email.split('@')[0],
+                            created_at: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    });
+                }).then(()=>{
+                    closeLoanModal();
+                    document.getElementById('loanSaveText').textContent='Save Loan Contract';
+                    Swal.fire({icon:'success',title:'Loan Recorded Successfully',text:'Disbursed from selected bank account.',timer:2000,showConfirmButton:false});
+                    logActivity('Disbursed given loan of '+formatCurrency(P)+' to: '+debtorName);
+                    loadAccountsList(); // Refresh balances
+                }).catch(err=>{
+                    document.getElementById('loanSaveText').textContent='Save Loan Contract';
+                    Swal.fire({icon:'error',title:'Save Failed',text:err.message});
+                });
+            }
+        });
+    });
+
+    function deleteLoan(id){
+        Swal.fire({icon:'warning',title:'Delete Loan Record?',text:'This removes the debtor contract, document references and payment records completely.',showCancelButton:true,confirmButtonText:'Delete Contract',confirmButtonColor:'#e11d48'}).then(r=>{
+            if(!r.isConfirmed)return;
+            db.collection('loans_given').doc(id).collection('payments').get().then(s=>{
+                const b=db.batch();
+                s.forEach(d=>b.delete(d.ref));
+                return b.commit();
+            }).then(()=>db.collection('loans_given').doc(id).delete()).then(()=>{
+                Swal.fire({icon:'success',title:'Record Deleted',timer:1200,showConfirmButton:false});
+                logActivity('Deleted given loan record ID: '+id);
+            }).catch(err=>Swal.fire({icon:'error',title:'Error',text:err.message}));
+        });
+    }
+
+    function openPaymentModal(loanId){
+        activePaymentLoanId=loanId;
+        const l=loansCache[loanId];
+        document.getElementById('paymentLoanLabel').textContent=l?l.debtor_name+' | Expected EMI: '+formatCurrency(l.emi_amount):'';
+        document.getElementById('paymentDate').value=new Date().toISOString().split('T')[0];
+        document.getElementById('paymentAmount').value=l?Math.round(l.emi_amount):'';
+        document.getElementById('paymentNote').value='';
+        document.getElementById('paymentAccount').value=l?l.repayment_account_id:'';
+        loadPaymentHistory(loanId);
+        document.getElementById('paymentModal').style.display='flex';
+    }
+    function closePaymentModal(){document.getElementById('paymentModal').style.display='none';activePaymentLoanId=null;}
+
+    function loadPaymentHistory(loanId){
+        const list=document.getElementById('paymentHistList');
+        list.innerHTML='<div style="color:var(--text-secondary);font-size:0.82rem;">Loading...</div>';
+        db.collection('loans_given').doc(loanId).collection('payments').orderBy('payment_date','desc').get().then(snap=>{
+            if(snap.empty){list.innerHTML='<div style="color:var(--text-secondary);font-size:0.82rem;text-align:center;padding:10px;">No recovery payments collected yet.</div>';return;}
+            list.innerHTML=snap.docs.map(d=>{
+                const p=d.data();
+                const ds=new Date(p.payment_date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+                return `
+                <div class="payment-hist-item">
+                    <div>
+                        <div style="font-weight:600;color:var(--text-light);">${formatCurrency(p.amount)}</div>
+                        <div style="color:var(--text-secondary);font-size:0.76rem;">${p.note||'EMI Collected'} (${p.account_name||'Account'})</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="color:var(--success);font-size:0.8rem;">${ds}</div>
+                        <button onclick="deletePayment('${loanId}','${d.id}',${p.amount})" style="background:transparent;border:none;color:var(--danger);cursor:pointer;font-size:0.75rem;margin-top:2px;" title="Delete Payment Log"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>`;
+            }).join('');
+        });
+    }
+
+    function savePayment(){
+        if(!activePaymentLoanId)return;
+        const amount=parseFloat(document.getElementById('paymentAmount').value);
+        const date=document.getElementById('paymentDate').value;
+        const note=document.getElementById('paymentNote').value.trim();
+        const accountId=document.getElementById('paymentAccount').value;
+        if(!amount||!date||!accountId){
+            Swal.fire({icon:'warning',title:'Required Fields',text:'Please enter recovery amount, collection date and deposit account.'});
+            return;
+        }
+
+        const lRef=db.collection('loans_given').doc(activePaymentLoanId);
+        const pRef=lRef.collection('payments').doc();
+        const accRef=db.collection('bank_accounts').doc(accountId);
+        const incRef=db.collection('income').doc(); // Auto log income
+
+        db.runTransaction(tx=>tx.get(lRef).then(doc=>{
+            const l=doc.data();
+            return tx.get(accRef).then(accDoc => {
+                if(!accDoc.exists) throw new Error("Selected account does not exist!");
+                const currentBal = parseFloat(accDoc.data().current_balance || 0);
+                const accountName = accDoc.data().account_name;
+
+                const nPaid=(l.total_paid||0)+amount;
+                const nEmi=(l.emi_paid||0)+1;
+                const tot=l.emi_amount*l.tenure_months;
+                const status=nPaid>=tot?'closed':'active';
+
+                tx.update(accRef, {current_balance: currentBal + amount});
+                tx.update(lRef, {total_paid:nPaid,emi_paid:nEmi,status,updated_at:firebase.firestore.FieldValue.serverTimestamp()});
+                
+                // Set payment sub-doc
+                tx.set(pRef,{
+                    amount,
+                    payment_date:date,
+                    note: note || `EMI Recovery Payment from ${l.debtor_name}`,
+                    account_id: accountId,
+                    account_name: accountName,
+                    income_id: incRef.id,
+                    recorded_by:currentUser.uid,
+                    recorded_at:firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                // Add to income collection
+                tx.set(incRef, {
+                    title: `EMI Collection - ${l.debtor_name}`,
+                    category: 'Loan EMI Recovery',
+                    amount: amount,
+                    account_id: accountId,
+                    payment_method: 'bank',
+                    income_date: date,
+                    reference_no: '',
+                    description: note || `EMI month ${nEmi} recovery payment`,
+                    attachment_url: '',
+                    recorded_by_uid: currentUser.uid,
+                    recorded_by_name: currentUserData ? currentUserData.full_name : currentUser.email.split('@')[0],
+                    created_at: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            });
+        })).then(()=>{
+            Swal.fire({icon:'success',title:'EMI Recovery Logged!',timer:1500,showConfirmButton:false});
+            logActivity('Recovered EMI payment of '+formatCurrency(amount)+' from debtor: '+loansCache[activePaymentLoanId].debtor_name);
+            loadPaymentHistory(activePaymentLoanId);
+            loadAccountsList(); // Refresh balances
+        }).catch(err=>Swal.fire({icon:'error',title:'Failed to Log Payment',text:err.message}));
+    }
+
+    function deletePayment(loanId,payId,amount){
+        Swal.fire({icon:'question',title:'Delete Collection Log?',text:'This deducts '+formatCurrency(amount)+' from recovered balances and reverts deposit account balance.',showCancelButton:true,confirmButtonText:'Delete Log',confirmButtonColor:'#e11d48'}).then(r=>{
+            if(!r.isConfirmed)return;
+            const lRef=db.collection('loans_given').doc(loanId);
+            
+            db.collection('loans_given').doc(loanId).collection('payments').doc(payId).get().then(pDoc => {
+                if(!pDoc.exists) return;
+                const pData = pDoc.data();
+                const accId = pData.account_id;
+                const incId = pData.income_id;
+
+                db.runTransaction(tx=>tx.get(lRef).then(doc=>{
+                    const l=doc.data();
+                    tx.update(lRef,{
+                        total_paid:Math.max(0,(l.total_paid||0)-amount),
+                        emi_paid:Math.max(0,(l.emi_paid||0)-1),
+                        status:'active'
+                    });
+                    tx.delete(lRef.collection('payments').doc(payId));
+                    
+                    if (accId) {
+                        const accRef = db.collection('bank_accounts').doc(accId);
+                        return tx.get(accRef).then(accDoc => {
+                            if (accDoc.exists) {
+                                const currentBal = parseFloat(accDoc.data().current_balance || 0);
+                                tx.update(accRef, {current_balance: currentBal - amount});
+                            }
+                        });
+                    }
+                })).then(()=>{
+                    if (incId) {
+                        db.collection('income').doc(incId).delete().catch(e => console.log("Failed to delete income document: ", e));
+                    }
+                    Swal.fire({icon:'success',title:'Collection Reverted',timer:1200,showConfirmButton:false});
+                    loadPaymentHistory(loanId);
+                    loadAccountsList();
+                }).catch(err=>Swal.fire({icon:'error',title:'Error Reverting',text:err.message}));
+            });
+        });
+    }
+
+    // ── Amortization Schedule Print Engine ─────────────────────────────────
+    function printLoanSchedule(loanId) {
+        const l = loansCache[loanId];
+        if(!l) return;
+        
+        db.collection('loans_given').doc(loanId).collection('payments').orderBy('payment_date','asc').get().then(snap => {
+            const payments = [];
+            snap.forEach(d => payments.push(d.data()));
+
+            // Find repayment bank account
+            const bankAcc = activeAccountsFullMap[l.repayment_account_id] || {account_name: 'Unknown Bank', account_number: 'N/A', ifsc_code: 'N/A', bank_name: 'Unknown'};
+
+            // Compute Month-by-Month Amortization Schedule (Reducing Balance)
+            const P = l.principal;
+            const rate = l.interest_rate;
+            const n = l.tenure_months;
+            const r = (rate / 12) / 100;
+            const emi = computeEMI(P, rate, n);
+            const totalRepayment = emi * n;
+            const totalInterest = totalRepayment - P;
+
+            let remainingPrincipal = P;
+            let scheduleHTML = '';
+            
+            for (let i = 1; i <= n; i++) {
+                const openingBal = remainingPrincipal;
+                const interestPortion = openingBal * r;
+                const principalPortion = emi - interestPortion;
+                const closingBal = Math.max(0, openingBal - principalPortion);
+                remainingPrincipal = closingBal;
+
+                const isPaid = i <= (l.emi_paid || 0);
+                const statusBadge = isPaid 
+                    ? `<span style="color:#10b981;font-weight:bold;">PAID</span>` 
+                    : `<span style="color:#ef4444;font-weight:bold;">PENDING</span>`;
+
+                scheduleHTML += `
+                <tr>
+                    <td style="text-align:center;">Month ${i}</td>
+                    <td>${formatCurrency(openingBal)}</td>
+                    <td>${formatCurrency(interestPortion)}</td>
+                    <td>${formatCurrency(principalPortion)}</td>
+                    <td style="font-weight:bold;">${formatCurrency(emi)}</td>
+                    <td>${formatCurrency(closingBal)}</td>
+                    <td style="text-align:center;">${statusBadge}</td>
+                </tr>`;
+            }
+
+            // Generate Print Invoice Document in a clean printable print-window
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Repayment Schedule - ${l.debtor_name}</title>
+                <style>
+                    body {
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        color: #1e293b;
+                        padding: 30px;
+                        margin: 0;
+                        background: #fff;
+                        font-size: 14px;
+                        line-height: 1.5;
+                    }
+                    .header-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-bottom: 30px;
+                    }
+                    .header-table td {
+                        vertical-align: top;
+                        border: none;
+                        padding: 0;
+                    }
+                    .company-title {
+                        font-size: 24px;
+                        font-weight: 800;
+                        color: #5b21b6;
+                        margin: 0 0 5px;
+                        text-transform: uppercase;
+                        letter-spacing: 0.5px;
+                    }
+                    .doc-title {
+                        font-size: 16px;
+                        font-weight: 700;
+                        color: #475569;
+                        margin: 0 0 20px;
+                        text-transform: uppercase;
+                    }
+                    .section-title {
+                        font-size: 12px;
+                        font-weight: 700;
+                        color: #6d28d9;
+                        border-bottom: 2px solid #ddd;
+                        padding-bottom: 5px;
+                        margin: 25px 0 12px;
+                        text-transform: uppercase;
+                        letter-spacing: 0.5px;
+                    }
+                    .details-grid {
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                        gap: 30px;
+                        margin-bottom: 20px;
+                    }
+                    .details-block p {
+                        margin: 4px 0;
+                    }
+                    .details-block strong {
+                        color: #0f172a;
+                    }
+                    .summary-box {
+                        background: #f8fafc;
+                        border: 1px solid #e2e8f0;
+                        border-radius: 8px;
+                        padding: 15px 20px;
+                        margin-bottom: 25px;
+                        display: grid;
+                        grid-template-columns: repeat(3, 1fr);
+                        gap: 15px;
+                    }
+                    .summary-item label {
+                        font-size: 11px;
+                        color: #64748b;
+                        display: block;
+                        text-transform: uppercase;
+                        margin-bottom: 4px;
+                        font-weight: 600;
+                    }
+                    .summary-item value {
+                        font-size: 15px;
+                        font-weight: 700;
+                        color: #0f172a;
+                        display: block;
+                    }
+                    table.amort-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-top: 10px;
+                        font-size: 12px;
+                    }
+                    table.amort-table th {
+                        background: #5b21b6;
+                        color: #ffffff;
+                        text-align: left;
+                        padding: 8px 10px;
+                        font-weight: 700;
+                        text-transform: uppercase;
+                        font-size: 11px;
+                    }
+                    table.amort-table td {
+                        padding: 8px 10px;
+                        border-bottom: 1px solid #e2e8f0;
+                        color: #334155;
+                    }
+                    table.amort-table tr:nth-child(even) {
+                        background: #f8fafc;
+                    }
+                    .payment-instructions {
+                        border: 1.5px dashed #a855f7;
+                        background: #faf5ff;
+                        border-radius: 8px;
+                        padding: 15px 20px;
+                        margin-top: 30px;
+                        display: grid;
+                        grid-template-columns: 1.5fr 1fr;
+                        gap: 20px;
+                    }
+                    .instructions-header {
+                        font-weight: 700;
+                        color: #5b21b6;
+                        margin-bottom: 8px;
+                        font-size: 13px;
+                    }
+                    .signature-section {
+                        margin-top: 60px;
+                        display: flex;
+                        justify-content: space-between;
+                        padding: 0 40px;
+                    }
+                    .sig-line {
+                        width: 200px;
+                        border-top: 1px solid #94a3b8;
+                        text-align: center;
+                        padding-top: 6px;
+                        font-size: 12px;
+                        color: #64748b;
+                    }
+                    @media print {
+                        body { padding: 0; margin: 1.5cm; }
+                        .no-print { display: none; }
+                        tr { page-break-inside: avoid; }
+                    }
+                </style>
+            </head>
+            <body>
+                <table class="header-table">
+                    <tr>
+                        <td>
+                            <div class="company-title">IEMS ERP Finance</div>
+                            <div class="doc-title">Given Loan Amortization Schedule</div>
+                        </td>
+                        <td style="text-align:right;color:#64748b;font-size:12px;">
+                            <div><strong>Contract ID:</strong> GL-${loanId.substring(0,8).toUpperCase()}</div>
+                            <div><strong>Date Generated:</strong> ${new Date().toLocaleDateString('en-IN')}</div>
+                        </td>
+                    </tr>
+                </table>
+
+                <div class="details-grid">
+                    <div class="details-block">
+                        <div class="section-title">Lender Details</div>
+                        <p><strong>Lender:</strong> IEMS ERP Financials</p>
+                        <p><strong>Recorded By:</strong> ${currentUserData ? currentUserData.full_name : 'System Administrator'}</p>
+                    </div>
+                    <div class="details-block">
+                        <div class="section-title">Debtor Details</div>
+                        <p><strong>Name:</strong> ${l.debtor_name}</p>
+                        <p><strong>Address:</strong> ${l.debtor_address}</p>
+                        <p><strong>Contact:</strong> +91 ${l.debtor_phone} ${l.debtor_email ? ' | ' + l.debtor_email : ''}</p>
+                    </div>
+                </div>
+
+                <div class="section-title">Loan Overview</div>
+                <div class="summary-box">
+                    <div class="summary-item"><label>Principal Capital</label><value>${formatCurrency(l.principal)}</value></div>
+                    <div class="summary-item"><label>Interest Rate</label><value>${l.interest_rate}% p.a. (Reducing)</value></div>
+                    <div class="summary-item"><label>Tenure Months</label><value>${l.tenure_months} Months</value></div>
+                    <div class="summary-item"><label>Monthly EMI</label><value>${formatCurrency(emi)}</value></div>
+                    <div class="summary-item"><label>Total Interest Earnings</label><value>${formatCurrency(totalInterest)}</value></div>
+                    <div class="summary-item"><label>Total Repayable Amount</label><value>${formatCurrency(totalRepayment)}</value></div>
+                </div>
+
+                <div class="section-title">Month-by-Month Repayment Schedule</div>
+                <table class="amort-table">
+                    <thead>
+                        <tr>
+                            <th style="text-align:center;">Installment</th>
+                            <th>Opening Principal</th>
+                            <th>Interest Portion</th>
+                            <th>Principal Recovery</th>
+                            <th>Installment (EMI)</th>
+                            <th>Closing Principal</th>
+                            <th style="text-align:center;">Recovery Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${scheduleHTML}
+                    </tbody>
+                </table>
+
+                <div class="payment-instructions">
+                    <div>
+                        <div class="instructions-header"><i class="fa-solid fa-building-columns"></i> Bank Account Instructions</div>
+                        <p style="margin:4px 0;">Please pay monthly EMIs to the following registered bank account:</p>
+                        <p style="margin:4px 0;"><strong>Bank Name:</strong> ${bankAcc.bank_name || 'N/A'}</p>
+                        <p style="margin:4px 0;"><strong>Account Name:</strong> ${bankAcc.account_name || 'N/A'}</p>
+                        <p style="margin:4px 0;"><strong>Account Number:</strong> ${bankAcc.account_number || 'N/A'}</p>
+                        <p style="margin:4px 0;"><strong>IFSC Code:</strong> ${bankAcc.ifsc_code || 'N/A'}</p>
+                    </div>
+                    <div style="border-left: 1px solid #e9d5ff; padding-left:20px;">
+                        <div class="instructions-header"><i class="fa-solid fa-qrcode"></i> Instant Repayment via UPI</div>
+                        <p style="margin:4px 0;">Scan and pay using any UPI App (GPay, PhonePe, Paytm):</p>
+                        <p style="margin:6px 0; font-size:15px; font-weight:bold; color:#6d28d9; background:#f3e8ff; padding:8px 12px; border-radius:6px; display:inline-block; border:1px solid #d8b4fe;">
+                            ${l.repayment_upi}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="signature-section">
+                    <div class="sig-line">Debtor Signature & Date</div>
+                    <div class="sig-line">Authorized Signatory (Lender)</div>
+                </div>
+
+                <script>
+                    window.onload = function() {
+                        window.print();
+                    };
+                <\/script>
+            </body>
+            </html>
+            `);
+            printWindow.document.close();
+        });
+    }
+
+    document.getElementById('addLoanBtn').addEventListener('click',()=>openLoanModal());
+    const fab=document.getElementById('mobileLoanFab');if(fab)fab.addEventListener('click',()=>openLoanModal());
+    document.getElementById('loanModal').addEventListener('click',e=>{if(e.target===document.getElementById('loanModal'))closeLoanModal();});
+    document.getElementById('paymentModal').addEventListener('click',e=>{if(e.target===document.getElementById('paymentModal'))closePaymentModal();});
+</script>
+</body>
+</html>
