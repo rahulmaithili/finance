@@ -464,20 +464,23 @@ if (!empty($statement_acc_id)) {
                                             $badgeClass = 'badge-success';
                                             $amtClass = 'color: var(--success);';
                                             $prefix = '+';
+                                            $badgeStyle = "background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.25);";
+                                            $amtClass = 'color: var(--success);';
+                                            $prefix = '+';
                                             if ($row['type'] === 'expense') {
-                                                $badgeClass = 'badge-danger';
+                                                $badgeStyle = "background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.25);";
                                                 $amtClass = 'color: var(--danger);';
                                                 $prefix = '-';
                                             } elseif ($row['type'] === 'transfer') {
-                                                $badgeClass = 'badge-info';
+                                                $badgeStyle = "background: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.25);";
                                                 $amtClass = 'color: var(--info);';
                                                 $prefix = '';
                                             }
                                             echo "<tr>
                                                     <td>" . clean(date('d M Y', strtotime($row['txn_date']))) . "</td>
-                                                    <td><span class='badge {$badgeClass}'>" . clean($row['type']) . "</span></td>
+                                                    <td><span class='badge' style='{$badgeStyle}'>" . strtoupper(clean($row['type'])) . "</span></td>
                                                     <td style='font-weight:600; color:var(--text-light);'>" . clean($row['title']) . "</td>
-                                                    <td>" . clean($row['category']) . "</td>
+                                                    <td>" . get_category_badge($row['category']) . "</td>
                                                     <td>" . clean($row['account_name']) . "</td>
                                                     <td><span style='text-transform:uppercase; font-size:0.8rem;'>" . clean($row['payment_method']) . "</span></td>
                                                     <td style='font-weight:700; {$amtClass}'>{$prefix}" . format_currency($row['amount']) . "</td>
@@ -637,13 +640,14 @@ if (!empty($statement_acc_id)) {
                                                 <?php foreach ($statement_data as $row): ?>
                                                     <?php 
                                                     $running_bal += (float)$row['amount'];
-                                                    
-                                                    $txn_class = 'badge-success';
+                                                    $is_credit = ($row['type'] === 'income' || $row['type'] === 'transfer_to');
+                                                    $badgeStyle = $is_credit 
+                                                        ? "background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.25);" 
+                                                        : "background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.25);";
                                                     $amt_class = 'color: var(--success); text-align:right; font-weight:700;';
                                                     $sign = '+';
                                                     
                                                     if ($row['type'] === 'expense' || $row['type'] === 'transfer_from') {
-                                                        $txn_class = 'badge-danger';
                                                         $amt_class = 'color: var(--danger); text-align:right; font-weight:700;';
                                                         $sign = '-';
                                                     }
@@ -658,8 +662,8 @@ if (!empty($statement_acc_id)) {
                                                             <span style="font-size:0.75rem; color:var(--text-secondary);"><?= clean($row['detail']) ?></span>
                                                         </td>
                                                         <td>
-                                                            <span class="badge <?= $txn_class ?>">
-                                                                <?= ($row['type'] === 'income' || $row['type'] === 'transfer_to') ? 'Credit' : 'Debit' ?>
+                                                            <span class="badge" style="<?= $badgeStyle ?>">
+                                                                <?= $is_credit ? 'CREDIT' : 'DEBIT' ?>
                                                             </span>
                                                         </td>
                                                         <td style="<?= $amt_class ?>"><?= $sign . format_currency(abs($row['amount'])) ?></td>
