@@ -845,25 +845,35 @@
                 const accId = pData.account_id;
                 const incId = pData.income_id;
 
-                db.runTransaction(tx=>tx.get(lRef).then(doc=>{
-                    const l=doc.data();
-                    tx.update(lRef,{
-                        total_paid:Math.max(0,(l.total_paid||0)-amount),
-                        emi_paid:Math.max(0,(l.emi_paid||0)-1),
-                        status:'active'
+                db.runTransaction(tx => {
+                    return tx.get(lRef).then(doc => {
+                        const l = doc.data();
+                        
+                        if (accId) {
+                            const accRef = db.collection('bank_accounts').doc(accId);
+                            return tx.get(accRef).then(accDoc => {
+                                tx.update(lRef, {
+                                    total_paid: Math.max(0, (l.total_paid || 0) - amount),
+                                    emi_paid: Math.max(0, (l.emi_paid || 0) - 1),
+                                    status: 'active'
+                                });
+                                tx.delete(lRef.collection('payments').doc(payId));
+                                
+                                if (accDoc.exists) {
+                                    const currentBal = parseFloat(accDoc.data().current_balance || 0);
+                                    tx.update(accRef, {current_balance: currentBal - amount});
+                                }
+                            });
+                        } else {
+                            tx.update(lRef, {
+                                total_paid: Math.max(0, (l.total_paid || 0) - amount),
+                                emi_paid: Math.max(0, (l.emi_paid || 0) - 1),
+                                status: 'active'
+                            });
+                            tx.delete(lRef.collection('payments').doc(payId));
+                        }
                     });
-                    tx.delete(lRef.collection('payments').doc(payId));
-                    
-                    if (accId) {
-                        const accRef = db.collection('bank_accounts').doc(accId);
-                        return tx.get(accRef).then(accDoc => {
-                            if (accDoc.exists) {
-                                const currentBal = parseFloat(accDoc.data().current_balance || 0);
-                                tx.update(accRef, {current_balance: currentBal - amount});
-                            }
-                        });
-                    }
-                })).then(()=>{
+                }).then(()=>{
                     if (incId) {
                         db.collection('income').doc(incId).delete().catch(e => console.log("Failed to delete income document: ", e));
                     }
