@@ -1,12 +1,15 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quick Collect | IEMS ERP</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Quick Collect - IEMS ERP</title>
     <!-- Fonts & Icons -->
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Base Stylesheet -->
+    <link rel="stylesheet" href="styles.css">
     
     <!-- DataTables & jQuery -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -16,17 +19,11 @@
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
-    <!-- Global CSS Variables -->
-    <link rel="stylesheet" href="css/style.css">
-    
     <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-    <script src="js/firebase-config.js"></script>
-    
-    <!-- Theme Manager -->
-    <script src="js/theme-manager.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="firebase-config.js"></script>
     
     <style>
         :root {
@@ -35,30 +32,39 @@
             --accent-cyan-bg: rgba(6,182,212,0.1);
         }
         
-        .collect-grid {
+        .form-control:focus {
+            border-color: var(--accent-cyan) !important;
+            box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.15) !important;
+        }
+
+        .input-icon-wrapper:focus-within i {
+            color: var(--accent-cyan) !important;
+        }
+
+        .module-grid {
             display: grid;
-            grid-template-columns: 1.2fr 1.8fr;
+            grid-template-columns: 1.6fr 1fr;
             gap: 24px;
-            margin-top: 20px;
         }
         
-        @media (max-width: 1024px) {
-            .collect-grid {
-                grid-template-columns: 1fr;
+        @media (max-width: 991px) {
+            .module-grid {
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 20px;
             }
-        }
-        
-        .collect-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 24px;
-            box-shadow: var(--shadow-sm);
+            .module-grid > div:first-child {
+                order: 2; /* Table goes below on mobile */
+            }
+            .module-grid > div:last-child {
+                display: block !important;
+                order: 1; /* Form goes above on mobile */
+            }
         }
         
         .qr-preview-box {
             text-align: center;
-            background: rgba(255, 255, 255, 0.02);
+            background: var(--bg-primary);
             border: 2px dashed rgba(6, 182, 212, 0.3);
             border-radius: 16px;
             padding: 24px;
@@ -68,12 +74,14 @@
             align-items: center;
             justify-content: center;
             min-height: 250px;
-            transition: all 0.3s ease;
+            transition: all var(--transition-speed);
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.2);
         }
         
         .qr-preview-box.active {
             background: rgba(6, 182, 212, 0.02);
             border-color: var(--accent-cyan);
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.05), inset 0 2px 8px rgba(0,0,0,0.2);
         }
         
         .qr-placeholder-text {
@@ -93,13 +101,13 @@
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 12px;
-            margin-bottom: 16px;
+            margin-top: 8px;
         }
         
         .method-btn {
-            background: var(--bg-secondary);
-            border: 1.5px solid var(--border);
-            border-radius: 12px;
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
             padding: 12px;
             color: var(--text-secondary);
             font-weight: 600;
@@ -108,82 +116,19 @@
             align-items: center;
             justify-content: center;
             gap: 8px;
-            transition: all 0.25s ease;
+            transition: all var(--transition-speed);
         }
         
         .method-btn.active {
             border-color: var(--accent-cyan);
             background: var(--accent-cyan-bg);
             color: var(--accent-cyan);
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.15);
         }
 
-        .method-btn:hover {
-            border-color: var(--accent-cyan);
-        }
-        
-        /* Table styling */
-        .history-table-wrapper {
-            margin-top: 15px;
-            overflow-x: auto;
-        }
-        
-        table.dataTable {
-            border-collapse: collapse !important;
-            width: 100% !important;
-            background: transparent !important;
-        }
-        
-        table.dataTable thead th {
-            background: var(--bg-secondary) !important;
-            color: var(--text-light) !important;
-            border-bottom: 1px solid var(--border) !important;
-            font-weight: 700 !important;
-            font-size: 0.8rem !important;
-            text-transform: uppercase !important;
-            letter-spacing: 0.05em !important;
-            padding: 12px 16px !important;
-        }
-        
-        table.dataTable tbody td {
-            background: transparent !important;
-            color: var(--text-light) !important;
-            border-bottom: 1px solid var(--border) !important;
-            padding: 12px 16px !important;
-            font-size: 0.85rem !important;
-        }
-        
-        table.dataTable tbody tr:hover td {
-            background: rgba(255,255,255,0.02) !important;
-        }
-        
-        .dataTables_wrapper .dataTables_length, 
-        .dataTables_wrapper .dataTables_filter,
-        .dataTables_wrapper .dataTables_info,
-        .dataTables_wrapper .dataTables_paginate {
-            color: var(--text-secondary) !important;
-            font-size: 0.82rem !important;
-            margin-top: 14px;
-        }
-        
-        .dataTables_wrapper .dataTables_filter input {
-            background: var(--bg-secondary) !important;
-            border: 1px solid var(--border) !important;
-            border-radius: 8px !important;
-            color: var(--text-light) !important;
-            padding: 6px 12px !important;
-        }
-        
-        .dataTables_wrapper .dataTables_paginate .paginate_button {
-            color: var(--text-secondary) !important;
-            border: 1px solid var(--border) !important;
-            background: var(--bg-secondary) !important;
-            border-radius: 6px !important;
-        }
-        
-        .dataTables_wrapper .dataTables_paginate .paginate_button.current {
-            background: var(--accent-cyan) !important;
-            color: #fff !important;
-            border-color: var(--accent-cyan) !important;
+        .method-btn:hover:not(.active) {
+            border-color: var(--text-secondary);
+            color: var(--text-primary);
         }
         
         .status-badge {
@@ -195,17 +140,17 @@
         }
         
         .status-badge.cash {
-            background: rgba(16, 185, 129, 0.15);
+            background: rgba(16, 185, 129, 0.12);
             color: #10b981;
         }
         
         .status-badge.upi {
-            background: rgba(6, 182, 212, 0.15);
+            background: rgba(6, 182, 212, 0.12);
             color: #06b6d4;
         }
         
         .status-badge.razorpay {
-            background: rgba(99, 102, 241, 0.15);
+            background: rgba(99, 102, 241, 0.12);
             color: #6366f1;
         }
 
@@ -221,6 +166,7 @@
             align-items: center;
             justify-content: center;
             transition: all 0.2s;
+            margin: 0 auto;
         }
         
         .delete-btn:hover {
@@ -232,105 +178,136 @@
         .swal2-container {
             z-index: 99999 !important;
         }
+        
+        /* DataTable styling overrides */
+        .dataTables_wrapper .dataTables_length select,
+        .dataTables_wrapper .dataTables_filter input {
+            background: var(--bg-input) !important;
+            border: 1px solid var(--border-color) !important;
+            border-radius: 8px !important;
+            color: var(--text-primary) !important;
+        }
     </style>
 </head>
 <body>
 <div class="app-wrapper">
-    <!-- Navigation Container -->
+    <!-- Main Panel Content -->
     <div class="main-content">
         <!-- Top Navbar -->
         <div class="navbar">
             <div class="page-title">Quick Collect Manager</div>
         </div>
 
-        <div class="page-content">
-            <div class="page-header">
-                <h2>Quick Payment Collections</h2>
-                <p>Generate on-the-spot dynamic UPI QR codes, collect custom payment amounts, and record transactions to your bank ledger.</p>
-            </div>
-            
-            <div class="collect-grid">
-                <!-- Left Form Panel -->
-                <div class="collect-card">
-                    <h3 style="color:#fff;margin:0 0 20px;font-size:1.1rem;"><i class="fa-solid fa-calculator" style="margin-right:8px;color:var(--accent-cyan);"></i>Instant Biller</h3>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Payer Name *</label>
-                        <input type="text" id="payerName" class="form-control" placeholder="e.g. Ramesh Kumar" oninput="updateDynamicQR()">
+        <!-- Content Body -->
+        <div class="content-body">
+            <div class="module-grid">
+                <!-- Left Column: Collections History Table -->
+                <div>
+                    <div class="header-title-section" style="margin-bottom: 20px;">
+                        <h2>Collection Logs History</h2>
+                        <p>Complete historical list of money received via instant QR code and manual POS cash desk.</p>
                     </div>
                     
-                    <div class="form-group">
-                        <label class="form-label">Payer Contact Number</label>
-                        <input type="tel" id="payerPhone" class="form-control" placeholder="e.g. 9876543210">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Purpose / Description *</label>
-                        <input type="text" id="purpose" class="form-control" placeholder="e.g. Custom service bill / Item sale">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Amount to Collect (Rs) *</label>
-                        <input type="number" id="amount" class="form-control" placeholder="e.g. 500" min="1" oninput="updateDynamicQR()">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Deposit In Bank Account *</label>
-                        <select id="depositAccount" class="form-control" style="padding-left:14px;" required>
-                            <option value="" disabled selected>Select Account</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Payment Method *</label>
-                        <div class="method-btn-group">
-                            <button id="methodCash" class="method-btn active" onclick="setMethod('cash')"><i class="fa-solid fa-money-bill-wave"></i> Cash</button>
-                            <button id="methodUpi" class="method-btn" onclick="setMethod('upi')"><i class="fa-solid fa-qrcode"></i> UPI QR</button>
+                    <div class="table-card">
+                        <div class="table-responsive">
+                            <table id="historyTable" class="custom-table" style="width:100%;">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Payer Name</th>
+                                        <th>Purpose</th>
+                                        <th>Amount</th>
+                                        <th>Account</th>
+                                        <th>Method</th>
+                                        <th style="width:40px;text-align:center;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="historyTableBody">
+                                    <!-- Real-time data will load here -->
+                                </tbody>
+                            </table>
                         </div>
                     </div>
-                    
-                    <!-- Dynamic UPI QR Box -->
-                    <div id="qrPreviewCard" class="qr-preview-box">
-                        <div id="qrPlaceholder" style="text-align:center;">
-                            <i class="fa-solid fa-qrcode qr-placeholder-icon"></i>
-                            <p class="qr-placeholder-text">Enter Amount and select **UPI QR** to generate scanning code.</p>
-                        </div>
-                        <div id="qrContainer" style="display:none; text-align:center;">
-                            <p style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:12px; text-transform:uppercase; letter-spacing:0.04em;">Scan to Pay Merchant</p>
-                            <div id="qrImage"></div>
-                            <p id="qrUpiText" style="font-size:0.85rem; font-weight:700; color:var(--accent-cyan); margin-top:10px; margin-bottom:4px;"></p>
-                            <p id="qrAmountText" style="font-size:1.1rem; font-weight:800; color:#fff; margin:0;"></p>
-                        </div>
-                    </div>
-                    
-                    <!-- Submission Button -->
-                    <button class="btn-primary" id="saveCollectionBtn" onclick="saveCollection()" style="width:100%;height:48px;border-radius:12px;font-size:1rem;font-weight:700;margin-top:20px;background:linear-gradient(135deg,#0891b2,#06b6d4);border:none;">
-                        <i class="fa-solid fa-check-circle"></i> Log Received Payment
-                    </button>
-                    
-                    <button id="rzpCollectBtn" class="btn-primary" onclick="collectViaRazorpay()" style="display:none;width:100%;height:48px;border-radius:12px;font-size:1rem;font-weight:700;margin-top:10px;background:linear-gradient(135deg,#2563eb,#1d4ed8);border:none;">
-                        <i class="fa-solid fa-credit-card"></i> Collect via Razorpay (Online)
-                    </button>
                 </div>
                 
-                <!-- Right History Panel -->
-                <div class="collect-card">
-                    <h3 style="color:#fff;margin:0 0 20px;font-size:1.1rem;"><i class="fa-solid fa-history" style="margin-right:8px;color:var(--accent-cyan);"></i>Collection Logs History</h3>
-                    <div class="history-table-wrapper">
-                        <table id="historyTable" class="display">
-                            <thead>
-                                <tr>
-                                    <th>Date</th>
-                                    <th>Payer Name</th>
-                                    <th>Purpose</th>
-                                    <th>Amount</th>
-                                    <th>Account</th>
-                                    <th>Method</th>
-                                    <th style="width:40px;text-align:center;">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody id="historyTableBody"></tbody>
-                        </table>
+                <!-- Right Column: Collect Form Panel -->
+                <div class="desktop-form-panel">
+                    <div class="form-card">
+                        <div class="form-card-title">
+                            <span>Instant Biller</span>
+                        </div>
+                        
+                        <form id="collectForm" autocomplete="off" onsubmit="event.preventDefault();">
+                            <div class="form-group">
+                                <label class="form-label">Payer Name *</label>
+                                <div class="input-icon-wrapper">
+                                    <input type="text" id="payerName" class="form-control" placeholder="e.g. Ramesh Kumar" oninput="updateDynamicQR()" required>
+                                    <i class="fa-solid fa-user" style="left:14px;"></i>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Payer Contact Number</label>
+                                <div class="input-icon-wrapper">
+                                    <input type="tel" id="payerPhone" class="form-control" placeholder="e.g. 9876543210">
+                                    <i class="fa-solid fa-phone" style="left:14px;"></i>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Purpose / Description *</label>
+                                <div class="input-icon-wrapper">
+                                    <input type="text" id="purpose" class="form-control" placeholder="e.g. Custom service bill" required>
+                                    <i class="fa-solid fa-file-signature" style="left:14px;"></i>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Amount to Collect (Rs) *</label>
+                                <div class="input-icon-wrapper">
+                                    <input type="number" id="amount" class="form-control" placeholder="0.00" min="1" oninput="updateDynamicQR()" required>
+                                    <i class="fa-solid fa-indian-rupee-sign" style="left:14px;"></i>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Deposit In Bank Account *</label>
+                                <select id="depositAccount" class="form-control" style="padding-left:15px;" required>
+                                    <option value="" disabled selected>Select Account</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Payment Method *</label>
+                                <div class="method-btn-group">
+                                    <button type="button" id="methodCash" class="method-btn active" onclick="setMethod('cash')"><i class="fa-solid fa-money-bill-wave"></i> Cash</button>
+                                    <button type="button" id="methodUpi" class="method-btn" onclick="setMethod('upi')"><i class="fa-solid fa-qrcode"></i> UPI QR</button>
+                                </div>
+                            </div>
+                            
+                            <!-- Dynamic UPI QR Box -->
+                            <div id="qrPreviewCard" class="qr-preview-box">
+                                <div id="qrPlaceholder" style="text-align:center;">
+                                    <i class="fa-solid fa-qrcode qr-placeholder-icon"></i>
+                                    <p class="qr-placeholder-text">Enter Amount and select **UPI QR** to generate scanning code.</p>
+                                </div>
+                                <div id="qrContainer" style="display:none; text-align:center;">
+                                    <p style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:12px; text-transform:uppercase; letter-spacing:0.04em;"><i class="fa-solid fa-qrcode" style="margin-right:5px;color:var(--accent-cyan);"></i>Scan to Pay Merchant</p>
+                                    <div id="qrImage"></div>
+                                    <p id="qrUpiText" style="font-size:0.85rem; font-weight:700; color:var(--accent-cyan); margin-top:10px; margin-bottom:4px;"></p>
+                                    <p id="qrAmountText" style="font-size:1.1rem; font-weight:800; color:#fff; margin:0;"></p>
+                                </div>
+                            </div>
+                            
+                            <!-- Submission Buttons -->
+                            <button type="button" class="btn-primary" id="saveCollectionBtn" onclick="saveCollection()" style="width:100%;height:48px;border-radius:12px;font-size:1rem;font-weight:700;margin-top:20px;background:linear-gradient(135deg,#0891b2,#06b6d4);border:none;">
+                                <i class="fa-solid fa-check-circle"></i> Log Received Payment
+                            </button>
+                            
+                            <button type="button" id="rzpCollectBtn" class="btn-primary" onclick="collectViaRazorpay()" style="display:none;width:100%;height:48px;border-radius:12px;font-size:1rem;font-weight:700;margin-top:10px;background:linear-gradient(135deg,#2563eb,#1d4ed8);border:none;">
+                                <i class="fa-solid fa-credit-card"></i> Collect via Razorpay
+                            </button>
+                        </form>
                     </div>
                 </div>
             </div>
