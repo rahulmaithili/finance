@@ -345,7 +345,7 @@ $payments = $pdo->query("
         .emi-result-item label { display: block; font-size: 0.72rem; color: var(--text-secondary); margin-bottom: 6px; }
         .emi-result-item span { font-weight: 800; font-size: 1rem; color: var(--text-light); }
         
-        @media (max-width: 480px) {
+        @media (max-width: 768px) {
             .loans-grid {
                 grid-template-columns: 1fr !important;
             }
@@ -548,7 +548,7 @@ $payments = $pdo->query("
     </div>
 
     <!-- Loan Add Modal -->
-    <div id="loanModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9000; align-items:center; justify-content:center; padding:16px;">
+    <div id="loanModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); z-index:99999; align-items:center; justify-content:center; padding:16px; margin:0 !important; box-sizing:border-box;">
         <div class="login-card" style="width:90%; max-width:540px; margin:auto;">
             <div class="login-header">
                 <h2>Add Borrowed Loan</h2>
@@ -613,7 +613,7 @@ $payments = $pdo->query("
     </div>
 
     <!-- Mark Repayment Modal -->
-    <div id="paymentModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9000; align-items:center; justify-content:center; padding:16px;">
+    <div id="paymentModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); z-index:99999; align-items:center; justify-content:center; padding:16px; margin:0 !important; box-sizing:border-box;">
         <div class="login-card" style="width:90%; max-width:440px; margin:auto;">
             <div class="login-header">
                 <h2>Record Loan Repayment</h2>
