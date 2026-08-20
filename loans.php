@@ -606,8 +606,10 @@ $payments = $pdo->query("
                     </div>
                 </div>
 
-                <button type="submit" class="btn-primary" style="margin-top:20px; width:100%; justify-content:center;">Save Loan</button>
-                <button type="button" class="btn-secondary" style="margin-top:10px; width:100%;" onclick="closeLoanModal()">Cancel</button>
+                <div style="display: flex; gap: 12px; margin-top: 24px;">
+                    <button type="button" class="btn-secondary" style="flex: 1; justify-content: center; margin: 0;" onclick="closeLoanModal()">Cancel</button>
+                    <button type="submit" class="btn-primary" style="flex: 1; justify-content: center; margin: 0;">Save Loan</button>
+                </div>
             </form>
         </div>
     </div>
@@ -661,8 +663,10 @@ $payments = $pdo->query("
                     <input type="text" name="note" id="paymentNote" class="form-control" placeholder="e.g. Month 1 EMI">
                 </div>
 
-                <button type="submit" class="btn-primary" style="margin-top:20px; width:100%; justify-content:center;">Save Payment</button>
-                <button type="button" class="btn-secondary" style="margin-top:10px; width:100%;" onclick="closePaymentModal()">Cancel</button>
+                <div style="display: flex; gap: 12px; margin-top: 24px;">
+                    <button type="button" class="btn-secondary" style="flex: 1; justify-content: center; margin: 0;" onclick="closePaymentModal()">Cancel</button>
+                    <button type="submit" class="btn-primary" style="flex: 1; justify-content: center; margin: 0;">Save Payment</button>
+                </div>
             </form>
         </div>
     </div>
