@@ -111,6 +111,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $repayment_account_id = (int)($_POST['repayment_account_id'] ?? 0);
         $created_by = $_SESSION['user_id'];
         
+        // Handle file upload
+        $document_path = null;
+        if (isset($_FILES['loan_document']) && $_FILES['loan_document']['error'] === UPLOAD_ERR_OK) {
+            $file = $_FILES['loan_document'];
+            $allowed = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp'];
+            $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+            if (in_array($ext, $allowed)) {
+                $upload_dir = __DIR__ . '/uploads/documents/';
+                if (!file_exists($upload_dir)) mkdir($upload_dir, 0755, true);
+                
+                $filename = 'doc_' . time() . '_' . uniqid() . '.' . $ext;
+                if (move_uploaded_file($file['tmp_name'], $upload_dir . $filename)) {
+                    $document_path = 'uploads/documents/' . $filename;
+                }
+            }
+        }
+
         // Calculate monthly EMI
         $monthly_rate = ($interest_rate / 12) / 100;
         if ($monthly_rate > 0) {
@@ -123,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $error = 'Please fill out all required fields.';
         } else {
             try {
-                $stmt = $pdo->prepare("INSERT INTO loans (lender_name, principal, interest_rate, tenure_months, emi_amount, start_date, emi_day, repayment_account_id, attachment, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt = $pdo->prepare("INSERT INTO loans (lender_name, principal, interest_rate, tenure_months, emi_amount, start_date, emi_day, repayment_account_id, attachment, created_by, document_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 $stmt->execute([
                     $lender_name,
                     $principal,
@@ -134,7 +151,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     $emi_day,
                     $repayment_account_id,
                     $notes ?: null,
-                    $created_by
+                    $created_by,
+                    $document_path
                 ]);
                 log_activity("Added Borrowed Loan from {$lender_name}: Principal " . format_currency($principal));
                 set_flash_message('success', 'Loan added successfully.');
@@ -484,6 +502,12 @@ $payments = $pdo->query("
                                         <span class="loan-detail-label"><i class="fa-solid fa-building-columns"></i> Autodebit Source</span>
                                         <span class="loan-detail-value" style="font-size:0.75rem;"><?= clean($l['account_name']) ?></span>
                                     </div>
+                                    <?php if (!empty($l['document_path'])): ?>
+                                    <div class="loan-detail-row" style="margin-top: 6px; border-top: 1px dashed var(--border-color); padding-top: 6px;">
+                                        <span class="loan-detail-label" style="color: var(--primary);"><i class="fa-solid fa-file-pdf"></i> Agreement Doc</span>
+                                        <span class="loan-detail-value"><a href="<?= clean($l['document_path']) ?>" target="_blank" style="color: var(--primary); text-decoration: none; font-weight: 700;"><i class="fa-solid fa-arrow-up-right-from-square"></i> View Doc</a></span>
+                                    </div>
+                                    <?php endif; ?>
                                 </div>
 
                                 <div style="display:flex; gap:10px; margin-top:5px;">
@@ -549,52 +573,74 @@ $payments = $pdo->query("
 
     <!-- Loan Add Modal -->
     <div id="loanModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); z-index:99999; align-items:flex-start; justify-content:center; overflow-y:auto; padding:16px; margin:0 !important; box-sizing:border-box;">
-        <div class="login-card" style="width:90%; max-width:540px; margin:40px auto;">
-            <div class="login-header">
-                <h2>Add Borrowed Loan</h2>
-                <p>Register a liability loan from bank or institution.</p>
+        <div class="login-card" style="width:90%; max-width:540px; margin:40px auto; overflow:hidden;">
+            <div class="login-header" style="background: linear-gradient(135deg, #7c3aed, #4f46e5); padding: 24px 30px; margin: -40px -40px 24px -40px; border-top-left-radius: 16px; border-top-right-radius: 16px; position: relative;">
+                <h2 style="color: white; margin: 0; font-size: 1.35rem; font-weight: 700; display: flex; align-items: center; gap: 10px;">
+                    <i class="fa-solid fa-hand-holding-dollar" style="color: white;"></i> Record New Borrowed Loan
+                </h2>
+                <p style="color: rgba(255,255,255,0.85); margin: 6px 0 0 0; font-size: 0.8rem; font-weight: 500;">Disburse capital, compute EMI, register liability</p>
+                <button type="button" onclick="closeLoanModal()" style="position: absolute; top: 22px; right: 22px; background: rgba(255,255,255,0.15); border: none; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; color: white; cursor: pointer; transition: background 0.2s;"><i class="fa-solid fa-xmark" style="font-size: 0.95rem;"></i></button>
             </div>
-            <form method="POST">
+            <form method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                 <input type="hidden" name="action" value="save_loan">
                 
                 <div class="modal-grid-responsive" style="display:grid; grid-template-columns: 1fr 1fr; gap:14px;">
+                    <!-- Lender Name -->
                     <div class="form-group" style="grid-column: 1/-1;">
-                        <label class="form-label">Lender Name *</label>
+                        <label class="form-label">LENDER NAME *</label>
                         <input type="text" name="lender_name" id="lender_name" class="form-control" placeholder="e.g. ICICI Bank" required>
                     </div>
+
+                    <!-- Divider: Calculations -->
+                    <div style="grid-column: 1/-1; margin-top: 10px; margin-bottom: 5px; border-bottom: 1px solid var(--border-color); padding-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-calculator" style="color: #8b5cf6; font-size: 0.9rem;"></i>
+                        <span style="font-weight: 700; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b5cf6;">Interest & Calculations</span>
+                    </div>
+
+                    <!-- Principal and Interest Rate -->
                     <div class="form-group">
-                        <label class="form-label">Principal Amount *</label>
-                        <input type="number" step="0.01" name="principal" id="principal" class="form-control" placeholder="0.00" oninput="calcEMI()" required>
+                        <label class="form-label">PRINCIPAL AMOUNT *</label>
+                        <input type="number" step="0.01" name="principal" id="principal" class="form-control" placeholder="e.g. 100000" oninput="calcEMI()" required>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Annual Interest Rate (%) *</label>
+                        <label class="form-label">INTEREST RATE (% P.A.) *</label>
                         <input type="number" step="0.01" name="interest_rate" id="interest_rate" class="form-control" placeholder="e.g. 9.5" oninput="calcEMI()" required>
                     </div>
+                    <!-- Tenure and Start Date -->
                     <div class="form-group">
-                        <label class="form-label">Tenure (Months) *</label>
+                        <label class="form-label">TENURE (MONTHS) *</label>
                         <input type="number" name="tenure_months" id="tenure_months" class="form-control" placeholder="e.g. 24" oninput="calcEMI()" required>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Start Date *</label>
+                        <label class="form-label">START DATE *</label>
                         <input type="date" name="start_date" id="start_date" class="form-control" required>
                     </div>
+                    <!-- EMI Day and Repayment Account -->
                     <div class="form-group">
-                        <label class="form-label">EMI Due Day *</label>
+                        <label class="form-label">EMI DUE DAY *</label>
                         <input type="number" name="emi_day" id="emi_day" class="form-control" value="5" min="1" max="28" required>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Repayment Account *</label>
+                        <label class="form-label">REPAYMENT ACCOUNT *</label>
                         <select name="repayment_account_id" id="repayment_account_id" class="form-control" required>
-                            <option value="">-- Choose Account --</option>
+                            <option value="">Select Bank Account</option>
                             <?php foreach ($accounts as $acc): ?>
-                                <option value="<?= $acc['id'] ?>"><?= clean($acc['account_name']) ?></option>
+                                <option value="<?= $acc['id'] ?>"><?= clean($acc['account_name']) ?> (<?= format_currency($acc['current_balance']) ?>)</option>
                             <?php endforeach; ?>
                         </select>
                     </div>
+                    
+                    <!-- Notes -->
                     <div class="form-group" style="grid-column: 1/-1;">
-                        <label class="form-label">Notes (Optional)</label>
+                        <label class="form-label">NOTES (OPTIONAL)</label>
                         <input type="text" name="notes" id="notes" class="form-control" placeholder="e.g. Personal Use / Office Loan">
+                    </div>
+
+                    <!-- File Upload -->
+                    <div class="form-group" style="grid-column: 1/-1;">
+                        <label class="form-label">LOAN AGREEMENT / DOCUMENT (PDF / IMAGE)</label>
+                        <input type="file" name="loan_document" id="loan_document" class="form-control" accept="image/*,application/pdf">
                     </div>
                 </div>
 
@@ -606,9 +652,13 @@ $payments = $pdo->query("
                     </div>
                 </div>
 
-                <div style="display: flex; gap: 12px; margin-top: 24px;">
-                    <button type="button" class="btn-secondary" style="flex: 1; justify-content: center; margin: 0;" onclick="closeLoanModal()">Cancel</button>
-                    <button type="submit" class="btn-primary" style="flex: 1; justify-content: center; margin: 0;">Save Loan</button>
+                <div style="display: flex; gap: 12px; margin-top: 24px; margin-bottom: 8px;">
+                    <button type="button" class="btn-secondary" style="flex: 1; justify-content: center; margin: 0; display: flex; align-items: center; gap: 8px;" onclick="closeLoanModal()">
+                        <i class="fa-solid fa-xmark"></i> Close
+                    </button>
+                    <button type="submit" class="btn-primary" style="flex: 1.5; justify-content: center; margin: 0; display: flex; align-items: center; gap: 8px; background: #7c3aed; border-color: #7c3aed;">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Loan Contract
+                    </button>
                 </div>
             </form>
         </div>

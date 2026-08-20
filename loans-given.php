@@ -114,7 +114,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $emi_day = (int)($_POST['emi_day'] ?? 5);
         $repayment_account_id = (int)($_POST['repayment_account_id'] ?? 0);
         $repayment_upi = clean($_POST['repayment_upi'] ?? '');
+        $disburse_account_id = (int)($_POST['disburse_account_id'] ?? 0);
         $created_by = $_SESSION['user_id'];
+        
+        // Handle file upload
+        $document_path = null;
+        if (isset($_FILES['loan_document']) && $_FILES['loan_document']['error'] === UPLOAD_ERR_OK) {
+            $file = $_FILES['loan_document'];
+            $allowed = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp'];
+            $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+            if (in_array($ext, $allowed)) {
+                $upload_dir = __DIR__ . '/uploads/documents/';
+                if (!file_exists($upload_dir)) mkdir($upload_dir, 0755, true);
+                
+                $filename = 'doc_' . time() . '_' . uniqid() . '.' . $ext;
+                if (move_uploaded_file($file['tmp_name'], $upload_dir . $filename)) {
+                    $document_path = 'uploads/documents/' . $filename;
+                }
+            }
+        }
         
         // Calculate monthly EMI
         $monthly_rate = ($interest_rate / 12) / 100;
@@ -128,7 +146,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $error = 'Please fill out all required fields.';
         } else {
             try {
-                $stmt = $pdo->prepare("INSERT INTO loans_given (debtor_name, debtor_address, debtor_email, debtor_phone, principal, interest_rate, tenure_months, emi_amount, start_date, emi_day, repayment_account_id, repayment_upi, total_paid, emi_paid, status, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0.00, 0, 'active', ?)");
+                $pdo->beginTransaction();
+                
+                $stmt = $pdo->prepare("INSERT INTO loans_given (debtor_name, debtor_address, debtor_email, debtor_phone, principal, interest_rate, tenure_months, emi_amount, start_date, emi_day, repayment_account_id, repayment_upi, total_paid, emi_paid, status, created_by, document_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0.00, 0, 'active', ?, ?)");
                 $stmt->execute([
                     $debtor_name,
                     $debtor_address,
@@ -142,13 +162,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     $emi_day,
                     $repayment_account_id,
                     $repayment_upi ?: null,
-                    $created_by
+                    $created_by,
+                    $document_path
                 ]);
+
+                // Subtract from disburse account if selected
+                if ($disburse_account_id > 0) {
+                    $upd_acc = $pdo->prepare("UPDATE bank_accounts SET current_balance = current_balance - ? WHERE id = ?");
+                    $upd_acc->execute([$principal, $disburse_account_id]);
+                }
+                
+                $pdo->commit();
                 log_activity("Lent Money / Created Given Loan for {$debtor_name}: Principal " . format_currency($principal));
                 set_flash_message('success', 'Given Loan recorded successfully.');
                 header("Location: loans-given.php");
                 exit;
             } catch (PDOException $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
                 $error = 'Failed to save given loan: ' . $e->getMessage();
             }
         }
@@ -500,6 +530,12 @@ $payments = $pdo->query("
                                         <span class="loan-detail-label"><i class="fa-solid fa-building-columns"></i> Deposit Account</span>
                                         <span class="loan-detail-value" style="font-size:0.75rem;"><?= clean($l['account_name']) ?></span>
                                     </div>
+                                    <?php if (!empty($l['document_path'])): ?>
+                                    <div class="loan-detail-row" style="margin-top: 6px; border-top: 1px dashed var(--border-color); padding-top: 6px;">
+                                        <span class="loan-detail-label" style="color: var(--primary);"><i class="fa-solid fa-file-pdf"></i> Agreement Doc</span>
+                                        <span class="loan-detail-value"><a href="<?= clean($l['document_path']) ?>" target="_blank" style="color: var(--primary); text-decoration: none; font-weight: 700;"><i class="fa-solid fa-arrow-up-right-from-square"></i> View Doc</a></span>
+                                    </div>
+                                    <?php endif; ?>
                                 </div>
 
                                 <div style="display:flex; gap:10px; margin-top:5px;">
@@ -561,68 +597,105 @@ $payments = $pdo->query("
 
             </div>
         </div>
-    </div>
-
-    <!-- Loan Add Modal -->
+    </div>    <!-- Loan Add Modal -->
     <div id="loanModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); z-index:99999; align-items:flex-start; justify-content:center; overflow-y:auto; padding:16px; margin:0 !important; box-sizing:border-box;">
-        <div class="login-card" style="width:90%; max-width:540px; margin:40px auto;">
-            <div class="login-header">
-                <h2>Record Given Loan</h2>
-                <p>Register an asset loan given to a debtor/borrower.</p>
+        <div class="login-card" style="width:90%; max-width:540px; margin:40px auto; overflow:hidden;">
+            <div class="login-header" style="background: linear-gradient(135deg, #8b5cf6, #6366f1); padding: 24px 30px; margin: -40px -40px 24px -40px; border-top-left-radius: 16px; border-top-right-radius: 16px; position: relative;">
+                <h2 style="color: white; margin: 0; font-size: 1.35rem; font-weight: 700; display: flex; align-items: center; gap: 10px;">
+                    <i class="fa-solid fa-hand-holding-hand" style="color: white;"></i> Record New Given Loan
+                </h2>
+                <p style="color: rgba(255,255,255,0.85); margin: 6px 0 0 0; font-size: 0.8rem; font-weight: 500;">Disburse capital, compute EMI, collect repayments</p>
+                <button type="button" onclick="closeLoanModal()" style="position: absolute; top: 22px; right: 22px; background: rgba(255,255,255,0.15); border: none; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; color: white; cursor: pointer; transition: background 0.2s;"><i class="fa-solid fa-xmark" style="font-size: 0.95rem;"></i></button>
             </div>
-            <form method="POST">
+            <form method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                 <input type="hidden" name="action" value="save_loan">
                 
                 <div class="modal-grid-responsive" style="display:grid; grid-template-columns: 1fr 1fr; gap:14px;">
+                    <!-- Debtor Name -->
                     <div class="form-group" style="grid-column: 1/-1;">
-                        <label class="form-label">Borrower Name *</label>
+                        <label class="form-label">DEBTOR NAME *</label>
                         <input type="text" name="debtor_name" id="debtor_name" class="form-control" placeholder="e.g. Ramesh Kumar" required>
                     </div>
-                    <div class="form-group" style="grid-column: 1/-1;">
-                        <label class="form-label">Address</label>
-                        <input type="text" name="debtor_address" id="debtor_address" class="form-control" placeholder="e.g. Sector 15, Noida">
-                    </div>
+                    <!-- Whatsapp/Phone and Email ID -->
                     <div class="form-group">
-                        <label class="form-label">Phone Number *</label>
+                        <label class="form-label">WHATSAPP / PHONE *</label>
                         <input type="text" name="debtor_phone" id="debtor_phone" class="form-control" placeholder="e.g. 9876543210" required>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Email ID (Optional)</label>
+                        <label class="form-label">EMAIL ID (OPTIONAL)</label>
                         <input type="email" name="debtor_email" id="debtor_email" class="form-control" placeholder="e.g. ramesh@gmail.com">
                     </div>
+                    <!-- Debtor Address -->
+                    <div class="form-group" style="grid-column: 1/-1;">
+                        <label class="form-label">DEBTOR ADDRESS *</label>
+                        <input type="text" name="debtor_address" id="debtor_address" class="form-control" placeholder="e.g. Flat 102, Sector 15, Noida" required>
+                    </div>
+
+                    <!-- Divider: Interest & Calculations -->
+                    <div style="grid-column: 1/-1; margin-top: 10px; margin-bottom: 5px; border-bottom: 1px solid var(--border-color); padding-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-calculator" style="color: #a855f7; font-size: 0.9rem;"></i>
+                        <span style="font-weight: 700; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px; color: #a855f7;">Interest & Calculations</span>
+                    </div>
+
+                    <!-- Principal and Interest Rate -->
                     <div class="form-group">
-                        <label class="form-label">Principal Amount *</label>
-                        <input type="number" step="0.01" name="principal" id="principal" class="form-control" placeholder="0.00" oninput="calcEMI()" required>
+                        <label class="form-label">PRINCIPAL AMOUNT *</label>
+                        <input type="number" step="0.01" name="principal" id="principal" class="form-control" placeholder="e.g. 100000" oninput="calcEMI()" required>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Annual Interest Rate (%) *</label>
+                        <label class="form-label">INTEREST RATE (% P.A.) *</label>
                         <input type="number" step="0.01" name="interest_rate" id="interest_rate" class="form-control" placeholder="e.g. 12" oninput="calcEMI()" required>
                     </div>
+                    <!-- Tenure and Disbursed Date -->
                     <div class="form-group">
-                        <label class="form-label">Tenure (Months) *</label>
+                        <label class="form-label">TENURE (MONTHS) *</label>
                         <input type="number" name="tenure_months" id="tenure_months" class="form-control" placeholder="e.g. 12" oninput="calcEMI()" required>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Start Date *</label>
+                        <label class="form-label">DISBURSED DATE *</label>
                         <input type="date" name="start_date" id="start_date" class="form-control" required>
                     </div>
+                    <!-- EMI Day and Disburse From Account -->
                     <div class="form-group">
-                        <label class="form-label">EMI Due Day *</label>
+                        <label class="form-label">EMI COLLECTION DAY (1-28) *</label>
                         <input type="number" name="emi_day" id="emi_day" class="form-control" value="5" min="1" max="28" required>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Repayment Account *</label>
+                        <label class="form-label">DISBURSE FROM BANK ACCOUNT *</label>
+                        <select name="disburse_account_id" id="disburse_account_id" class="form-control" required>
+                            <option value="">Select Bank Account</option>
+                            <?php foreach ($accounts as $acc): ?>
+                                <option value="<?= $acc['id'] ?>"><?= clean($acc['account_name']) ?> (<?= format_currency($acc['current_balance']) ?>)</option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <!-- Divider: Repayment Instructions -->
+                    <div style="grid-column: 1/-1; margin-top: 10px; margin-bottom: 5px; border-bottom: 1px solid var(--border-color); padding-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-building-columns" style="color: #a855f7; font-size: 0.9rem;"></i>
+                        <span style="font-weight: 700; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px; color: #a855f7;">Repayment Instructions (To Debtor)</span>
+                    </div>
+
+                    <!-- Repayment Account and Repayment UPI ID -->
+                    <div class="form-group">
+                        <label class="form-label">REPAYMENT BANK ACCOUNT *</label>
                         <select name="repayment_account_id" id="repayment_account_id" class="form-control" required>
-                            <option value="">-- Choose Account --</option>
+                            <option value="">Select Bank Account</option>
                             <?php foreach ($accounts as $acc): ?>
                                 <option value="<?= $acc['id'] ?>"><?= clean($acc['account_name']) ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
+                    <div class="form-group">
+                        <label class="form-label">REPAYMENT UPI ID *</label>
+                        <input type="text" name="repayment_upi" id="repayment_upi" class="form-control" placeholder="e.g. corporate@upi" required>
+                    </div>
+
+                    <!-- File Upload -->
                     <div class="form-group" style="grid-column: 1/-1;">
-                        <label class="form-label">Debtor UPI ID (Optional VPA)</label>
-                        <input type="text" name="repayment_upi" id="repayment_upi" class="form-control" placeholder="e.g. ramesh@upi">
+                        <label class="form-label">LOAN AGREEMENT / DOCUMENT (PDF / IMAGE)</label>
+                        <input type="file" name="loan_document" id="loan_document" class="form-control" accept="image/*,application/pdf">
                     </div>
                 </div>
 
@@ -634,9 +707,13 @@ $payments = $pdo->query("
                     </div>
                 </div>
 
-                <div style="display: flex; gap: 12px; margin-top: 24px;">
-                    <button type="button" class="btn-secondary" style="flex: 1; justify-content: center; margin: 0;" onclick="closeLoanModal()">Cancel</button>
-                    <button type="submit" class="btn-primary" style="flex: 1; justify-content: center; margin: 0;">Save Loan</button>
+                <div style="display: flex; gap: 12px; margin-top: 24px; margin-bottom: 8px;">
+                    <button type="button" class="btn-secondary" style="flex: 1; justify-content: center; margin: 0; display: flex; align-items: center; gap: 8px;" onclick="closeLoanModal()">
+                        <i class="fa-solid fa-xmark"></i> Close
+                    </button>
+                    <button type="submit" class="btn-primary" style="flex: 1.5; justify-content: center; margin: 0; display: flex; align-items: center; gap: 8px; background: #8b5cf6; border-color: #8b5cf6;">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Loan Contract
+                    </button>
                 </div>
             </form>
         </div>
