@@ -22,6 +22,7 @@ if (!function_exists('getSetting')) {
 // Load UPI Settings
 $upi_id = getSetting('upi_id', '');
 $upi_name = getSetting('upi_name', '');
+$static_qr = getSetting('static_qr', '');
 
 // Fetch active bank accounts
 $accounts = $pdo->query("SELECT id, account_name, bank_name, current_balance FROM bank_accounts WHERE status = 'active' ORDER BY account_name ASC")->fetchAll();
@@ -377,10 +378,15 @@ $currency_symbol = getSetting('currency_symbol', '₹');
                                 <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-light); margin-bottom: 5px;">Scan UPI QR Code to Pay</div>
                                 <div id="qrStatusArea">
                                     <?php if (empty($upi_id)): ?>
-                                        <div class="alert alert-warning" style="font-size: 0.78rem; padding: 8px; margin: 5px 0;">
-                                            <i class="fa-solid fa-circle-info"></i> Configure UPI VPA ID in Settings -> Payments to generate Dynamic QR.
-                                        </div>
-                                        <div class="qr-placeholder"><i class="fa-solid fa-qrcode" style="font-size:32px;margin-bottom:8px;"></i><br>UPI Not Setup</div>
+                                        <?php if (!empty($static_qr)): ?>
+                                            <img src="<?= clean($static_qr) ?>" class="qr-image" alt="Static UPI QR">
+                                            <div style="font-size: 0.72rem; color: var(--text-secondary); margin-top: 5px;">Static Backup QR Code</div>
+                                        <?php else: ?>
+                                            <div class="alert alert-warning" style="font-size: 0.78rem; padding: 8px; margin: 5px 0;">
+                                                <i class="fa-solid fa-circle-info"></i> Configure UPI VPA ID in Settings -> Payments to generate Dynamic QR.
+                                            </div>
+                                            <div class="qr-placeholder"><i class="fa-solid fa-qrcode" style="font-size:32px;margin-bottom:8px;"></i><br>UPI Not Setup</div>
+                                        <?php endif; ?>
                                     <?php else: ?>
                                         <div class="qr-placeholder" id="qrLoader">Enter amount above...</div>
                                         <img id="qrImageElement" class="qr-image" style="display: none;" alt="Scan to pay">

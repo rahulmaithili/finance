@@ -22,6 +22,7 @@ if (!function_exists('getSetting')) {
 $currency_symbol = getSetting('currency_symbol', '₹');
 $system_upi_id = getSetting('upi_id', '');
 $system_upi_name = getSetting('upi_name', '');
+$system_static_qr = getSetting('static_qr', '');
 
 // Fetch active bank accounts
 $accounts = $pdo->query("SELECT id, account_name, bank_name, current_balance FROM bank_accounts WHERE status = 'active' ORDER BY account_name ASC")->fetchAll();
@@ -693,10 +694,15 @@ $payments = $pdo->query("
                     <div style="font-size:0.82rem; font-weight:700; color:white; margin-bottom:5px;">Scan QR to Collect EMI</div>
                     <div id="qrStatus text-secondary">
                         <?php if (empty($system_upi_id)): ?>
-                            <div class="alert alert-warning" style="font-size:0.78rem; padding:8px; margin:5px 0;">
-                                Configure system UPI VPA inside Settings -> Payments to generate Dynamic QR.
-                            </div>
-                            <div class="qr-holder"><i class="fa-solid fa-qrcode" style="font-size:32px;margin-bottom:8px;"></i><br>UPI Not Setup</div>
+                            <?php if (!empty($system_static_qr)): ?>
+                                <img src="<?= clean($system_static_qr) ?>" class="qr-img" alt="Static UPI QR">
+                                <div style="font-size: 0.72rem; color: var(--text-secondary); margin-top: 5px;">Static Backup QR Code</div>
+                            <?php else: ?>
+                                <div class="alert alert-warning" style="font-size:0.78rem; padding:8px; margin:5px 0;">
+                                    Configure system UPI VPA inside Settings -> Payments to generate Dynamic QR.
+                                </div>
+                                <div class="qr-holder"><i class="fa-solid fa-qrcode" style="font-size:32px;margin-bottom:8px;"></i><br>UPI Not Setup</div>
+                            <?php endif; ?>
                         <?php else: ?>
                             <div class="qr-holder" id="qrLoader">Enter amount...</div>
                             <img id="qrImgElement" class="qr-img" style="display:none;" alt="Scan to pay">

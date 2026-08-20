@@ -83,6 +83,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 'allow_user_uploads' => getSetting('allow_user_uploads', '1'),
                 'upi_id'           => getSetting('upi_id', ''),
                 'upi_name'         => getSetting('upi_name', ''),
+                'static_qr'        => getSetting('static_qr', ''),
+                'razorpay_enabled' => getSetting('razorpay_enabled', '0'),
+                'razorpay_key_id'  => getSetting('razorpay_key_id', ''),
+                'razorpay_key_secret' => getSetting('razorpay_key_secret', ''),
             ]
         ]);
         exit;
@@ -98,6 +102,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             saveSetting('allow_user_uploads', ($_POST['allow_user_uploads'] ?? '0') === '1' ? '1' : '0');
             saveSetting('upi_id',            clean($_POST['upi_id'] ?? ''));
             saveSetting('upi_name',          clean($_POST['upi_name'] ?? ''));
+            saveSetting('razorpay_enabled',  ($_POST['razorpay_enabled'] ?? '0') === '1' ? '1' : '0');
+            saveSetting('razorpay_key_id',   clean($_POST['razorpay_key_id'] ?? ''));
+            saveSetting('razorpay_key_secret', clean($_POST['razorpay_key_secret'] ?? ''));
             log_activity('System Settings Updated');
             echo json_encode(['success' => true, 'message' => 'Settings saved successfully!']);
         } catch (Exception $e) {
@@ -151,6 +158,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         } catch (PDOException $e) {
             echo json_encode(['success' => false, 'message' => 'DB error: ' . $e->getMessage()]);
         }
+        exit;
+    }
+
+    // ── uploadStaticQr ─────────────────────────────────────
+    if ($action === 'uploadStaticQr') {
+        if (!isset($_FILES['qr_file']) || $_FILES['qr_file']['error'] !== UPLOAD_ERR_OK) {
+            echo json_encode(['success' => false, 'message' => 'No file uploaded.']);
+            exit;
+        }
+        $file = $_FILES['qr_file'];
+        $upload_dir = __DIR__ . '/uploads/branding/';
+        if (!file_exists($upload_dir)) mkdir($upload_dir, 0755, true);
+
+        $allowed_types = ['image/jpeg','image/png','image/gif','image/webp'];
+        $allowed_exts  = ['jpg','jpeg','png','gif','webp'];
+        if ($file['size'] > 2 * 1024 * 1024) { echo json_encode(['success'=>false,'message'=>'Max 2MB allowed.']); exit; }
+
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mime  = finfo_file($finfo, $file['tmp_name']);
+        finfo_close($finfo);
+
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        if (!in_array($mime, $allowed_types) || !in_array($ext, $allowed_exts)) {
+            echo json_encode(['success'=>false,'message'=>'Only JPG, PNG, GIF, WEBP allowed.']); exit;
+        }
+
+        $filename = 'static_qr_' . time() . '.' . $ext;
+        
+        // Remove old file
+        $old = getSetting('static_qr', '');
+        if ($old && strpos($old, 'uploads/branding/') === 0 && file_exists(__DIR__ . '/' . $old)) {
+            @unlink(__DIR__ . '/' . $old);
+        }
+
+        if (!move_uploaded_file($file['tmp_name'], $upload_dir . $filename)) {
+            echo json_encode(['success'=>false,'message'=>'Upload failed.']); exit;
+        }
+        $path = 'uploads/branding/' . $filename;
+        saveSetting('static_qr', $path);
+
+        echo json_encode(['success'=>true,'message'=>'Static QR uploaded!','qr_path'=>$path]);
         exit;
     }
 
@@ -646,6 +694,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                             </div>
                         </div>
 
+                        <!-- Static QR Code Image (Backup) -->
+                        <div class="sform-group" style="margin-top:16px;">
+                            <label><i class="fa-solid fa-qrcode"></i> Static QR Code Image (Backup)</label>
+                            <p style="font-size:0.75rem; color:var(--text-secondary); margin-bottom: 8px;">Upload static image if you don't want dynamic calculations.</p>
+                            <div class="logo-upload-row">
+                                <div class="logo-preview-box" style="width: 100px; height: 100px; border: 1px dashed var(--border-color); border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: var(--bg-primary);">
+                                    <img id="qrPreview" src="" alt="" style="display:none; width: 100%; height: 100%; object-fit: contain;">
+                                    <i class="fa-solid fa-qrcode logo-placeholder" id="qrPlaceholder" style="font-size: 2rem; opacity: 0.3;"></i>
+                                </div>
+                                <div>
+                                    <label for="qrFileInput" class="btn-secondary" style="display:inline-flex;align-items:center;gap:8px;padding:9px 16px;cursor:pointer;font-size:0.88rem;border-radius:8px;">
+                                        <i class="fa-solid fa-upload"></i> Upload Static QR
+                                    </label>
+                                    <input type="file" id="qrFileInput" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none;" onchange="uploadStaticQr(this)">
+                                    <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:6px;">JPG, PNG, GIF, WEBP — Max 2MB</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Razorpay Online Gateway Integration -->
+                        <h4 style="margin-top: 24px; margin-bottom: 12px; font-weight: 700; font-size: 0.95rem; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;"><i class="fa-solid fa-credit-card" style="margin-right: 6px; color: var(--primary);"></i>Razorpay Online Gateway Integration</h4>
+                        <p style="font-size:0.78rem; color:var(--text-secondary); margin-bottom: 15px;">Enable debtors to pay their EMIs online using card, netbanking, or UPI</p>
+                        
+                        <div class="sform-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px;">
+                            <input type="checkbox" id="razorpayEnabled" style="width: 18px; height: 18px; cursor: pointer;">
+                            <label for="razorpayEnabled" style="margin: 0; cursor: pointer; font-weight: 600;">Enable Online Payments (Razorpay Checkout)</label>
+                        </div>
+                        
+                        <div class="form-grid-2" id="razorpayFields" style="margin-bottom: 20px;">
+                            <div class="sform-group">
+                                <label><i class="fa-solid fa-key"></i> Razorpay Key ID *</label>
+                                <input type="text" id="razorpayKeyId" placeholder="e.g. rzp_live_xxxxxxxxxxxx" maxlength="100">
+                            </div>
+                            <div class="sform-group">
+                                <label><i class="fa-solid fa-lock"></i> Razorpay Key Secret *</label>
+                                <input type="password" id="razorpayKeySecret" placeholder="e.g. xxxxxxxxxxxxxxxxxxxxxxxx" maxlength="100">
+                            </div>
+                        </div>
+
                         <!-- Logo Upload -->
                         <div class="sform-group" style="margin-top:16px;">
                             <label><i class="fa-solid fa-image"></i> Site Logo</label>
@@ -1006,10 +1093,23 @@ function loadSettings() {
             document.getElementById('upiName').value         = d.upi_name || '';
             document.getElementById('allowUserUploads').checked = (d.allow_user_uploads === '1');
             document.getElementById('maintenanceMode').checked  = (d.maintenance_mode === '1');
+            document.getElementById('razorpayEnabled').checked  = (d.razorpay_enabled === '1');
+            document.getElementById('razorpayKeyId').value      = d.razorpay_key_id || '';
+            document.getElementById('razorpayKeySecret').value  = d.razorpay_key_secret || '';
+            
             if (d.site_logo) {
                 document.getElementById('logoPreview').src = d.site_logo;
                 document.getElementById('logoPreview').style.display = 'block';
                 document.getElementById('logoPlaceholder').style.display = 'none';
+            }
+            if (d.static_qr) {
+                document.getElementById('qrPreview').src = d.static_qr;
+                document.getElementById('qrPreview').style.display = 'block';
+                document.getElementById('qrPlaceholder').style.display = 'none';
+            } else {
+                document.getElementById('qrPreview').src = '';
+                document.getElementById('qrPreview').style.display = 'none';
+                document.getElementById('qrPlaceholder').style.display = 'block';
             }
         }
     }, 'json');
@@ -1027,6 +1127,9 @@ function saveSettings() {
         maintenance_mode:  document.getElementById('maintenanceMode').checked  ? '1' : '0',
         upi_id:            document.getElementById('upiId').value.trim(),
         upi_name:          document.getElementById('upiName').value.trim(),
+        razorpay_enabled:  document.getElementById('razorpayEnabled').checked ? '1' : '0',
+        razorpay_key_id:   document.getElementById('razorpayKeyId').value.trim(),
+        razorpay_key_secret: document.getElementById('razorpayKeySecret').value.trim(),
     }, function(r) {
         showToast(r.success, r.message);
     }, 'json').fail(function() {
@@ -1128,6 +1231,58 @@ function uploadCompanyLogo(input) {
     $.ajax({ url:'settings.php', method:'POST', data:fd, processData:false, contentType:false, dataType:'json',
         success: r => showToast(r.success, r.message),
         error:   () => showToast(false, 'Upload failed.')
+    });
+}
+
+// ── Upload Static QR ───────────────────────────────────────
+function uploadStaticQr(input) {
+    if (!input.files || !input.files[0]) return;
+    const file = input.files[0];
+    
+    // Preview immediately
+    const reader = new FileReader();
+    reader.onload = e => {
+        document.getElementById('qrPreview').src = e.target.result;
+        document.getElementById('qrPreview').style.display = 'block';
+        document.getElementById('qrPlaceholder').style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+
+    // Loader alert
+    Swal.fire({
+        title: 'Uploading QR...',
+        text: 'Saving static backup code to disk.',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
+    
+    const fd = new FormData();
+    fd.append('qr_file', file);
+    fd.append('action', 'uploadStaticQr');
+    fd.append('csrf_token', CSRF);
+    
+    $.ajax({
+        url:         'settings.php',
+        type:        'POST',
+        data:        fd,
+        processData: false,
+        contentType: false,
+        dataType:    'json',
+        success:     (r) => {
+            Swal.close();
+            if (r.success) {
+                document.getElementById('qrPreview').src = r.qr_path;
+                document.getElementById('qrPreview').style.display = 'block';
+                document.getElementById('qrPlaceholder').style.display = 'none';
+                showToast(true, r.message);
+            } else {
+                showToast(false, r.message);
+            }
+        },
+        error:       () => {
+            Swal.close();
+            showToast(false, 'Upload failed.');
+        }
     });
 }
 
