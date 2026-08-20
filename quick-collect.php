@@ -7,20 +7,21 @@ $active_page = 'quick_collect';
 $error = '';
 $success = '';
 
+if (!function_exists('getSetting')) {
+    function getSetting($key, $default = '') {
+        global $pdo;
+        try {
+            $stmt = $pdo->prepare("SELECT setting_value FROM system_settings WHERE setting_key = ?");
+            $stmt->execute([$key]);
+            $row = $stmt->fetch();
+            return $row ? $row['setting_value'] : $default;
+        } catch (PDOException $e) { return $default; }
+    }
+}
+
 // Load UPI Settings
 $upi_id = getSetting('upi_id', '');
 $upi_name = getSetting('upi_name', '');
-
-// Helper to get system settings
-function getSetting($key, $default = '') {
-    global $pdo;
-    try {
-        $stmt = $pdo->prepare("SELECT setting_value FROM system_settings WHERE setting_key = ?");
-        $stmt->execute([$key]);
-        $row = $stmt->fetch();
-        return $row ? $row['setting_value'] : $default;
-    } catch (PDOException $e) { return $default; }
-}
 
 // Fetch active bank accounts
 $accounts = $pdo->query("SELECT id, account_name, bank_name, current_balance FROM bank_accounts WHERE status = 'active' ORDER BY account_name ASC")->fetchAll();
@@ -156,10 +157,6 @@ try {
 
 // Currency Symbol helper
 $currency_symbol = getSetting('currency_symbol', '₹');
-function format_currency($val) {
-    global $currency_symbol;
-    return $currency_symbol . number_format($val, 2);
-}
 ?>
 <!DOCTYPE html>
 <html lang="en">

@@ -146,7 +146,19 @@ function display_flash_message() {
 
 // Format numbers as Currency
 function format_currency($amount) {
-    return '₹' . number_format((float)$amount, 2);
+    global $pdo;
+    static $symbol = null;
+    if ($symbol === null) {
+        try {
+            $stmt = $pdo->prepare("SELECT setting_value FROM system_settings WHERE setting_key = 'currency_symbol'");
+            $stmt->execute();
+            $row = $stmt->fetch();
+            $symbol = $row ? $row['setting_value'] : '₹';
+        } catch (Exception $e) {
+            $symbol = '₹';
+        }
+    }
+    return $symbol . number_format((float)$amount, 2);
 }
 
 // Activity Logging helper

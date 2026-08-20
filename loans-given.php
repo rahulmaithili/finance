@@ -7,25 +7,21 @@ $active_page = 'loans_given';
 $error = '';
 $success = '';
 
-// Load currency symbol & system UPI config
+if (!function_exists('getSetting')) {
+    function getSetting($key, $default = '') {
+        global $pdo;
+        try {
+            $stmt = $pdo->prepare("SELECT setting_value FROM system_settings WHERE setting_key = ?");
+            $stmt->execute([$key]);
+            $row = $stmt->fetch();
+            return $row ? $row['setting_value'] : $default;
+        } catch (PDOException $e) { return $default; }
+    }
+}
+
 $currency_symbol = getSetting('currency_symbol', '₹');
 $system_upi_id = getSetting('upi_id', '');
 $system_upi_name = getSetting('upi_name', '');
-
-function getSetting($key, $default = '') {
-    global $pdo;
-    try {
-        $stmt = $pdo->prepare("SELECT setting_value FROM system_settings WHERE setting_key = ?");
-        $stmt->execute([$key]);
-        $row = $stmt->fetch();
-        return $row ? $row['setting_value'] : $default;
-    } catch (PDOException $e) { return $default; }
-}
-
-function format_currency($val) {
-    global $currency_symbol;
-    return $currency_symbol . number_format($val, 2);
-}
 
 // Fetch active bank accounts
 $accounts = $pdo->query("SELECT id, account_name, bank_name, current_balance FROM bank_accounts WHERE status = 'active' ORDER BY account_name ASC")->fetchAll();
