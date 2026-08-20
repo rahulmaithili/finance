@@ -259,6 +259,9 @@
                 <button class="settings-tab" onclick="switchTab('security', this)">
                     <i class="fa-solid fa-shield-halved"></i> Security
                 </button>
+                <button class="settings-tab" onclick="switchTab('payment', this)">
+                    <i class="fa-solid fa-credit-card"></i> Payments
+                </button>
                 <button class="settings-tab" onclick="switchTab('server', this)">
                     <i class="fa-solid fa-server"></i> Cloud Info
                 </button>
@@ -439,6 +442,86 @@
                     </div>
                 </div>
             </div>
+
+            <!-- TAB 5: PAYMENTS -->
+            <div class="settings-panel" id="tab-payment">
+                <div class="settings-action-bar">
+                    <button class="btn-secondary" onclick="loadPaymentSettings()"><i class="fa-solid fa-rotate"></i> Reload</button>
+                    <button class="btn-primary" onclick="savePaymentSettings()"><i class="fa-solid fa-floppy-disk"></i> Save Payments</button>
+                </div>
+
+                <div class="settings-card">
+                    <div class="settings-card-header">
+                        <div class="settings-card-icon icon-success"><i class="fa-solid fa-qrcode"></i></div>
+                        <div>
+                            <h3>UPI Repayment QR Code</h3>
+                            <p>Configure UPI ID and Merchant Name for dynamic QR generation on print schedules</p>
+                        </div>
+                    </div>
+                    <div class="settings-card-body">
+                        <div class="form-grid-2">
+                            <div class="sform-group">
+                                <label><i class="fa-solid fa-hashtag"></i> UPI ID (VPA) *</label>
+                                <input type="text" id="upiId" placeholder="e.g. corporate@upi" maxlength="100">
+                            </div>
+                            <div class="sform-group">
+                                <label><i class="fa-solid fa-user"></i> Payee Name (Merchant Name) *</label>
+                                <input type="text" id="upiName" placeholder="e.g. IEMS ERP Financials" maxlength="100">
+                            </div>
+                        </div>
+
+                        <!-- Static QR Upload -->
+                        <div class="sform-group" style="margin-top:16px;">
+                            <label><i class="fa-solid fa-image"></i> Static QR Code Image (Backup)</label>
+                            <div class="logo-upload-row">
+                                <div class="logo-preview-box">
+                                    <img id="qrPreview" src="" alt="" style="display:none;width:100%;height:100%;object-fit:contain;">
+                                    <i class="fa-solid fa-qrcode logo-placeholder" id="qrPlaceholder"></i>
+                                </div>
+                                <div>
+                                    <label for="qrFileInput" class="btn-secondary" style="display:inline-flex;align-items:center;gap:8px;padding:9px 16px;cursor:pointer;font-size:0.88rem;border-radius:8px;">
+                                        <i class="fa-solid fa-upload"></i> Upload Static QR
+                                    </label>
+                                    <input type="file" id="qrFileInput" accept="image/*" style="display:none;" onchange="uploadStaticQr(this)">
+                                    <p style="font-size:0.72rem;color:var(--text-secondary);margin-top:6px;margin-bottom:0;">Upload static image if you don't want dynamic calculations.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-card">
+                    <div class="settings-card-header">
+                        <div class="settings-card-icon icon-primary"><i class="fa-solid fa-credit-card"></i></div>
+                        <div>
+                            <h3>Razorpay Online Gateway Integration</h3>
+                            <p>Enable debtors to pay their EMIs online using card, netbanking, or UPI</p>
+                        </div>
+                    </div>
+                    <div class="settings-card-body">
+                        <div class="toggle-row" style="margin-bottom:18px;border-bottom:none;padding-top:0;">
+                            <div class="toggle-info">
+                                <h4>Enable Online Payments</h4>
+                                <p>Allow debtors to pay via Razorpay Checkout link</p>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="razorpayEnabled">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="form-grid-2">
+                            <div class="sform-group">
+                                <label><i class="fa-solid fa-key"></i> Razorpay Key ID *</label>
+                                <input type="text" id="razorpayKeyId" placeholder="e.g. rzp_live_xxxxxxxxxxxx">
+                            </div>
+                            <div class="sform-group">
+                                <label><i class="fa-solid fa-lock"></i> Razorpay Key Secret *</label>
+                                <input type="password" id="razorpayKeySecret" placeholder="e.g. xxxxxxxxxxxxxxxxxxxxxxxx">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -446,7 +529,7 @@
 <script>
     // Tab Switching
     function switchTab(tab, btn) {
-        var panels = ['general','company','security','server'];
+        var panels = ['general','company','security','server','payment'];
         for (var i = 0; i < panels.length; i++) {
             var p = document.getElementById('tab-' + panels[i]);
             if (p) {
@@ -465,7 +548,7 @@
     }
 
     (function initTabs() {
-        var panels = ['general','company','security','server'];
+        var panels = ['general','company','security','server','payment'];
         for (var i = 0; i < panels.length; i++) {
             var p = document.getElementById('tab-' + panels[i]);
             if (!p) continue;
@@ -482,6 +565,7 @@
         loadGeneralSettings();
         loadCompanySettings();
         loadSecurityFeatures();
+        loadPaymentSettings();
     };
 
     function loadGeneralSettings() {
@@ -642,6 +726,71 @@
                 </div>
                 <span class="security-badge"><i class="fa-solid fa-circle-check"></i> Active</span>
             </div>`;
+        });
+    }
+
+    function loadPaymentSettings() {
+        db.collection('system_settings').doc('payment').get().then(doc => {
+            if (doc.exists) {
+                const d = doc.data();
+                document.getElementById('upiId').value = d.upi_id || '';
+                document.getElementById('upiName').value = d.upi_name || '';
+                document.getElementById('razorpayKeyId').value = d.razorpay_key_id || '';
+                document.getElementById('razorpayKeySecret').value = d.razorpay_key_secret || '';
+                document.getElementById('razorpayEnabled').checked = d.razorpay_enabled || false;
+                if (d.static_qr_url) {
+                    document.getElementById('qrPreview').src = d.static_qr_url;
+                    document.getElementById('qrPreview').style.display = 'block';
+                    document.getElementById('qrPlaceholder').style.display = 'none';
+                }
+            }
+        }).catch(err => {
+            console.error("Failed to load payment settings:", err);
+        });
+    }
+
+    function savePaymentSettings() {
+        const upiId = document.getElementById('upiId').value.trim();
+        const upiName = document.getElementById('upiName').value.trim();
+        const rzpId = document.getElementById('razorpayKeyId').value.trim();
+        const rzpSecret = document.getElementById('razorpayKeySecret').value.trim();
+        const rzpEnabled = document.getElementById('razorpayEnabled').checked;
+
+        db.collection('system_settings').doc('payment').set({
+            upi_id: upiId,
+            upi_name: upiName,
+            razorpay_key_id: rzpId,
+            razorpay_key_secret: rzpSecret,
+            razorpay_enabled: rzpEnabled,
+            updated_at: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true }).then(() => {
+            Swal.fire({ icon: 'success', title: 'Payment Settings Saved', timer: 1500, showConfirmButton: false });
+        }).catch(err => {
+            console.error("Failed to save payment settings:", err);
+            Swal.fire({ icon: 'error', title: 'Save Failed', text: err.message });
+        });
+    }
+
+    function uploadStaticQr(input) {
+        const file = input.files[0];
+        if (!file) return;
+
+        Swal.fire({ title: 'Uploading QR...', didOpen: () => { Swal.showLoading(); } });
+
+        const ref = storage.ref(`branding/static_qr.${file.name.split('.').pop()}`);
+        ref.put(file).then(snapshot => snapshot.ref.getDownloadURL()).then(url => {
+            document.getElementById('qrPreview').src = url;
+            document.getElementById('qrPreview').style.display = 'block';
+            document.getElementById('qrPlaceholder').style.display = 'none';
+
+            return db.collection('system_settings').doc('payment').set({ static_qr_url: url }, { merge: true });
+        }).then(() => {
+            Swal.close();
+            Swal.fire({ icon: 'success', title: 'QR Uploaded', timer: 1500, showConfirmButton: false });
+        }).catch(err => {
+            Swal.close();
+            console.error("QR upload failed:", err);
+            Swal.fire({ icon: 'error', title: 'Upload Failed', text: err.message });
         });
     }
 </script>

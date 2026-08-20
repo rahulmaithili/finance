@@ -251,6 +251,7 @@
             </div>
             <div class="form-group"><label class="form-label">Remarks / Collection Note</label><input type="text" id="paymentNote" class="form-control" placeholder="e.g. EMI Month 2 recovery"></div>
             <button class="btn-primary" onclick="savePayment()" style="width:100%;height:48px;border-radius:12px;font-size:1rem;font-weight:700;margin-bottom:20px;background:linear-gradient(135deg,#064e3b,#059669);border:none;"><i class="fa-solid fa-check-circle"></i> Log Payment</button>
+            <button id="razorpayBtn" class="btn-primary" onclick="payViaRazorpay()" style="display:none;width:100%;height:48px;border-radius:12px;font-size:1rem;font-weight:700;margin-top:-10px;margin-bottom:20px;background:linear-gradient(135deg,#2563eb,#1d4ed8);border:none;"><i class="fa-solid fa-credit-card"></i> Pay via Razorpay</button>
             <hr style="border-color:rgba(255,255,255,0.07);margin:0 0 16px;">
             <h4 style="color:#fff;margin:0 0 12px;font-size:0.9rem;"><i class="fa-solid fa-history" style="margin-right:6px;color:#10b981;"></i>Payment Collection History</h4>
             <div id="paymentHistList" style="display:flex;flex-direction:column;gap:8px;"></div>
@@ -264,10 +265,22 @@
 </button>
 
 <script>
-    let currentUser=null,currentUserData=null,activePaymentLoanId=null,loansCache={},activeAccountsMap={},activeAccountsFullMap={};
+    let currentUser=null,currentUserData=null,activePaymentLoanId=null,loansCache={},activeAccountsMap={},activeAccountsFullMap={},paymentConfig=null;
     window.onNavigationLoaded=function(user,userData){
         currentUser=user;
         currentUserData=userData;
+        
+        db.collection('system_settings').doc('payment').get().then(doc => {
+            if (doc.exists) {
+                paymentConfig = doc.data();
+                if (paymentConfig.razorpay_enabled) {
+                    const s = document.createElement('script');
+                    s.src = 'https://checkout.razorpay.com/v1/checkout.js';
+                    document.body.appendChild(s);
+                }
+            }
+        }).catch(err => console.log("Failed to load payment settings: ", err));
+
         loadAccountsList().then(() => {
             loadLoans();
         });
@@ -620,6 +633,13 @@
         document.getElementById('paymentAmount').value=l?Math.round(l.emi_amount):'';
         document.getElementById('paymentNote').value='';
         document.getElementById('paymentAccount').value=l?l.repayment_account_id:'';
+        
+        if (paymentConfig && paymentConfig.razorpay_enabled) {
+            document.getElementById('razorpayBtn').style.display = 'block';
+        } else {
+            document.getElementById('razorpayBtn').style.display = 'none';
+        }
+
         loadPaymentHistory(loanId);
         document.getElementById('paymentModal').style.display='flex';
     }
@@ -715,6 +735,102 @@
         }).catch(err=>Swal.fire({icon:'error',title:'Failed to Log Payment',text:err.message}));
     }
 
+    function payViaRazorpay() {
+        if(!activePaymentLoanId || !paymentConfig) return;
+        const amount = parseFloat(document.getElementById('paymentAmount').value);
+        const date = document.getElementById('paymentDate').value;
+        const note = document.getElementById('paymentNote').value.trim();
+        const accountId = document.getElementById('paymentAccount').value;
+        
+        if(!amount || !date || !accountId){
+            Swal.fire({icon:'warning',title:'Required Fields',text:'Please enter recovery amount, collection date and deposit account.'});
+            return;
+        }
+
+        const l = loansCache[activePaymentLoanId];
+        if(!l) return;
+
+        const options = {
+            "key": paymentConfig.razorpay_key_id,
+            "amount": amount * 100, // in paise
+            "currency": "INR",
+            "name": "IEMS ERP Financials",
+            "description": "Given Loan EMI - " + l.debtor_name,
+            "image": paymentConfig.site_logo_url || "",
+            "handler": function (response) {
+                const fullNote = (note || `EMI Recovery Payment via Razorpay`) + ` (Ref ID: ${response.razorpay_payment_id})`;
+                executeSavePayment(amount, date, fullNote, accountId, response.razorpay_payment_id);
+            },
+            "prefill": {
+                "name": l.debtor_name,
+                "email": l.debtor_email || "",
+                "contact": l.debtor_phone
+            },
+            "theme": {
+                "color": "#a855f7"
+            }
+        };
+
+        const rzp = new Razorpay(options);
+        rzp.open();
+    }
+
+    function executeSavePayment(amount, date, note, accountId, rzpPaymentId) {
+        const lRef=db.collection('loans_given').doc(activePaymentLoanId);
+        const pRef=lRef.collection('payments').doc();
+        const accRef=db.collection('bank_accounts').doc(accountId);
+        const incRef=db.collection('income').doc(); 
+
+        db.runTransaction(tx=>tx.get(lRef).then(doc=>{
+            const l=doc.data();
+            return tx.get(accRef).then(accDoc => {
+                if(!accDoc.exists) throw new Error("Selected account does not exist!");
+                const currentBal = parseFloat(accDoc.data().current_balance || 0);
+                const accountName = accDoc.data().account_name;
+
+                const nPaid=(l.total_paid||0)+amount;
+                const nEmi=(l.emi_paid||0)+1;
+                const tot=l.emi_amount*l.tenure_months;
+                const status=nPaid>=tot?'closed':'active';
+
+                tx.update(accRef, {current_balance: currentBal + amount});
+                tx.update(lRef, {total_paid:nPaid,emi_paid:nEmi,status,updated_at:firebase.firestore.FieldValue.serverTimestamp()});
+                
+                tx.set(pRef,{
+                    amount,
+                    payment_date:date,
+                    note,
+                    account_id: accountId,
+                    account_name: accountName,
+                    income_id: incRef.id,
+                    rzp_payment_id: rzpPaymentId || '',
+                    recorded_by:currentUser.uid,
+                    recorded_at:firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                tx.set(incRef, {
+                    title: `EMI Collection - ${l.debtor_name}`,
+                    category: 'Loan EMI Recovery',
+                    amount: amount,
+                    account_id: accountId,
+                    payment_method: 'Razorpay Gateway',
+                    income_date: date,
+                    reference_no: rzpPaymentId || '',
+                    description: note,
+                    attachment_url: '',
+                    recorded_by_uid: currentUser.uid,
+                    recorded_by_name: currentUserData ? currentUserData.full_name : currentUser.email.split('@')[0],
+                    created_at: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            });
+        })).then(()=>{
+            Swal.fire({icon:'success',title:'Razorpay Payment Captured!',timer:2000,showConfirmButton:false});
+            logActivity('Recovered Online EMI payment of '+formatCurrency(amount)+' from debtor: '+loansCache[activePaymentLoanId].debtor_name);
+            loadPaymentHistory(activePaymentLoanId);
+            loadAccountsList();
+        }).catch(err=>Swal.fire({icon:'error',title:'Failed to Log Payment',text:err.message}));
+    }
+
     function deletePayment(loanId,payId,amount){
         Swal.fire({icon:'question',title:'Delete Collection Log?',text:'This deducts '+formatCurrency(amount)+' from recovered balances and reverts deposit account balance.',showCancelButton:true,confirmButtonText:'Delete Log',confirmButtonColor:'#e11d48'}).then(r=>{
             if(!r.isConfirmed)return;
@@ -776,6 +892,23 @@
             const emi = computeEMI(P, rate, n);
             const totalRepayment = emi * n;
             const totalInterest = totalRepayment - P;
+
+            const upiVPA = l.repayment_upi || (paymentConfig ? paymentConfig.upi_id : '');
+            const payeeName = paymentConfig ? (paymentConfig.upi_name || 'IEMS ERP Finance') : 'IEMS ERP Finance';
+            
+            let qrCodeHTML = '';
+            if (upiVPA) {
+                const upiUrl = `upi://pay?pa=${upiVPA}&pn=${encodeURIComponent(payeeName)}&am=${emi.toFixed(2)}&cu=INR`;
+                qrCodeHTML = `
+                <div style="margin:10px 0;text-align:center;">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(upiUrl)}" alt="Dynamic UPI QR" style="width:140px;height:140px;border:1px solid #ddd;padding:4px;border-radius:4px;" />
+                </div>`;
+            } else if (paymentConfig && paymentConfig.static_qr_url) {
+                qrCodeHTML = `
+                <div style="margin:10px 0;text-align:center;">
+                    <img src="${paymentConfig.static_qr_url}" alt="Static UPI QR" style="width:140px;height:140px;object-fit:contain;border:1px solid #ddd;padding:4px;border-radius:4px;" />
+                </div>`;
+            }
 
             let remainingPrincipal = P;
             let scheduleHTML = '';
@@ -1017,11 +1150,12 @@
                         <p style="margin:4px 0;"><strong>Account Number:</strong> ${bankAcc.account_number || 'N/A'}</p>
                         <p style="margin:4px 0;"><strong>IFSC Code:</strong> ${bankAcc.ifsc_code || 'N/A'}</p>
                     </div>
-                    <div style="border-left: 1px solid #e9d5ff; padding-left:20px;">
-                        <div class="instructions-header"><i class="fa-solid fa-qrcode"></i> Instant Repayment via UPI</div>
-                        <p style="margin:4px 0;">Scan and pay using any UPI App (GPay, PhonePe, Paytm):</p>
-                        <p style="margin:6px 0; font-size:15px; font-weight:bold; color:#6d28d9; background:#f3e8ff; padding:8px 12px; border-radius:6px; display:inline-block; border:1px solid #d8b4fe;">
-                            ${l.repayment_upi}
+                    <div style="border-left: 1px solid #e9d5ff; padding-left:20px; text-align:center;">
+                        <div class="instructions-header" style="text-align:left;"><i class="fa-solid fa-qrcode"></i> Instant Repayment via UPI</div>
+                        <p style="margin:4px 0; text-align:left;">Scan and pay using any UPI App (GPay, PhonePe, Paytm):</p>
+                        ${qrCodeHTML}
+                        <p style="margin:6px 0; font-size:14px; font-weight:bold; color:#6d28d9; background:#f3e8ff; padding:6px 12px; border-radius:6px; display:inline-block; border:1px solid #d8b4fe;">
+                            ${upiVPA || 'No UPI Configured'}
                         </p>
                     </div>
                 </div>
