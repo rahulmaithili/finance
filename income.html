@@ -534,18 +534,21 @@
             saveBtn.disabled = true;
             let docId = editMode ? activeEditId : db.collection('income').doc().id;
 
-            // ── Step 1: Upload attachment (non-blocking — save even if upload fails) ──
+            // ── Step 1: Base64 attachment handler ──
             let uploadPromise = Promise.resolve(null);
             if (cameraPhoto) {
-                const storageRef = storage.ref(`income_receipts/${docId}/cam_receipt.jpg`);
-                uploadPromise = storageRef.putString(cameraPhoto, 'data_url')
-                    .then(snap => snap.ref.getDownloadURL())
-                    .catch(() => null); // skip attachment on error
+                uploadPromise = Promise.resolve(cameraPhoto);
             } else if (fileInput) {
-                const storageRef = storage.ref(`income_receipts/${docId}/${fileInput.name}`);
-                uploadPromise = storageRef.put(fileInput)
-                    .then(snap => snap.ref.getDownloadURL())
-                    .catch(() => null); // skip attachment on error
+                uploadPromise = new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = function() {
+                        resolve(reader.result);
+                    };
+                    reader.onerror = function() {
+                        resolve(null);
+                    };
+                    reader.readAsDataURL(fileInput);
+                });
             }
 
 

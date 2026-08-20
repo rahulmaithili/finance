@@ -513,16 +513,19 @@
         let docId = id ? id : db.collection('loans_given').doc().id;
         document.getElementById('loanSaveText').textContent='Uploading & Saving...';
 
-        // File attachment handler
+        // File attachment handler (Base64 conversion)
         let uploadPromise = Promise.resolve(null);
         if (fileInput) {
-            const storageRef = storage.ref(`given_loans_docs/${docId}/${fileInput.name}`);
-            uploadPromise = storageRef.put(fileInput)
-                .then(snap => snap.ref.getDownloadURL())
-                .catch(err => {
-                    console.log("File upload failed: ", err);
-                    return null;
-                });
+            uploadPromise = new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = function() {
+                    resolve(reader.result);
+                };
+                reader.onerror = function() {
+                    resolve(null);
+                };
+                reader.readAsDataURL(fileInput);
+            });
         } else if (id && loansCache[id] && loansCache[id].attachment_url) {
             uploadPromise = Promise.resolve(loansCache[id].attachment_url);
         }
