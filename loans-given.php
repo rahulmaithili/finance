@@ -564,8 +564,8 @@ $payments = $pdo->query("
     </div>
 
     <!-- Loan Add Modal -->
-    <div id="loanModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); z-index:99999; align-items:center; justify-content:center; padding:16px; margin:0 !important; box-sizing:border-box;">
-        <div class="login-card" style="width:90%; max-width:540px; margin:auto;">
+    <div id="loanModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); z-index:99999; align-items:flex-start; justify-content:center; overflow-y:auto; padding:16px; margin:0 !important; box-sizing:border-box;">
+        <div class="login-card" style="width:90%; max-width:540px; margin:40px auto;">
             <div class="login-header">
                 <h2>Record Given Loan</h2>
                 <p>Register an asset loan given to a debtor/borrower.</p>
@@ -641,8 +641,8 @@ $payments = $pdo->query("
     </div>
 
     <!-- Mark Repayment Modal -->
-    <div id="paymentModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); z-index:99999; align-items:center; justify-content:center; padding:16px; margin:0 !important; box-sizing:border-box;">
-        <div class="login-card" style="width:90%; max-width:440px; margin:auto;">
+    <div id="paymentModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); z-index:99999; align-items:flex-start; justify-content:center; overflow-y:auto; padding:16px; margin:0 !important; box-sizing:border-box;">
+        <div class="login-card" style="width:90%; max-width:440px; margin:40px auto;">
             <div class="login-header">
                 <h2>Record EMI Recovery</h2>
                 <p id="paymentLoanLabel">Borrower: -</p>
