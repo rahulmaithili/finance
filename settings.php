@@ -87,6 +87,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 'razorpay_enabled' => getSetting('razorpay_enabled', '0'),
                 'razorpay_key_id'  => getSetting('razorpay_key_id', ''),
                 'razorpay_key_secret' => getSetting('razorpay_key_secret', ''),
+                'default_theme_palette' => getSetting('default_theme_palette', 'ui_2'),
+                'default_theme_dark'    => getSetting('default_theme_dark', '1'),
             ]
         ]);
         exit;
@@ -105,6 +107,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             saveSetting('razorpay_enabled',  ($_POST['razorpay_enabled'] ?? '0') === '1' ? '1' : '0');
             saveSetting('razorpay_key_id',   clean($_POST['razorpay_key_id'] ?? ''));
             saveSetting('razorpay_key_secret', clean($_POST['razorpay_key_secret'] ?? ''));
+            saveSetting('default_theme_palette', clean($_POST['default_theme_palette'] ?? 'ui_2'));
+            saveSetting('default_theme_dark',    ($_POST['default_theme_dark'] ?? '1') === '1' ? '1' : '0');
             log_activity('System Settings Updated');
             echo json_encode(['success' => true, 'message' => 'Settings saved successfully!']);
         } catch (Exception $e) {
@@ -758,6 +762,93 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     </div>
                 </div>
 
+                <!-- Theme Settings Card -->
+                <div class="settings-card" id="theme-settings-card" style="margin-top: 20px;">
+                    <div class="settings-card-header">
+                        <div class="settings-card-icon icon-primary">
+                            <i class="fa-solid fa-palette"></i>
+                        </div>
+                        <div>
+                            <h3>Theme Palette Selection</h3>
+                            <p>Choose a color scheme to apply across the entire system</p>
+                        </div>
+                    </div>
+                    <div class="settings-card-body">
+                        <p style="font-size:0.82rem; color:var(--text-secondary); margin-bottom: 20px;">
+                            Tap a palette to preview it below. As admin, this will set the default color scheme for all visitors.
+                        </p>
+
+                        <!-- Predefined Palettes Grid -->
+                        <div class="theme-palettes-grid" id="settingsPalettesGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                            <!-- Dynamically loaded via Javascript -->
+                        </div>
+
+                        <!-- Theme Preview Section -->
+                        <div id="settingsThemePreviewContainer" style="border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; background: var(--bg-primary); margin-bottom: 20px;">
+                            <h4 id="settingsPreviewPaletteName" style="margin: 0 0 16px 0; font-size: 0.95rem; font-weight: 700; color: var(--text-light); display: flex; align-items: center; justify-content: space-between;">
+                                <span>Selected Palette: <strong id="settingsPreviewNameText" style="color:var(--primary);">Graphite & Cyan</strong></span>
+                                <span class="badge" id="settingsAppliedBadge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 0.68rem;">APPLIED</span>
+                            </h4>
+
+                            <!-- App Preview Mock Bar -->
+                            <div style="display: flex; height: 100px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color); position: relative; margin-bottom: 16px;">
+                                <!-- Sidebar Mock -->
+                                <div style="width: 50px; background: var(--bg-sidebar); padding: 8px; display: flex; flex-direction: column; gap: 6px; border-right: 1px solid var(--border-color);">
+                                    <div style="width: 100%; height: 6px; background: var(--text-secondary); opacity: 0.2; border-radius: 2px;"></div>
+                                    <div style="width: 100%; height: 12px; background: var(--primary); border-radius: 3px;"></div>
+                                    <div style="width: 80%; height: 6px; background: var(--text-secondary); opacity: 0.15; border-radius: 2px;"></div>
+                                    <div style="width: 70%; height: 6px; background: var(--text-secondary); opacity: 0.15; border-radius: 2px;"></div>
+                                </div>
+                                <!-- Content Mock -->
+                                <div style="flex: 1; background: var(--bg-primary); padding: 12px; display: flex; flex-direction: column; gap: 10px;">
+                                    <!-- Header -->
+                                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">
+                                        <div style="width: 60px; height: 8px; background: var(--text-primary); opacity: 0.2; border-radius: 2px;"></div>
+                                        <div style="width: 30px; height: 8px; background: var(--text-secondary); opacity: 0.2; border-radius: 2px;"></div>
+                                    </div>
+                                    <!-- Cards row -->
+                                    <div style="display: flex; gap: 8px;">
+                                        <div style="flex: 1; height: 35px; background: var(--bg-secondary); border-radius: 6px; border: 1px solid var(--border-color); padding: 6px; display: flex; flex-direction: column; justify-content: space-between;">
+                                            <div style="width: 50%; height: 4px; background: var(--text-secondary); opacity: 0.15; border-radius: 1px;"></div>
+                                            <div style="width: 70%; height: 6px; background: var(--success); border-radius: 2px;"></div>
+                                        </div>
+                                        <div style="flex: 1; height: 35px; background: var(--bg-secondary); border-radius: 6px; border: 1px solid var(--border-color); padding: 6px; display: flex; flex-direction: column; justify-content: space-between;">
+                                            <div style="width: 50%; height: 4px; background: var(--text-secondary); opacity: 0.15; border-radius: 1px;"></div>
+                                            <div style="width: 70%; height: 6px; background: var(--primary); border-radius: 2px;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Color Legend circles -->
+                            <div style="display: flex; flex-wrap: wrap; gap: 16px; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 16px;">
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="width: 12px; height: 12px; border-radius: 50%; display: inline-block; background: var(--primary);"></span> Primary
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="width: 12px; height: 12px; border-radius: 50%; display: inline-block; background: var(--bg-sidebar); border: 1px solid var(--border-color);"></span> Sidebar
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="width: 12px; height: 12px; border-radius: 50%; display: inline-block; background: var(--bg-primary); border: 1px solid var(--border-color);"></span> Background
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="width: 12px; height: 12px; border-radius: 50%; display: inline-block; background: var(--bg-secondary); border: 1px solid var(--border-color);"></span> Card
+                                </div>
+                            </div>
+
+                            <!-- Action buttons -->
+                            <div style="display: flex; gap: 10px;">
+                                <button type="button" class="btn-secondary" id="btnApplyDevice" style="font-size: 0.85rem; padding: 8px 16px;" onclick="applyPreviewPalette()">
+                                    <i class="fa-solid fa-check"></i> Preview / Apply Local
+                                </button>
+                                <button type="button" class="btn-primary" id="btnSetSystemDefault" style="font-size: 0.85rem; padding: 8px 16px;" onclick="setSystemDefaultPalette()">
+                                    <i class="fa-solid fa-shield-halved"></i> Set as Default
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- System Controls -->
                 <div class="settings-card">
                     <div class="settings-card-header">
@@ -1081,6 +1172,104 @@ function switchTab(tab, btn) {
     }
 })();
 
+// Theme Selector states
+let settingsSelectedPalette = "ui_2";
+let settingsSelectedDark = true;
+
+// Populate settings palettes grid on page load
+function initSettingsThemeSelector() {
+    const grid = document.getElementById("settingsPalettesGrid");
+    if (!grid) return;
+    grid.innerHTML = "";
+    
+    window.THEME_PALETTES.forEach(p => {
+        const item = document.createElement("div");
+        item.className = "settings-palette-card";
+        item.style.cssText = `
+            border: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        `;
+        
+        // CSS style injection for hover/active state on load
+        if (!document.getElementById("settings-palette-styles")) {
+            const styles = document.createElement("style");
+            styles.id = "settings-palette-styles";
+            styles.textContent = `
+                .settings-palette-card:hover {
+                    border-color: var(--primary) !important;
+                    transform: translateY(-2px);
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                }
+                .settings-palette-card.active {
+                    border-color: var(--primary) !important;
+                    background: var(--primary-light) !important;
+                }
+            `;
+            document.head.appendChild(styles);
+        }
+        
+        item.innerHTML = `
+            <div style="font-weight: 700; font-size: 0.82rem; color: var(--text-light); margin-bottom: 8px;">${p.name}</div>
+            <div style="display: flex; gap: 4px; height: 16px; border-radius: 4px; overflow: hidden; border: 1px solid rgba(255,255,255,0.05);">
+                <div style="flex: 1.5; background: ${p.primary};"></div>
+                <div style="flex: 1; background: ${p.bgSidebar};"></div>
+                <div style="flex: 1.5; background: ${p.bgPrimary};"></div>
+            </div>
+        `;
+        
+        item.onclick = function() {
+            document.querySelectorAll(".settings-palette-card").forEach(el => el.classList.remove("active"));
+            item.classList.add("active");
+            settingsSelectedPalette = p.id;
+            updateSettingsThemePreview();
+        };
+        
+        grid.appendChild(item);
+    });
+}
+
+function updateSettingsThemePreview() {
+    const palette = window.THEME_PALETTES.find(p => p.id === settingsSelectedPalette) || window.THEME_PALETTES[1];
+    
+    // Update active badge in cards
+    document.querySelectorAll(".settings-palette-card").forEach((el, idx) => {
+        const p = window.THEME_PALETTES[idx];
+        if (p.id === settingsSelectedPalette) {
+            el.classList.add("active");
+        } else {
+            el.classList.remove("active");
+        }
+    });
+
+    document.getElementById("settingsPreviewNameText").textContent = palette.name;
+    document.getElementById("settingsPreviewNameText").style.color = palette.primary;
+    
+    // Check if currently active
+    const curPal = localStorage.getItem("theme-palette") || "ui_2";
+    const isApplied = (settingsSelectedPalette === curPal);
+    document.getElementById("settingsAppliedBadge").style.display = isApplied ? "inline-block" : "none";
+}
+
+function applyPreviewPalette() {
+    window.applyThemePalette(settingsSelectedPalette, settingsSelectedDark);
+    updateSettingsThemePreview();
+    if (typeof showToast !== 'undefined') {
+        showToast(true, "Theme preview applied to this device!");
+    } else {
+        alert("Theme preview applied to this device!");
+    }
+    setTimeout(() => location.reload(), 300);
+}
+
+function setSystemDefaultPalette() {
+    saveSettings();
+}
+
 // ── Load Settings ──────────────────────────────────────────
 function loadSettings() {
     $.post('settings.php', {action:'getSettings'}, function(r) {
@@ -1096,6 +1285,12 @@ function loadSettings() {
             document.getElementById('razorpayEnabled').checked  = (d.razorpay_enabled === '1');
             document.getElementById('razorpayKeyId').value      = d.razorpay_key_id || '';
             document.getElementById('razorpayKeySecret').value  = d.razorpay_key_secret || '';
+            
+            settingsSelectedPalette = d.default_theme_palette || "ui_2";
+            settingsSelectedDark = (d.default_theme_dark === "1");
+            
+            initSettingsThemeSelector();
+            updateSettingsThemePreview();
             
             if (d.site_logo) {
                 document.getElementById('logoPreview').src = d.site_logo;
@@ -1130,8 +1325,13 @@ function saveSettings() {
         razorpay_enabled:  document.getElementById('razorpayEnabled').checked ? '1' : '0',
         razorpay_key_id:   document.getElementById('razorpayKeyId').value.trim(),
         razorpay_key_secret: document.getElementById('razorpayKeySecret').value.trim(),
+        default_theme_palette: settingsSelectedPalette,
+        default_theme_dark:    settingsSelectedDark ? '1' : '0'
     }, function(r) {
         showToast(r.success, r.message);
+        if (r.success) {
+            setTimeout(() => location.reload(), 500);
+        }
     }, 'json').fail(function() {
         showToast(false, 'Connection error. Please try again.');
     });
