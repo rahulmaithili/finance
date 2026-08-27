@@ -36,8 +36,10 @@ window.applyThemePalette = function(paletteId, isDark) {
     if (isDark) {
         root.style.setProperty("--bg-primary", palette.darkBgPrimary);
         root.style.setProperty("--bg-secondary", palette.darkBgSecondary);
+        root.style.setProperty("--bg-card", palette.darkBgSecondary);
         root.style.setProperty("--bg-sidebar", palette.darkBgSidebar);
         root.style.setProperty("--border-color", palette.darkBorder);
+        root.style.setProperty("--border", palette.darkBorder);
         root.style.setProperty("--text-primary", "#f1f5f9");
         root.style.setProperty("--text-secondary", "#94a3b8");
         root.style.setProperty("--text-light", "#ffffff");
@@ -45,8 +47,10 @@ window.applyThemePalette = function(paletteId, isDark) {
     } else {
         root.style.setProperty("--bg-primary", palette.bgPrimary);
         root.style.setProperty("--bg-secondary", palette.bgSecondary);
+        root.style.setProperty("--bg-card", palette.bgSecondary);
         root.style.setProperty("--bg-sidebar", palette.bgSidebar);
         root.style.setProperty("--border-color", palette.border);
+        root.style.setProperty("--border", palette.border);
         root.style.setProperty("--text-primary", "#0f172a");
         root.style.setProperty("--text-secondary", "#475569");
         root.style.setProperty("--text-light", "#0f172a");

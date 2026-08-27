@@ -23,6 +23,8 @@
     --text-secondary: #94a3b8;   /* Muted gray */
     --text-light: #ffffff;
     --border-color: #222d3d;     /* Deep slate border */
+    --bg-card: var(--bg-secondary);
+    --border: var(--border-color);
     
     /* Brand Colors */
     --primary: #6366f1;          /* Indigo accent */
@@ -59,6 +61,8 @@
     --text-secondary: #475569;   /* Medium slate-gray */
     --text-light: #0f172a;
     --border-color: #e2e8f0;     /* Light gray border */
+    --bg-card: var(--bg-secondary);
+    --border: var(--border-color);
     
     --primary: #4f46e5;
     --primary-hover: #4338ca;
