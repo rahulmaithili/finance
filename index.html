@@ -158,31 +158,278 @@
                     </div>
                 </div>
                 
-                <!-- Dashboard Analytics Grid -->
-                <div class="dashboard-grid">
-                    <!-- Left: Chart Panel -->
-                    <div class="dashboard-card">
-                        <div class="dashboard-card-header">
-                            <h2>Income vs Expense Analysis</h2>
-                            <span class="header-action">Last 6 Months</span>
+                <!-- Dashboard Analytics Layout -->
+                <div class="dashboard-main-layout" style="display: flex; gap: 20px; flex-wrap: wrap; margin-top: 20px;">
+                    
+                    <!-- Left Area (80% width) -->
+                    <div style="flex: 4; min-width: 300px; display: flex; flex-direction: column; gap: 20px;">
+                        
+                        <!-- Left Row 1: Line Chart & Donut Chart -->
+                        <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                            <!-- Financial Overview Line Chart -->
+                            <div class="dashboard-card" style="flex: 2; min-width: 250px; display: flex; flex-direction: column;">
+                                <div class="dashboard-card-header">
+                                    <h2>Financial Overview (This Month)</h2>
+                                    <span class="header-action" id="currentMonthYearLabel">August 2026</span>
+                                </div>
+                                <div style="display: flex; flex-direction: row; gap: 20px; flex: 1; align-items: center; min-height: 230px; flex-wrap: wrap; padding: 10px 0;">
+                                    <div style="flex: 1; min-width: 250px; position: relative; height: 210px;">
+                                        <canvas id="dailyLineChart"></canvas>
+                                    </div>
+                                    <div class="chart-stats-panel">
+                                        <div class="chart-stat-item">
+                                            <label>Total Income</label>
+                                            <div class="val" id="statTotalIncome" style="color: var(--success);">&#8377;0</div>
+                                        </div>
+                                        <div class="chart-stat-item">
+                                            <label>Total Expense</label>
+                                            <div class="val" id="statTotalExpense" style="color: var(--danger);">&#8377;0</div>
+                                        </div>
+                                        <div class="chart-stat-item">
+                                            <label>Net Balance</label>
+                                            <div class="val" id="statNetProfit" style="color: var(--success);">&#8377;0</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Overall collection position Donut -->
+                            <div class="dashboard-card" style="flex: 1.1; min-width: 200px; display: flex; flex-direction: column;">
+                                <div class="dashboard-card-header">
+                                    <h2>Overall collection position</h2>
+                                    <span class="header-action">Budget Position</span>
+                                </div>
+                                <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; padding: 10px 0;">
+                                    <div style="width: 130px; height: 130px; position: relative; margin-bottom: 12px;">
+                                        <canvas id="collectionDonutChart"></canvas>
+                                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none;">
+                                            <span style="font-size: 1.25rem; font-weight: 800; color: var(--text-light);" id="collectionPctLabel">0%</span>
+                                            <div style="font-size: 0.6rem; color: var(--text-secondary); text-transform: uppercase;">Collected</div>
+                                        </div>
+                                    </div>
+                                    <div style="width: 100%; display: flex; flex-direction: column; gap: 4px; font-size: 0.75rem;">
+                                        <div style="display: flex; justify-content: space-between;">
+                                            <span style="color: var(--text-secondary);"><i class="fa-solid fa-circle" style="color: var(--success); margin-right: 5px; font-size: 0.6rem;"></i> Collected</span>
+                                            <span style="font-weight: 700; color: var(--text-light);" id="labelCollectionPaid">&#8377;0</span>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between;">
+                                            <span style="color: var(--text-secondary);"><i class="fa-solid fa-circle" style="color: var(--warning); margin-right: 5px; font-size: 0.6rem;"></i> Outstanding</span>
+                                            <span style="font-weight: 700; color: var(--text-light);" id="labelCollectionOustanding">&#8377;0</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="chart-container">
-                            <canvas id="incomeExpenseChart"></canvas>
+                        
+                        <!-- Left Row 2: Bar Chart, Donut Chart, Recent Ledger Entries -->
+                        <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                            <!-- Monthly Bar Chart -->
+                            <div class="dashboard-card" style="flex: 1; min-width: 200px; display: flex; flex-direction: column;">
+                                <div class="dashboard-card-header">
+                                    <h2>Income vs Expense</h2>
+                                    <span class="header-action">Bar View</span>
+                                </div>
+                                <div style="flex: 1; min-height: 200px; position: relative; padding: 10px 0;">
+                                    <canvas id="monthlyBarChart"></canvas>
+                                </div>
+                            </div>
+                            
+                            <!-- Top Expense Categories Donut -->
+                            <div class="dashboard-card" style="flex: 1; min-width: 200px; display: flex; flex-direction: column;">
+                                <div class="dashboard-card-header">
+                                    <h2>Top Expense Categories</h2>
+                                    <span class="header-action">All Time</span>
+                                </div>
+                                <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; padding: 10px 0;" id="categoryPieContainer">
+                                    <div style="width: 110px; height: 110px; position: relative; margin-bottom: 12px;">
+                                        <canvas id="categoryPieChart"></canvas>
+                                    </div>
+                                    <div style="width: 100%; display: flex; flex-direction: column; gap: 5px; font-size: 0.75rem; max-height: 90px; overflow-y: auto;" id="categoryPieList">
+                                        <!-- Categories injected dynamically -->
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Recent Ledger Entries -->
+                            <div class="dashboard-card" style="flex: 1.2; min-width: 220px; display: flex; flex-direction: column;">
+                                <div class="dashboard-card-header">
+                                    <h2>Recent Ledger Entries</h2>
+                                    <a href="reports.html" class="header-action" style="font-weight: 500;">View All</a>
+                                </div>
+                                <div class="mini-list" id="recentTxList" style="flex: 1; overflow-y: auto; max-height: 250px; display: flex; flex-direction: column; gap: 4px; padding: 10px 0;">
+                                    <div style="text-align: center; color: var(--text-secondary); padding: 40px 0;">
+                                        <i class="fa-solid fa-spinner fa-spin" style="font-size: 2rem; margin-bottom: 10px; display: block; opacity: 0.5;"></i>
+                                        Loading transactions...
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
-                    <!-- Right: Recent Transactions List -->
-                    <div class="dashboard-card">
-                        <div class="dashboard-card-header">
-                            <h2>Recent Ledger Entries</h2>
-                            <a href="reports.html" class="header-action" style="font-weight: 500;">View All</a>
+                    <!-- Right Sidebar Area (20% width) -->
+                    <div style="flex: 1.2; min-width: 260px; display: flex; flex-direction: column; gap: 20px;">
+                        
+                        <!-- Shortcuts Panel -->
+                        <div class="dashboard-card" style="display: flex; flex-direction: column; padding: 15px;">
+                            <div class="dashboard-card-header" style="margin-bottom: 12px;">
+                                <h2>Shortcuts</h2>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                                <a href="accounts.html" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; transition: 0.2s;">
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <div style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: rgba(16, 185, 129, 0.15); color: #10b981;">
+                                            <i class="fa-solid fa-building-columns"></i>
+                                        </div>
+                                        <div>
+                                            <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-light);">Bank Accounts</div>
+                                            <div style="font-size: 0.65rem; color: var(--text-secondary);">Manage accounts & balances</div>
+                                        </div>
+                                    </div>
+                                    <i class="fa-solid fa-chevron-right" style="font-size: 0.7rem; color: var(--text-secondary);"></i>
+                                </a>
+                                
+                                <a href="income.html" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; transition: 0.2s;">
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <div style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: rgba(34, 197, 94, 0.15); color: #22c55e;">
+                                            <i class="fa-solid fa-circle-arrow-down"></i>
+                                        </div>
+                                        <div>
+                                            <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-light);">Log Income</div>
+                                            <div style="font-size: 0.65rem; color: var(--text-secondary);">Record incoming revenues</div>
+                                        </div>
+                                    </div>
+                                    <i class="fa-solid fa-chevron-right" style="font-size: 0.7rem; color: var(--text-secondary);"></i>
+                                </a>
+                                
+                                <a href="expense.html" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; transition: 0.2s;">
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <div style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.15); color: #ef4444;">
+                                            <i class="fa-solid fa-circle-arrow-up"></i>
+                                        </div>
+                                        <div>
+                                            <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-light);">Log Expense</div>
+                                            <div style="font-size: 0.65rem; color: var(--text-secondary);">Record business expenses</div>
+                                        </div>
+                                    </div>
+                                    <i class="fa-solid fa-chevron-right" style="font-size: 0.7rem; color: var(--text-secondary);"></i>
+                                </a>
+                                
+                                <a href="loans.html" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; transition: 0.2s;">
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <div style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: rgba(245, 158, 11, 0.15); color: #f59e0b;">
+                                            <i class="fa-solid fa-landmark"></i>
+                                        </div>
+                                        <div>
+                                            <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-light);">Loans Received</div>
+                                            <div style="font-size: 0.65rem; color: var(--text-secondary);">Borrowed loans list</div>
+                                        </div>
+                                    </div>
+                                    <i class="fa-solid fa-chevron-right" style="font-size: 0.7rem; color: var(--text-secondary);"></i>
+                                </a>
+                                
+                                <a href="loans-given.html" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; transition: 0.2s;">
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <div style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: rgba(168, 85, 247, 0.15); color: #a855f7;">
+                                            <i class="fa-solid fa-hand-holding-hand"></i>
+                                        </div>
+                                        <div>
+                                            <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-light);">Lent Receivables</div>
+                                            <div style="font-size: 0.65rem; color: var(--text-secondary);">Track outgoing lent cash</div>
+                                        </div>
+                                    </div>
+                                    <i class="fa-solid fa-chevron-right" style="font-size: 0.7rem; color: var(--text-secondary);"></i>
+                                </a>
+                                
+                                <a href="reports.html" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; transition: 0.2s;">
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <div style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: rgba(14, 165, 233, 0.15); color: #0ea5e9;">
+                                            <i class="fa-solid fa-file-invoice-dollar"></i>
+                                        </div>
+                                        <div>
+                                            <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-light);">Reports Center</div>
+                                            <div style="font-size: 0.65rem; color: var(--text-secondary);">Analyze & export statements</div>
+                                        </div>
+                                    </div>
+                                    <i class="fa-solid fa-chevron-right" style="font-size: 0.7rem; color: var(--text-secondary);"></i>
+                                </a>
+                            </div>
                         </div>
                         
-                        <div class="mini-list" id="recentTxList">
-                            <div style="text-align: center; color: var(--text-secondary); padding: 40px 0;">
-                                <i class="fa-solid fa-spinner fa-spin" style="font-size: 2rem; margin-bottom: 10px; display: block; opacity: 0.5;"></i>
-                                Loading transactions...
+                        <!-- Recent Activity Logs -->
+                        <div class="dashboard-card" style="display: flex; flex-direction: column; padding: 15px;">
+                            <div class="dashboard-card-header" style="margin-bottom: 12px;">
+                                <h2>Recent Activity</h2>
+                                <a href="activity_logs.html" class="header-action" style="font-weight: 500;">View All</a>
                             </div>
+                            <div id="recentActivityList" style="display: flex; flex-direction: column; gap: 12px; padding: 10px 0; flex: 1; overflow-y: auto; max-height: 250px;">
+                                <div style="text-align: center; color: var(--text-secondary); padding: 40px 0;">
+                                    <i class="fa-solid fa-spinner fa-spin" style="font-size: 2rem; margin-bottom: 10px; display: block; opacity: 0.5;"></i>
+                                    Loading activity...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom Row: 6 KPI Cards -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-top: 20px;">
+                    <div class="dashboard-card" style="display: flex; align-items: center; gap: 12px; padding: 16px; background: var(--bg-secondary);">
+                        <div style="width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(34, 197, 94, 0.15); color: var(--success); font-size: 1.1rem; flex-shrink: 0;">
+                            <i class="fa-solid fa-circle-arrow-down"></i>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Total Inflow</div>
+                            <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-light);" id="bottomInflow">&#8377;0</div>
+                        </div>
+                    </div>
+                    
+                    <div class="dashboard-card" style="display: flex; align-items: center; gap: 12px; padding: 16px; background: var(--bg-secondary);">
+                        <div style="width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.15); color: var(--danger); font-size: 1.1rem; flex-shrink: 0;">
+                            <i class="fa-solid fa-circle-arrow-up"></i>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Total Outflow</div>
+                            <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-light);" id="bottomOutflow">&#8377;0</div>
+                        </div>
+                    </div>
+                    
+                    <div class="dashboard-card" style="display: flex; align-items: center; gap: 12px; padding: 16px; background: var(--bg-secondary);">
+                        <div style="width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(59, 130, 246, 0.15); color: #3b82f6; font-size: 1.1rem; flex-shrink: 0;">
+                            <i class="fa-solid fa-chart-line"></i>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Net Margin</div>
+                            <div style="font-size: 1.15rem; font-weight: 800;" id="bottomMargin">&#8377;0</div>
+                        </div>
+                    </div>
+                    
+                    <div class="dashboard-card" style="display: flex; align-items: center; gap: 12px; padding: 16px; background: var(--bg-secondary);">
+                        <div style="width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(245, 158, 11, 0.15); color: var(--warning); font-size: 1.1rem; flex-shrink: 0;">
+                            <i class="fa-solid fa-building-columns"></i>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Bank Accounts</div>
+                            <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-light);" id="bottomAccounts">0 Active</div>
+                        </div>
+                    </div>
+                    
+                    <div class="dashboard-card" style="display: flex; align-items: center; gap: 12px; padding: 16px; background: var(--bg-secondary);">
+                        <div style="width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(168, 85, 247, 0.15); color: #a855f7; font-size: 1.1rem; flex-shrink: 0;">
+                            <i class="fa-solid fa-landmark"></i>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Borrowed Loans</div>
+                            <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-light);" id="bottomLoans">&#8377;0</div>
+                        </div>
+                    </div>
+                    
+                    <div class="dashboard-card" style="display: flex; align-items: center; gap: 12px; padding: 16px; background: var(--bg-secondary);">
+                        <div style="width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(14, 165, 233, 0.15); color: #0ea5e9; font-size: 1.1rem; flex-shrink: 0;">
+                            <i class="fa-solid fa-hand-holding-hand"></i>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Lent Receivables</div>
+                            <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-light);" id="bottomGivenLoans">&#8377;0</div>
                         </div>
                     </div>
                 </div>
@@ -196,7 +443,22 @@
             return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(amount || 0);
         }
 
-        let myChart = null;
+        // Relative time helper
+        function timeElapsedString(timestamp) {
+            if (!timestamp) return 'just now';
+            const seconds = Math.floor((Date.now() - timestamp) / 1000);
+            let interval = Math.floor(seconds / 31536000);
+            if (interval >= 1) return interval + " year" + (interval > 1 ? "s" : "") + " ago";
+            interval = Math.floor(seconds / 2592000);
+            if (interval >= 1) return interval + " month" + (interval > 1 ? "s" : "") + " ago";
+            interval = Math.floor(seconds / 86400);
+            if (interval >= 1) return interval + " day" + (interval > 1 ? "s" : "") + " ago";
+            interval = Math.floor(seconds / 3600);
+            if (interval >= 1) return interval + " hour" + (interval > 1 ? "s" : "") + " ago";
+            interval = Math.floor(seconds / 60);
+            if (interval >= 1) return interval + " min" + (interval > 1 ? "s" : "") + " ago";
+            return seconds < 10 ? "just now" : seconds + " sec ago";
+        }
 
         // Callback from nav-loader.js when auth is confirmed and user profile is loaded
         window.onNavigationLoaded = function (user, userData) {
@@ -208,14 +470,18 @@
             // Load recent transactions list
             loadRecentTransactions();
 
-            // Render Chart
-            renderDashboardChart();
+            // Load recent activity logs
+            loadRecentActivities();
+
+            // Render Charts
+            renderDashboardCharts();
         };
 
         function loadKPIs() {
             const today = new Date();
             const currentYearMonth = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
             const monthName = today.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+            document.getElementById('currentMonthYearLabel').textContent = monthName;
 
             const pInc = db.collection('income')
                 .where('income_date', '>=', currentYearMonth + '-01')
@@ -235,22 +501,31 @@
                 .where('status', '==', 'active')
                 .get();
 
-            Promise.all([pInc, pExp, pBal, pLoan]).then(([incSnap, expSnap, balSnap, loanSnap]) => {
+            const pGiven = db.collection('loans_given')
+                .where('status', '==', 'active')
+                .get();
+
+            Promise.all([pInc, pExp, pBal, pLoan, pGiven]).then(([incSnap, expSnap, balSnap, loanSnap, givenSnap]) => {
                 let totalInc = 0;
                 incSnap.forEach(doc => { totalInc += parseFloat(doc.data().amount || 0); });
                 document.getElementById('kpiIncome').textContent = formatCurrency(totalInc);
                 document.getElementById('kpiIncomeSub').textContent = incSnap.size + ' entries in ' + monthName;
+                document.getElementById('bottomInflow').textContent = formatCurrency(totalInc);
+                document.getElementById('statTotalIncome').textContent = formatCurrency(totalInc);
 
                 let totalExp = 0;
                 expSnap.forEach(doc => { totalExp += parseFloat(doc.data().amount || 0); });
                 document.getElementById('kpiExpense').textContent = formatCurrency(totalExp);
                 document.getElementById('kpiExpenseSub').textContent = expSnap.size + ' entries in ' + monthName;
+                document.getElementById('bottomOutflow').textContent = formatCurrency(totalExp);
+                document.getElementById('statTotalExpense').textContent = formatCurrency(totalExp);
 
                 let totalBal = 0;
                 balSnap.forEach(doc => { totalBal += parseFloat(doc.data().current_balance || 0); });
                 document.getElementById('kpiBalance').textContent = formatCurrency(totalBal);
+                document.getElementById('bottomAccounts').textContent = balSnap.size + ' Active';
 
-                let outstanding = 0, count = 0;
+                let outstanding = 0;
                 loanSnap.forEach(doc => {
                     const l = doc.data();
                     const r = (l.interest_rate / 12) / 100;
@@ -258,19 +533,36 @@
                     const emi = P => P * r * Math.pow(1+r,n) / (Math.pow(1+r,n)-1);
                     const totalPayable = emi(l.principal) * n;
                     outstanding += Math.max(0, totalPayable - (l.total_paid || 0));
-                    count++;
                 });
                 document.getElementById('kpiLoan').textContent = formatCurrency(outstanding);
-                document.getElementById('kpiLoanSub').textContent = count + ' active loan' + (count !== 1 ? 's' : '') + ' → click to manage';
+                document.getElementById('bottomLoans').textContent = formatCurrency(outstanding);
+
+                let givenOutstanding = 0;
+                givenSnap.forEach(doc => {
+                    const l = doc.data();
+                    const r = (l.interest_rate / 12) / 100;
+                    const n = l.tenure_months;
+                    const emi = P => P * r * Math.pow(1+r,n) / (Math.pow(1+r,n)-1);
+                    const totalPayable = emi(l.principal) * n;
+                    givenOutstanding += Math.max(0, totalPayable - (l.total_paid || 0));
+                });
+                document.getElementById('bottomGivenLoans').textContent = formatCurrency(givenOutstanding);
 
                 // Calculate Net Margin
                 const margin = totalInc - totalExp;
                 document.getElementById('kpiMargin').textContent = formatCurrency(margin);
+                document.getElementById('statNetProfit').textContent = formatCurrency(margin);
+                document.getElementById('bottomMargin').textContent = formatCurrency(margin);
+                
                 const sub = document.getElementById('kpiMarginSub');
                 if (margin >= 0) {
                     sub.innerHTML = '&#9650; Profit this month';
+                    document.getElementById('statNetProfit').style.color = 'var(--success)';
+                    document.getElementById('bottomMargin').style.color = 'var(--success)';
                 } else {
                     sub.innerHTML = '&#9660; Loss this month';
+                    document.getElementById('statNetProfit').style.color = 'var(--danger)';
+                    document.getElementById('bottomMargin').style.color = 'var(--danger)';
                 }
             }).catch(err => {
                 console.error("Error loading KPIs:", err);
@@ -281,7 +573,6 @@
             const txList = document.getElementById('recentTxList');
             let transactions = [];
 
-            // Read Income, Expenses, and Transfers concurrently
             const p1 = db.collection('income').orderBy('income_date', 'desc').limit(10).get();
             const p2 = db.collection('expenses').orderBy('expense_date', 'desc').limit(10).get();
             const p3 = db.collection('transfers').orderBy('transfer_date', 'desc').limit(10).get();
@@ -323,7 +614,6 @@
                     });
                 });
 
-                // Sort descending by date/timestamp
                 transactions.sort((a, b) => b.timestamp - a.timestamp);
                 const recent = transactions.slice(0, 10);
 
@@ -331,7 +621,7 @@
                     txList.innerHTML = `
                     <div style="text-align: center; color: var(--text-secondary); padding: 40px 0;">
                         <i class="fa-solid fa-folder-open" style="font-size: 2rem; margin-bottom: 10px; display: block; opacity: 0.5;"></i>
-                        No recent transactions found
+                        No transactions found
                     </div>`;
                     return;
                 }
@@ -352,34 +642,178 @@
                     }
 
                     const dateObj = new Date(tx.date);
-                    const formattedDate = dateObj.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+                    const formattedDate = dateObj.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
 
                     txList.innerHTML += `
-                    <div class="mini-item ${itemClass}">
-                        <div class="mini-info">
-                            <div class="mini-icon">
+                    <div class="mini-item ${itemClass}" style="padding: 8px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.02); margin-bottom: 2px;">
+                        <div class="mini-info" style="display: flex; align-items: center; gap: 10px;">
+                            <div class="mini-icon" style="width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; background: var(--bg-primary); border: 1px solid var(--border-color);">
                                 <i class="fa-solid ${itemIcon}"></i>
                             </div>
                             <div class="mini-details">
-                                <h4>${tx.title}</h4>
-                                <span>${formattedDate} • ${tx.category}</span>
+                                <h4 style="margin: 0; font-size: 0.8rem; color: var(--text-light); font-weight: 600; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 100px;">${tx.title}</h4>
+                                <span style="font-size: 0.68rem; color: var(--text-secondary);">${formattedDate}</span>
                             </div>
                         </div>
-                        <div class="mini-amount">${prefix}${formatCurrency(tx.amount)}</div>
+                        <div class="mini-amount" style="font-size: 0.8rem; font-weight: 700;">${prefix}${formatCurrency(tx.amount)}</div>
                     </div>`;
                 });
             });
         }
 
-        function renderDashboardChart() {
-            const ctx = document.getElementById('incomeExpenseChart').getContext('2d');
+        function loadRecentActivities() {
+            const actList = document.getElementById('recentActivityList');
+            db.collection('activity_logs').orderBy('created_at', 'desc').limit(5).get().then(snap => {
+                if (snap.empty) {
+                    actList.innerHTML = `
+                    <div style="text-align: center; color: var(--text-secondary); padding: 40px 0;">
+                        <i class="fa-solid fa-bell-slash" style="font-size: 2rem; margin-bottom: 10px; display: block; opacity: 0.5;"></i>
+                        No activity recorded
+                    </div>`;
+                    return;
+                }
+                
+                actList.innerHTML = '';
+                snap.forEach(doc => {
+                    const act = doc.data();
+                    const ts = act.created_at ? act.created_at.toMillis() : Date.now();
+                    actList.innerHTML += `
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px dashed var(--border-color); padding-bottom: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-circle" style="font-size: 0.4rem; color: var(--primary); flex-shrink: 0;"></i>
+                            <div>
+                                <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-light); line-height: 1.2;">${act.log_text}</div>
+                                <div style="font-size: 0.65rem; color: var(--text-secondary); margin-top: 2px;">User system log</div>
+                            </div>
+                        </div>
+                        <span style="font-size: 0.68rem; color: var(--text-secondary); flex-shrink: 0;">${timeElapsedString(ts)}</span>
+                    </div>`;
+                });
+            }).catch(err => {
+                console.error("Error loading activity logs:", err);
+            });
+        }
+
+        function renderDashboardCharts() {
             const styles = getComputedStyle(document.body);
-            const textColor = styles.getPropertyValue('--text-secondary').trim();
-            const borderColor = styles.getPropertyValue('--border-color').trim();
             const successColor = styles.getPropertyValue('--success').trim() || '#10b981';
             const dangerColor = styles.getPropertyValue('--danger').trim() || '#ef4444';
+            const warningColor = styles.getPropertyValue('--warning').trim() || '#f59e0b';
+            const textColor = styles.getPropertyValue('--text-secondary').trim();
+            const borderColor = styles.getPropertyValue('--border-color').trim();
 
-            // Generate past 6 months labels
+            const fontOptions = { family: 'Inter', size: 11 };
+
+            // 1. Daily Trends Line Chart
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = today.getMonth();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const currentYearMonth = year + '-' + String(month + 1).padStart(2, '0');
+
+            let dailyLabels = [];
+            let dailyIncValues = new Array(daysInMonth).fill(0);
+            let dailyExpValues = new Array(daysInMonth).fill(0);
+            for (let d = 1; d <= daysInMonth; d++) {
+                dailyLabels.push(String(d).padStart(2, '0'));
+            }
+
+            const pDailyInc = db.collection('income').where('income_date', '>=', currentYearMonth + '-01').where('income_date', '<=', currentYearMonth + '-31').get();
+            const pDailyExp = db.collection('expenses').where('expense_date', '>=', currentYearMonth + '-01').where('expense_date', '<=', currentYearMonth + '-31').get();
+
+            Promise.all([pDailyInc, pDailyExp]).then(([incSnap, expSnap]) => {
+                incSnap.forEach(doc => {
+                    const data = doc.data();
+                    const dayNum = parseInt(data.income_date.split('-')[2]);
+                    if (dayNum >= 1 && dayNum <= daysInMonth) {
+                        dailyIncValues[dayNum - 1] += parseFloat(data.amount || 0);
+                    }
+                });
+                expSnap.forEach(doc => {
+                    const data = doc.data();
+                    const dayNum = parseInt(data.expense_date.split('-')[2]);
+                    if (dayNum >= 1 && dayNum <= daysInMonth) {
+                        dailyExpValues[dayNum - 1] += parseFloat(data.amount || 0);
+                    }
+                });
+
+                new Chart(document.getElementById('dailyLineChart').getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: dailyLabels,
+                        datasets: [
+                            {
+                                label: 'Income',
+                                data: dailyIncValues,
+                                borderColor: successColor,
+                                backgroundColor: 'rgba(34, 197, 94, 0.05)',
+                                fill: true,
+                                tension: 0.3,
+                                borderWidth: 2
+                            },
+                            {
+                                label: 'Expense',
+                                data: dailyExpValues,
+                                borderColor: dangerColor,
+                                backgroundColor: 'rgba(239, 68, 68, 0.05)',
+                                fill: true,
+                                tension: 0.3,
+                                borderWidth: 2
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { grid: { display: false }, ticks: { color: textColor, font: fontOptions } },
+                            y: { grid: { color: borderColor }, ticks: { color: textColor, font: fontOptions } }
+                        }
+                    }
+                });
+            });
+
+            // 2. Collection Progress Donut
+            db.collection('loans_given').get().then(snap => {
+                let collected = 0;
+                let totalVal = 0;
+                snap.forEach(doc => {
+                    const l = doc.data();
+                    const r = (l.interest_rate / 12) / 100;
+                    const n = l.tenure_months;
+                    const emi = P => P * r * Math.pow(1+r,n) / (Math.pow(1+r,n)-1);
+                    const totalPayable = emi(l.principal) * n;
+                    totalVal += totalPayable;
+                    collected += parseFloat(l.total_paid || 0);
+                });
+                let outstanding = Math.max(0, totalVal - collected);
+                let pct = totalVal > 0 ? Math.round((collected / totalVal) * 100) : 0;
+                
+                document.getElementById('collectionPctLabel').textContent = pct + '%';
+                document.getElementById('labelCollectionPaid').textContent = formatCurrency(collected);
+                document.getElementById('labelCollectionOustanding').textContent = formatCurrency(outstanding);
+
+                new Chart(document.getElementById('collectionDonutChart').getContext('2d'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Collected', 'Outstanding'],
+                        datasets: [{
+                            data: [collected, outstanding],
+                            backgroundColor: [successColor, warningColor],
+                            borderWidth: 0,
+                            cutout: '75%'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } }
+                    }
+                });
+            });
+
+            // 3. Monthly Summary Bar Chart
             let monthLabels = [];
             let monthKeys = [];
             for (let i = 5; i >= 0; i--) {
@@ -392,7 +826,6 @@
             let incomeValues = new Array(6).fill(0);
             let expenseValues = new Array(6).fill(0);
 
-            // Fetch income and expense sums only for the last 6 months (optimized query)
             const minDateStr = monthKeys[0] + '-01';
             const p1 = db.collection('income').where('income_date', '>=', minDateStr).get();
             const p2 = db.collection('expenses').where('expense_date', '>=', minDateStr).get();
@@ -400,25 +833,19 @@
             Promise.all([p1, p2]).then(([incSnap, expSnap]) => {
                 incSnap.forEach(doc => {
                     const data = doc.data();
-                    const monthKey = data.income_date.substring(0, 7); // "YYYY-MM"
+                    const monthKey = data.income_date.substring(0, 7);
                     const index = monthKeys.indexOf(monthKey);
-                    if (index !== -1) {
-                        incomeValues[index] += parseFloat(data.amount || 0);
-                    }
+                    if (index !== -1) incomeValues[index] += parseFloat(data.amount || 0);
                 });
 
                 expSnap.forEach(doc => {
                     const data = doc.data();
                     const monthKey = data.expense_date.substring(0, 7);
                     const index = monthKeys.indexOf(monthKey);
-                    if (index !== -1) {
-                        expenseValues[index] += parseFloat(data.amount || 0);
-                    }
+                    if (index !== -1) expenseValues[index] += parseFloat(data.amount || 0);
                 });
 
-                if (myChart) myChart.destroy();
-
-                myChart = new Chart(ctx, {
+                new Chart(document.getElementById('monthlyBarChart').getContext('2d'), {
                     type: 'bar',
                     data: {
                         labels: monthLabels,
@@ -427,34 +854,80 @@
                                 label: 'Income',
                                 data: incomeValues,
                                 backgroundColor: successColor,
-                                borderRadius: 6
+                                borderRadius: 6,
+                                maxBarThickness: 15
                             },
                             {
                                 label: 'Expense',
                                 data: expenseValues,
                                 backgroundColor: dangerColor,
-                                borderRadius: 6
+                                borderRadius: 6,
+                                maxBarThickness: 15
                             }
                         ]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                labels: { color: textColor, font: { family: 'Inter', size: 12 } }
-                            }
-                        },
+                        plugins: { legend: { display: false } },
                         scales: {
-                            x: {
-                                grid: { color: borderColor },
-                                ticks: { color: textColor }
-                            },
-                            y: {
-                                grid: { color: borderColor },
-                                ticks: { color: textColor }
-                            }
+                            x: { grid: { display: false }, ticks: { color: textColor, font: fontOptions } },
+                            y: { grid: { color: borderColor }, ticks: { color: textColor, font: fontOptions } }
                         }
+                    }
+                });
+            });
+
+            // 4. Category Pie Chart
+            db.collection('expenses').get().then(snap => {
+                let catMap = {};
+                snap.forEach(doc => {
+                    const exp = doc.data();
+                    const cat = exp.category || 'Other';
+                    catMap[cat] = (catMap[cat] || 0) + parseFloat(exp.amount || 0);
+                });
+
+                let sortedCats = Object.keys(catMap).map(k => ({ label: k, total: catMap[k] })).sort((a,b) => b.total - a.total);
+                let topCats = sortedCats.slice(0, 5);
+                
+                let catLabels = topCats.map(c => c.label);
+                let catTotals = topCats.map(c => c.total);
+
+                const listContainer = document.getElementById('categoryPieList');
+                if (topCats.length === 0) {
+                    document.getElementById('categoryPieContainer').innerHTML = `
+                    <div style="text-align: center; color: var(--text-secondary); padding: 40px 0;">
+                        <i class="fa-solid fa-folder-open" style="font-size: 2rem; margin-bottom: 10px; display: block; opacity: 0.5;"></i>
+                        No expenses recorded
+                    </div>`;
+                    return;
+                }
+
+                const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+                listContainer.innerHTML = '';
+                topCats.forEach((c, idx) => {
+                    const col = colors[idx % colors.length];
+                    listContainer.innerHTML += `
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: var(--text-secondary);"><i class="fa-solid fa-circle" style="color: ${col}; margin-right: 5px; font-size: 0.6rem;"></i> ${c.label}</span>
+                        <span style="font-weight: 700; color: var(--text-light);">${formatCurrency(c.total)}</span>
+                    </div>`;
+                });
+
+                new Chart(document.getElementById('categoryPieChart').getContext('2d'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: catLabels,
+                        datasets: [{
+                            data: catTotals,
+                            backgroundColor: colors,
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } }
                     }
                 });
             });
