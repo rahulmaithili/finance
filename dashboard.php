@@ -228,6 +228,13 @@ if (!function_exists('time_elapsed_string')) {
         return $string ? implode(', ', $string) . ' ago' : 'just now';
     }
 }
+
+$active_accounts_count = 0;
+try {
+    $active_accounts_count = (int)$pdo->query("SELECT COUNT(*) FROM bank_accounts WHERE status = 'active'")->fetchColumn();
+} catch (PDOException $e) {
+    $active_accounts_count = 0;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en" data-theme="<?= $_SESSION['theme'] ?? 'dark' ?>">
@@ -538,27 +545,27 @@ if (!function_exists('time_elapsed_string')) {
                                 <h2>Shortcuts</h2>
                             </div>
                             <div style="display: flex; flex-direction: column; gap: 10px;">
-                                <a href="loans-given.php" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; transition: 0.2s;">
+                                <a href="accounts.php" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; transition: 0.2s;">
                                     <div style="display: flex; align-items: center; gap: 10px;">
-                                        <div style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: rgba(59, 130, 246, 0.15); color: #3b82f6;">
-                                            <i class="fa-solid fa-user-graduate"></i>
+                                        <div style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: rgba(16, 185, 129, 0.15); color: #10b981;">
+                                            <i class="fa-solid fa-building-columns"></i>
                                         </div>
                                         <div>
-                                            <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-light);">Student Records</div>
-                                            <div style="font-size: 0.65rem; color: var(--text-secondary);">6 active admissions</div>
+                                            <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-light);">Bank Accounts</div>
+                                            <div style="font-size: 0.65rem; color: var(--text-secondary);">Manage accounts & balances</div>
                                         </div>
                                     </div>
                                     <i class="fa-solid fa-chevron-right" style="font-size: 0.7rem; color: var(--text-secondary);"></i>
                                 </a>
                                 
-                                <a href="quick-collect.php" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; transition: 0.2s;">
+                                <a href="income.php" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; transition: 0.2s;">
                                     <div style="display: flex; align-items: center; gap: 10px;">
-                                        <div style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: rgba(245, 158, 11, 0.15); color: #f59e0b;">
-                                            <i class="fa-solid fa-wallet"></i>
+                                        <div style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: rgba(34, 197, 94, 0.15); color: #22c55e;">
+                                            <i class="fa-solid fa-circle-arrow-down"></i>
                                         </div>
                                         <div>
-                                            <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-light);">Fee Collection</div>
-                                            <div style="font-size: 0.65rem; color: var(--text-secondary);">7% collected</div>
+                                            <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-light);">Log Income</div>
+                                            <div style="font-size: 0.65rem; color: var(--text-secondary);">Record incoming revenues</div>
                                         </div>
                                     </div>
                                     <i class="fa-solid fa-chevron-right" style="font-size: 0.7rem; color: var(--text-secondary);"></i>
@@ -566,51 +573,51 @@ if (!function_exists('time_elapsed_string')) {
                                 
                                 <a href="expense.php" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; transition: 0.2s;">
                                     <div style="display: flex; align-items: center; gap: 10px;">
-                                        <div style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: rgba(16, 185, 129, 0.15); color: #10b981;">
-                                            <i class="fa-solid fa-boxes-stacked"></i>
-                                        </div>
-                                        <div>
-                                            <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-light);">Inventory Stock</div>
-                                            <div style="font-size: 0.65rem; color: var(--text-secondary);">489 units available</div>
-                                        </div>
-                                    </div>
-                                    <i class="fa-solid fa-chevron-right" style="font-size: 0.7rem; color: var(--text-secondary);"></i>
-                                </a>
-                                
-                                <a href="users.php" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; transition: 0.2s;">
-                                    <div style="display: flex; align-items: center; gap: 10px;">
-                                        <div style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: rgba(139, 92, 246, 0.15); color: #8b5cf6;">
-                                            <i class="fa-solid fa-user-tie"></i>
-                                        </div>
-                                        <div>
-                                            <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-light);">Teacher Records</div>
-                                            <div style="font-size: 0.65rem; color: var(--text-secondary);">Manage staff info</div>
-                                        </div>
-                                    </div>
-                                    <i class="fa-solid fa-chevron-right" style="font-size: 0.7rem; color: var(--text-secondary);"></i>
-                                </a>
-                                
-                                <a href="reports.php" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; transition: 0.2s;">
-                                    <div style="display: flex; align-items: center; gap: 10px;">
-                                        <div style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: rgba(100, 116, 139, 0.15); color: #64748b;">
-                                            <i class="fa-solid fa-scale-balanced"></i>
-                                        </div>
-                                        <div>
-                                            <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-light);">Ledger Entries</div>
-                                            <div style="font-size: 0.65rem; color: var(--text-secondary);">Review ledger logs</div>
-                                        </div>
-                                    </div>
-                                    <i class="fa-solid fa-chevron-right" style="font-size: 0.7rem; color: var(--text-secondary);"></i>
-                                </a>
-                                
-                                <a href="reports.php" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; transition: 0.2s;">
-                                    <div style="display: flex; align-items: center; gap: 10px;">
                                         <div style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.15); color: #ef4444;">
+                                            <i class="fa-solid fa-circle-arrow-up"></i>
+                                        </div>
+                                        <div>
+                                            <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-light);">Log Expense</div>
+                                            <div style="font-size: 0.65rem; color: var(--text-secondary);">Record business expenses</div>
+                                        </div>
+                                    </div>
+                                    <i class="fa-solid fa-chevron-right" style="font-size: 0.7rem; color: var(--text-secondary);"></i>
+                                </a>
+                                
+                                <a href="loans.php" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; transition: 0.2s;">
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <div style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: rgba(245, 158, 11, 0.15); color: #f59e0b;">
+                                            <i class="fa-solid fa-landmark"></i>
+                                        </div>
+                                        <div>
+                                            <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-light);">Loans Received</div>
+                                            <div style="font-size: 0.65rem; color: var(--text-secondary);">Borrowed loans list</div>
+                                        </div>
+                                    </div>
+                                    <i class="fa-solid fa-chevron-right" style="font-size: 0.7rem; color: var(--text-secondary);"></i>
+                                </a>
+                                
+                                <a href="loans-given.php" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; transition: 0.2s;">
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <div style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: rgba(168, 85, 247, 0.15); color: #a855f7;">
+                                            <i class="fa-solid fa-hand-holding-hand"></i>
+                                        </div>
+                                        <div>
+                                            <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-light);">Lent Receivables</div>
+                                            <div style="font-size: 0.65rem; color: var(--text-secondary);">Track outgoing lent cash</div>
+                                        </div>
+                                    </div>
+                                    <i class="fa-solid fa-chevron-right" style="font-size: 0.7rem; color: var(--text-secondary);"></i>
+                                </a>
+                                
+                                <a href="reports.php" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; transition: 0.2s;">
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <div style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: rgba(14, 165, 233, 0.15); color: #0ea5e9;">
                                             <i class="fa-solid fa-file-invoice-dollar"></i>
                                         </div>
                                         <div>
                                             <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-light);">Reports Center</div>
-                                            <div style="font-size: 0.65rem; color: var(--text-secondary);">View/export reports</div>
+                                            <div style="font-size: 0.65rem; color: var(--text-secondary);">Analyze & export statements</div>
                                         </div>
                                     </div>
                                     <i class="fa-solid fa-chevron-right" style="font-size: 0.7rem; color: var(--text-secondary);"></i>
@@ -652,62 +659,62 @@ if (!function_exists('time_elapsed_string')) {
                 <!-- Bottom Row: 6 KPI Cards -->
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-top: 20px;">
                     <div class="dashboard-card" style="display: flex; align-items: center; gap: 12px; padding: 16px; background: var(--bg-secondary);">
-                        <div style="width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(139, 92, 246, 0.15); color: #8b5cf6; font-size: 1.1rem; flex-shrink: 0;">
-                            <i class="fa-solid fa-chalkboard-user"></i>
+                        <div style="width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(34, 197, 94, 0.15); color: var(--success); font-size: 1.1rem; flex-shrink: 0;">
+                            <i class="fa-solid fa-circle-arrow-down"></i>
                         </div>
                         <div>
-                            <div style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Teaching Staff</div>
-                            <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-light);">18</div>
+                            <div style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Total Inflow</div>
+                            <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-light);"><?= format_currency($total_income_this_month) ?></div>
+                        </div>
+                    </div>
+                    
+                    <div class="dashboard-card" style="display: flex; align-items: center; gap: 12px; padding: 16px; background: var(--bg-secondary);">
+                        <div style="width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.15); color: var(--danger); font-size: 1.1rem; flex-shrink: 0;">
+                            <i class="fa-solid fa-circle-arrow-up"></i>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Total Outflow</div>
+                            <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-light);"><?= format_currency($total_expense_this_month) ?></div>
                         </div>
                     </div>
                     
                     <div class="dashboard-card" style="display: flex; align-items: center; gap: 12px; padding: 16px; background: var(--bg-secondary);">
                         <div style="width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(59, 130, 246, 0.15); color: #3b82f6; font-size: 1.1rem; flex-shrink: 0;">
-                            <i class="fa-solid fa-graduation-cap"></i>
+                            <i class="fa-solid fa-chart-line"></i>
                         </div>
                         <div>
-                            <div style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Classes</div>
-                            <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-light);">12</div>
+                            <div style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Net Margin</div>
+                            <div style="font-size: 1.15rem; font-weight: 800; color: <?= ($net_profit >= 0) ? 'var(--success)' : 'var(--danger)' ?>;"><?= format_currency($net_profit) ?></div>
                         </div>
                     </div>
                     
                     <div class="dashboard-card" style="display: flex; align-items: center; gap: 12px; padding: 16px; background: var(--bg-secondary);">
-                        <div style="width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(16, 185, 129, 0.15); color: #10b981; font-size: 1.1rem; flex-shrink: 0;">
-                            <i class="fa-solid fa-user-graduate"></i>
+                        <div style="width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(245, 158, 11, 0.15); color: var(--warning); font-size: 1.1rem; flex-shrink: 0;">
+                            <i class="fa-solid fa-building-columns"></i>
                         </div>
                         <div>
-                            <div style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Total Students</div>
-                            <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-light);">450</div>
+                            <div style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Bank Accounts</div>
+                            <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-light);"><?= $active_accounts_count ?> Active</div>
                         </div>
                     </div>
                     
                     <div class="dashboard-card" style="display: flex; align-items: center; gap: 12px; padding: 16px; background: var(--bg-secondary);">
-                        <div style="width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(245, 158, 11, 0.15); color: #f59e0b; font-size: 1.1rem; flex-shrink: 0;">
-                            <i class="fa-solid fa-calendar-check"></i>
+                        <div style="width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(168, 85, 247, 0.15); color: #a855f7; font-size: 1.1rem; flex-shrink: 0;">
+                            <i class="fa-solid fa-landmark"></i>
                         </div>
                         <div>
-                            <div style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Attendance Today</div>
-                            <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-light);">94%</div>
+                            <div style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Borrowed Loans</div>
+                            <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-light);"><?= format_currency($total_loans_outstanding) ?></div>
                         </div>
                     </div>
                     
                     <div class="dashboard-card" style="display: flex; align-items: center; gap: 12px; padding: 16px; background: var(--bg-secondary);">
-                        <div style="width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.15); color: #ef4444; font-size: 1.1rem; flex-shrink: 0;">
-                            <i class="fa-solid fa-boxes-stacked"></i>
+                        <div style="width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(14, 165, 233, 0.15); color: #0ea5e9; font-size: 1.1rem; flex-shrink: 0;">
+                            <i class="fa-solid fa-hand-holding-hand"></i>
                         </div>
                         <div>
-                            <div style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Inventory Items</div>
-                            <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-light);">489</div>
-                        </div>
-                    </div>
-                    
-                    <div class="dashboard-card" style="display: flex; align-items: center; gap: 12px; padding: 16px; background: var(--bg-secondary);">
-                        <div style="width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(100, 116, 139, 0.15); color: #64748b; font-size: 1.1rem; flex-shrink: 0;">
-                            <i class="fa-solid fa-receipt"></i>
-                        </div>
-                        <div>
-                            <div style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Pending Fees</div>
-                            <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-light);">₹1,950.00</div>
+                            <div style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Lent Receivables</div>
+                            <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-light);"><?= format_currency($total_given_outstanding) ?></div>
                         </div>
                     </div>
                 </div>
