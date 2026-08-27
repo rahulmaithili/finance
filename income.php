@@ -264,7 +264,7 @@ $categories = ['Salary', 'Freelance / Projects', 'Investments', 'Sales', 'Rent /
                                                         <i class="fa-solid fa-eye"></i>
                                                     </button>
                                                 <?php endif; ?>
-                                                <a href="invoice.php?type=income&id=<?= $inc['id'] ?>" class="btn-icon btn-view" title="Print Invoice" target="_blank">
+                                                <a href="invoice.php?type=income&id=<?= $inc['id'] ?>" class="btn-icon btn-print" title="Print Invoice" target="_blank">
                                                     <i class="fa-solid fa-print"></i>
                                                 </a>
                                                 <a href="?edit=<?= $inc['id'] ?>" class="btn-icon btn-edit" title="Edit">

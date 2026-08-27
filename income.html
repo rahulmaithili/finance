@@ -408,9 +408,9 @@
                         <td>${inc.recorded_by_name || 'System'}</td>
                         <td>
                             <div style="display:flex; gap:6px;">
-                                <button class="bank-btn" onclick="viewIncome('${id}')" title="View Details" style="color:var(--primary);"><i class="fa-solid fa-eye"></i></button>
-                                <button class="bank-btn" onclick="editIncome('${id}')" title="Edit Entry"><i class="fa-solid fa-pen"></i></button>
-                                <button class="bank-btn" onclick="deleteIncome('${id}')" title="Delete Entry"><i class="fa-solid fa-trash"></i></button>
+                                <button class="btn-icon btn-view" onclick="viewIncome('${id}')" title="View Details"><i class="fa-solid fa-eye"></i></button>
+                                <button class="btn-icon btn-edit" onclick="editIncome('${id}')" title="Edit Entry"><i class="fa-solid fa-pen"></i></button>
+                                <button class="btn-icon btn-delete" onclick="deleteIncome('${id}')" title="Delete Entry"><i class="fa-solid fa-trash"></i></button>
                             </div>
                         </td>
                     </tr>`;

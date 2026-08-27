@@ -1122,22 +1122,44 @@ select.form-control option {
     color: white;
 }
 
-.btn-edit:hover {
-    border-color: var(--primary);
-    color: var(--primary) !important;
-    background-color: var(--primary-light);
-}
-
-.btn-delete:hover {
-    border-color: var(--danger);
-    color: var(--danger) !important;
-    background-color: var(--danger-light);
-}
-
-.btn-view:hover {
-    border-color: var(--info);
+.btn-icon.btn-view {
     color: var(--info) !important;
-    background-color: var(--info-light);
+    background-color: var(--info-light) !important;
+    border-color: rgba(59, 130, 246, 0.3) !important;
+}
+.btn-icon.btn-view:hover {
+    background-color: var(--info) !important;
+    color: white !important;
+}
+
+.btn-icon.btn-print {
+    color: #06b6d4 !important;
+    background-color: rgba(6, 182, 212, 0.1) !important;
+    border-color: rgba(6, 182, 212, 0.3) !important;
+}
+.btn-icon.btn-print:hover {
+    background-color: #06b6d4 !important;
+    color: white !important;
+}
+
+.btn-icon.btn-edit {
+    color: var(--warning) !important;
+    background-color: rgba(245, 158, 11, 0.1) !important;
+    border-color: rgba(245, 158, 11, 0.3) !important;
+}
+.btn-icon.btn-edit:hover {
+    background-color: var(--warning) !important;
+    color: white !important;
+}
+
+.btn-icon.btn-delete {
+    color: var(--danger) !important;
+    background-color: var(--danger-light) !important;
+    border-color: rgba(244, 63, 94, 0.3) !important;
+}
+.btn-icon.btn-delete:hover {
+    background-color: var(--danger) !important;
+    color: white !important;
 }
 
 /* DataTables Styling Overrides */
