@@ -152,43 +152,120 @@
                     const u = doc.data();
                     const id = doc.id;
                     const isInactive = u.status === 'inactive';
-                    
+                    const isYou = (auth.currentUser && auth.currentUser.uid === id);
+
                     let formattedDate = '—';
+                    let updatedDate = '—';
                     if (u.created_at) {
                         formattedDate = new Date(u.created_at.toMillis()).toLocaleDateString('en-IN', {
                             day: '2-digit', month: 'short', year: 'numeric'
                         });
                     }
+                    if (u.updated_at) {
+                        updatedDate = new Date(u.updated_at.toMillis()).toLocaleDateString('en-IN', {
+                            day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                        });
+                    }
 
-                    // Hierarchy guard: Admins cannot edit or delete Super Admins
-                    let actionButtons = '';
+                    const roleColors = { super_admin:'#ef4444', admin:'#f59e0b', staff:'#3b82f6', viewer:'#10b981' };
+                    const roleColor = roleColors[u.role] || '#6366f1';
+                    const roleLabel = (u.role||'').replace(/_/g,' ').replace(/\b\w/g, c=>c.toUpperCase());
+                    const statusColor = isInactive ? '#ef4444' : '#10b981';
+
+                    // View button always visible
+                    const viewBtn = `<button class="btn-icon btn-view" title="View Profile"
+                        onclick='viewUser(${JSON.stringify({id, full_name: u.full_name, email: u.email, role: u.role||"", status: u.status||"active", created_at: formattedDate, updated_at: updatedDate, is_you: isYou}).replace(/'/g,"&apos;")})'>
+                        <i class="fa-solid fa-eye"></i></button>`;
+
+                    let editDeleteBtns = '';
                     if (currentAdminRole === 'super_admin' || u.role !== 'super_admin') {
-                        actionButtons = `
-                            <button class="bank-btn" onclick="editUser('${id}')" title="Edit"><i class="fa-solid fa-pen"></i></button>
-                            <button class="bank-btn" onclick="deleteUser('${id}')" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                        editDeleteBtns = `
+                            <button class="btn-icon btn-edit" onclick="editUser('${id}')" title="Edit User"><i class="fa-solid fa-user-pen"></i></button>
+                            ${!isYou ? `<button class="btn-icon btn-delete" onclick="deleteUser('${id}', '${(u.full_name||'').replace(/'/g,'')}')" title="Delete User"><i class="fa-solid fa-trash"></i></button>` : ''}
                         `;
                     } else {
-                        actionButtons = `<span style="font-size:0.75rem; color:var(--text-secondary);">Restricted</span>`;
+                        editDeleteBtns = `<span style="font-size:0.72rem;color:var(--text-secondary);">Restricted</span>`;
                     }
 
                     tableBody.innerHTML += `
                     <tr>
-                        <td style="font-weight:600; color:var(--text-light);">${u.full_name}</td>
-                        <td>${u.email}</td>
-                        <td style="text-transform:capitalize;"><span class="badge" style="background:rgba(99,102,241,0.15); color:var(--primary); font-size:0.75rem;">${u.role.replace('_', ' ')}</span></td>
-                        <td><span class="badge ${isInactive ? 'badge-danger' : 'badge-success'}">${u.status}</span></td>
-                        <td>${formattedDate}</td>
                         <td>
-                            <div style="display:flex; gap:6px;">
-                                ${actionButtons}
+                            <div style="font-weight:700;color:var(--text-light);">${u.full_name}${isYou ? ' <span style="font-size:0.68rem;color:#6366f1;background:rgba(99,102,241,0.15);padding:1px 7px;border-radius:20px;">You</span>' : ''}</div>
+                        </td>
+                        <td style="color:var(--text-secondary);font-size:0.88rem;">${u.email}</td>
+                        <td><span style="background:${roleColor}22;color:${roleColor};border:1px solid ${roleColor}44;padding:3px 10px;border-radius:20px;font-size:0.74rem;font-weight:700;">${roleLabel}</span></td>
+                        <td><span style="background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}44;padding:3px 10px;border-radius:20px;font-size:0.74rem;font-weight:700;">${(u.status||'active').charAt(0).toUpperCase()+(u.status||'active').slice(1)}</span></td>
+                        <td style="font-size:0.85rem;">${formattedDate}</td>
+                        <td>
+                            <div style="display:flex;gap:5px;align-items:center;">
+                                ${viewBtn}
+                                ${editDeleteBtns}
                             </div>
                         </td>
                     </tr>`;
                 });
 
                 $('#usersTable').DataTable({
-                    responsive: true
+                    responsive: true,
+                    order: [[4, 'desc']],
+                    columnDefs: [{ orderable: false, targets: 5 }]
                 });
+            });
+        }
+
+        function viewUser(u) {
+            const roleColors = { super_admin:'#ef4444', admin:'#f59e0b', staff:'#3b82f6', viewer:'#10b981' };
+            const roleColor = roleColors[u.role] || '#6366f1';
+            const roleLabel = (u.role||'').replace(/_/g,' ').replace(/\b\w/g, c=>c.toUpperCase());
+            const statusColor = u.status === 'active' ? '#10b981' : '#ef4444';
+            const initials = (u.full_name||'?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+
+            Swal.fire({
+                title: '',
+                html: `
+                    <div style="text-align:left;">
+                        <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;padding:16px;background:linear-gradient(135deg,rgba(99,102,241,0.15),rgba(139,92,246,0.08));border-radius:12px;border:1px solid rgba(99,102,241,0.2);">
+                            <div style="width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:800;color:white;flex-shrink:0;">
+                                ${initials}
+                            </div>
+                            <div>
+                                <div style="font-size:1.1rem;font-weight:800;color:var(--text-light);">${u.full_name} ${u.is_you ? '<span style="font-size:0.7rem;color:#6366f1;background:rgba(99,102,241,0.15);padding:2px 8px;border-radius:20px;margin-left:4px;">You</span>' : ''}</div>
+                                <div style="font-size:0.82rem;color:var(--text-secondary);margin-top:3px;"><i class="fa-solid fa-envelope" style="margin-right:5px;color:#6366f1;"></i>${u.email}</div>
+                            </div>
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+                            <div style="padding:12px;background:rgba(255,255,255,0.03);border-radius:10px;border:1px solid rgba(255,255,255,0.06);">
+                                <div style="font-size:0.68rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;"><i class="fa-solid fa-shield-halved" style="margin-right:4px;"></i>Role</div>
+                                <span style="background:${roleColor}22;color:${roleColor};border:1px solid ${roleColor}44;padding:3px 10px;border-radius:20px;font-size:0.78rem;font-weight:700;">${roleLabel}</span>
+                            </div>
+                            <div style="padding:12px;background:rgba(255,255,255,0.03);border-radius:10px;border:1px solid rgba(255,255,255,0.06);">
+                                <div style="font-size:0.68rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;"><i class="fa-solid fa-circle-dot" style="margin-right:4px;"></i>Status</div>
+                                <span style="background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}44;padding:3px 10px;border-radius:20px;font-size:0.78rem;font-weight:700;">${(u.status||'active').charAt(0).toUpperCase()+(u.status||'active').slice(1)}</span>
+                            </div>
+                            <div style="padding:12px;background:rgba(255,255,255,0.03);border-radius:10px;border:1px solid rgba(255,255,255,0.06);">
+                                <div style="font-size:0.68rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;"><i class="fa-solid fa-calendar-plus" style="margin-right:4px;"></i>Registered</div>
+                                <div style="font-weight:600;color:var(--text-light);font-size:0.85rem;">${u.created_at}</div>
+                            </div>
+                            <div style="padding:12px;background:rgba(255,255,255,0.03);border-radius:10px;border:1px solid rgba(255,255,255,0.06);">
+                                <div style="font-size:0.68rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;"><i class="fa-solid fa-clock-rotate-left" style="margin-right:4px;"></i>Last Updated</div>
+                                <div style="font-weight:600;color:var(--text-light);font-size:0.85rem;">${u.updated_at}</div>
+                            </div>
+                        </div>
+                        <div style="font-size:0.72rem;color:#64748b;text-align:center;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06);">
+                            Firebase UID: ${u.id.substring(0,16)}... &nbsp;·&nbsp; Access governed by the <strong style="color:#6366f1;">${roleLabel}</strong> role
+                        </div>
+                    </div>
+                `,
+                showConfirmButton: true,
+                confirmButtonText: '<i class="fa-solid fa-user-pen"></i> Edit User',
+                confirmButtonColor: '#6366f1',
+                showCancelButton: true,
+                cancelButtonText: 'Close',
+                background: 'var(--bg-card)',
+                color: 'var(--text-light)',
+                width: '480px'
+            }).then(result => {
+                if (result.isConfirmed) { editUser(u.id); }
             });
         }
 
@@ -252,19 +329,23 @@
             });
         }
 
-        function deleteUser(id) {
+        function deleteUser(id, userName) {
             if (id === auth.currentUser.uid) {
                 Swal.fire({ icon: 'error', title: 'Self-Destruct Blocked', text: 'You cannot delete your own logged-in user profile!' });
                 return;
             }
 
             Swal.fire({
-                title: 'Are you sure?',
-                text: "User profile will be deleted from the directory.",
+                title: 'Delete / Deactivate User?',
+                html: `<div style="font-size:0.9rem;color:var(--text-secondary);">You are about to remove <strong style="color:var(--text-light);">${userName}</strong>.<br>If they have recorded transactions, the account will be <strong style="color:#f59e0b;">deactivated</strong> instead of deleted to preserve logs.</div>`,
                 icon: 'warning',
+                iconColor: '#ef4444',
                 showCancelButton: true,
-                confirmButtonColor: '#e11d48',
-                confirmButtonText: 'Yes, delete!'
+                confirmButtonColor: '#ef4444',
+                confirmButtonText: '<i class="fa-solid fa-trash"></i> Yes, Delete',
+                cancelButtonText: 'Cancel',
+                background: 'var(--bg-card)',
+                color: 'var(--text-light)'
             }).then(result => {
                 if (result.isConfirmed) {
                     // Check if they have created income or expense transactions
