@@ -413,7 +413,14 @@
                 theme: 'grid',
                 headStyles: { fillColor: [99, 102, 241], fontStyle: 'bold' },
                 styles: { fontSize: 8, cellPadding: 6 },
-                columns: [0, 1, 2, 3, 4]
+                columns: [0, 1, 2, 3, 4],
+                didParseCell: function(data) {
+                    if (data.cell && data.cell.text) {
+                        for (let i = 0; i < data.cell.text.length; i++) {
+                            data.cell.text[i] = data.cell.text[i].replace(/₹/g, 'Rs. ');
+                        }
+                    }
+                }
             });
             
             doc.save("IEMS_Ledger_Report_" + new Date().toISOString().slice(0,10) + ".pdf");
