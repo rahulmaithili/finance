@@ -225,9 +225,11 @@
                         <div style="display: flex; gap: 20px; flex-wrap: wrap;">
                             <!-- Monthly Bar Chart -->
                             <div class="dashboard-card" style="flex: 1; min-width: 200px; display: flex; flex-direction: column;">
-                                <div class="dashboard-card-header">
+                                <div class="dashboard-card-header" style="display:flex; justify-content:space-between; align-items:center;">
                                     <h2>Income vs Expense</h2>
-                                    <span class="header-action">Bar View</span>
+                                    <button onclick="toggleForecast()" id="forecastBtn" class="btn-secondary" style="font-size:0.75rem; padding:4px 8px; margin:0; border:1px solid var(--border-color); background:transparent; display:flex; align-items:center; gap:4px; cursor:pointer;">
+                                        <i class="fa-solid fa-chart-line"></i> Show Forecast
+                                    </button>
                                 </div>
                                 <div style="flex: 1; min-height: 200px; position: relative; padding: 10px 0;">
                                     <canvas id="monthlyBarChart"></canvas>
@@ -439,6 +441,19 @@
 
     <!-- Dashboard Data Loader & Chart Initializer -->
     <script>
+        // Global Client-Side Rates Setup
+        window.clientRates = { 'INR': 1.0, 'USD': 0.012, 'EUR': 0.011, 'GBP': 0.0094 }; // fallbacks
+        let accCurrencyMap = {};
+
+        function convertCurrencyClient(amount, fromCurrency, toCurrency = 'INR') {
+            const from = (fromCurrency || 'INR').toUpperCase();
+            const to = (toCurrency || 'INR').toUpperCase();
+            const rateFrom = window.clientRates[from] || 1.0;
+            const rateTo = window.clientRates[to] || 1.0;
+            if (rateFrom === 0) return 0;
+            return amount * (rateTo / rateFrom);
+        }
+
         function formatCurrency(amount) {
             return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(amount || 0);
         }
@@ -464,17 +479,32 @@
         window.onNavigationLoaded = function (user, userData) {
             document.getElementById('userRoleText').textContent = userData.role.replace('_', ' ');
 
-            // Load KPI metrics
-            loadKPIs();
+            // Fetch accounts mapping first
+            db.collection('bank_accounts').get().then(accsSnap => {
+                accCurrencyMap = {};
+                accsSnap.forEach(doc => {
+                    const acc = doc.data();
+                    accCurrencyMap[doc.id] = acc.currency || 'INR';
+                });
 
-            // Load recent transactions list
-            loadRecentTransactions();
-
-            // Load recent activity logs
-            loadRecentActivities();
-
-            // Render Charts
-            renderDashboardCharts();
+                // Fetch live exchange rates
+                return fetch('https://open.er-api.com/v6/latest/INR');
+            }).then(res => res.json()).then(data => {
+                if (data && data.rates) {
+                    window.clientRates = data.rates;
+                }
+            }).catch(err => {
+                console.log('Using fallback exchange rates:', err);
+            }).finally(() => {
+                // Load KPI metrics
+                loadKPIs();
+                // Load recent transactions list
+                loadRecentTransactions();
+                // Load recent activity logs
+                loadRecentActivities();
+                // Render Charts
+                renderDashboardCharts();
+            });
         };
 
         function loadKPIs() {
@@ -507,21 +537,32 @@
 
             Promise.all([pInc, pExp, pBal, pLoan, pGiven]).then(([incSnap, expSnap, balSnap, loanSnap, givenSnap]) => {
                 let totalInc = 0;
-                incSnap.forEach(doc => { totalInc += parseFloat(doc.data().amount || 0); });
+                incSnap.forEach(doc => {
+                    const tx = doc.data();
+                    const cur = accCurrencyMap[tx.account_id] || 'INR';
+                    totalInc += convertCurrencyClient(parseFloat(tx.amount || 0), cur, 'INR');
+                });
                 document.getElementById('kpiIncome').textContent = formatCurrency(totalInc);
                 document.getElementById('kpiIncomeSub').textContent = incSnap.size + ' entries in ' + monthName;
                 document.getElementById('bottomInflow').textContent = formatCurrency(totalInc);
                 document.getElementById('statTotalIncome').textContent = formatCurrency(totalInc);
 
                 let totalExp = 0;
-                expSnap.forEach(doc => { totalExp += parseFloat(doc.data().amount || 0); });
+                expSnap.forEach(doc => {
+                    const tx = doc.data();
+                    const cur = accCurrencyMap[tx.account_id] || 'INR';
+                    totalExp += convertCurrencyClient(parseFloat(tx.amount || 0), cur, 'INR');
+                });
                 document.getElementById('kpiExpense').textContent = formatCurrency(totalExp);
                 document.getElementById('kpiExpenseSub').textContent = expSnap.size + ' entries in ' + monthName;
                 document.getElementById('bottomOutflow').textContent = formatCurrency(totalExp);
                 document.getElementById('statTotalExpense').textContent = formatCurrency(totalExp);
 
                 let totalBal = 0;
-                balSnap.forEach(doc => { totalBal += parseFloat(doc.data().current_balance || 0); });
+                balSnap.forEach(doc => {
+                    const acc = doc.data();
+                    totalBal += convertCurrencyClient(parseFloat(acc.current_balance || 0), acc.currency || 'INR', 'INR');
+                });
                 document.getElementById('kpiBalance').textContent = formatCurrency(totalBal);
                 document.getElementById('bottomAccounts').textContent = balSnap.size + ' Active';
 
@@ -726,14 +767,16 @@
                     const data = doc.data();
                     const dayNum = parseInt(data.income_date.split('-')[2]);
                     if (dayNum >= 1 && dayNum <= daysInMonth) {
-                        dailyIncValues[dayNum - 1] += parseFloat(data.amount || 0);
+                        const cur = accCurrencyMap[data.account_id] || 'INR';
+                        dailyIncValues[dayNum - 1] += convertCurrencyClient(parseFloat(data.amount || 0), cur, 'INR');
                     }
                 });
                 expSnap.forEach(doc => {
                     const data = doc.data();
                     const dayNum = parseInt(data.expense_date.split('-')[2]);
                     if (dayNum >= 1 && dayNum <= daysInMonth) {
-                        dailyExpValues[dayNum - 1] += parseFloat(data.amount || 0);
+                        const cur = accCurrencyMap[data.account_id] || 'INR';
+                        dailyExpValues[dayNum - 1] += convertCurrencyClient(parseFloat(data.amount || 0), cur, 'INR');
                     }
                 });
 
@@ -835,17 +878,29 @@
                     const data = doc.data();
                     const monthKey = data.income_date.substring(0, 7);
                     const index = monthKeys.indexOf(monthKey);
-                    if (index !== -1) incomeValues[index] += parseFloat(data.amount || 0);
+                    if (index !== -1) {
+                        const cur = accCurrencyMap[data.account_id] || 'INR';
+                        incomeValues[index] += convertCurrencyClient(parseFloat(data.amount || 0), cur, 'INR');
+                    }
                 });
 
                 expSnap.forEach(doc => {
                     const data = doc.data();
                     const monthKey = data.expense_date.substring(0, 7);
                     const index = monthKeys.indexOf(monthKey);
-                    if (index !== -1) expenseValues[index] += parseFloat(data.amount || 0);
+                    if (index !== -1) {
+                        const cur = accCurrencyMap[data.account_id] || 'INR';
+                        expenseValues[index] += convertCurrencyClient(parseFloat(data.amount || 0), cur, 'INR');
+                    }
                 });
 
-                new Chart(document.getElementById('monthlyBarChart').getContext('2d'), {
+                // Cache globally for forecast toggling
+                window.histLabels = monthLabels;
+                window.histIncome = incomeValues;
+                window.histExpense = expenseValues;
+                window.isForecastActive = false;
+
+                window.monthlySummaryChart = new Chart(document.getElementById('monthlyBarChart').getContext('2d'), {
                     type: 'bar',
                     data: {
                         labels: monthLabels,
@@ -931,6 +986,173 @@
                     }
                 });
             });
+        }
+
+        function toggleForecast() {
+            if (!window.monthlySummaryChart) return;
+            window.isForecastActive = !window.isForecastActive;
+            
+            const btn = document.getElementById('forecastBtn');
+            const styles = getComputedStyle(document.body);
+            const successColor = styles.getPropertyValue('--success').trim() || '#10b981';
+            const dangerColor = styles.getPropertyValue('--danger').trim() || '#ef4444';
+            const textColor = styles.getPropertyValue('--text-secondary').trim();
+            const borderColor = styles.getPropertyValue('--border-color').trim();
+            const fontOptions = { family: 'Inter', size: 11 };
+
+            if (window.isForecastActive) {
+                btn.innerHTML = '<i class="fa-solid fa-chart-bar"></i> Hide Forecast';
+                btn.classList.add('active');
+                
+                const N = window.histIncome.length;
+                const x = Array.from({length: N}, (_, i) => i);
+                const meanX = (N - 1) / 2;
+                
+                function linearForecast(data) {
+                    const meanY = data.reduce((a,b) => a+b, 0) / N;
+                    let num = 0;
+                    let den = 0;
+                    for (let i = 0; i < N; i++) {
+                        num += (x[i] - meanX) * (data[i] - meanY);
+                        den += Math.pow(x[i] - meanX, 2);
+                    }
+                    const m = den !== 0 ? num / den : 0;
+                    const c = meanY - m * meanX;
+                    
+                    const proj = [];
+                    for (let i = 6; i <= 8; i++) {
+                        proj.push(Math.max(0, m * i + c));
+                    }
+                    return proj;
+                }
+                
+                const fcIncome = linearForecast(window.histIncome);
+                const fcExpense = linearForecast(window.histExpense);
+                
+                const lastLabel = window.histLabels[window.histLabels.length - 1];
+                const parts = lastLabel.split(' ');
+                const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                let mIdx = monthNames.indexOf(parts[0]);
+                let year = parseInt(parts[1]);
+                const futureLabels = [...window.histLabels];
+                for (let i = 1; i <= 3; i++) {
+                    mIdx++;
+                    if (mIdx > 11) { mIdx = 0; year++; }
+                    futureLabels.push(monthNames[mIdx] + " " + year);
+                }
+                
+                const datasetHistInc = Array(9).fill(null);
+                const datasetHistExp = Array(9).fill(null);
+                const datasetFcInc = Array(9).fill(null);
+                const datasetFcExp = Array(9).fill(null);
+                
+                for (let i = 0; i < N; i++) {
+                    datasetHistInc[i] = window.histIncome[i];
+                    datasetHistExp[i] = window.histExpense[i];
+                }
+                datasetFcInc[N - 1] = window.histIncome[N - 1];
+                datasetFcExp[N - 1] = window.histExpense[N - 1];
+                
+                for (let i = 0; i < 3; i++) {
+                    datasetFcInc[N + i] = fcIncome[i];
+                    datasetFcExp[N + i] = fcExpense[i];
+                }
+                
+                window.monthlySummaryChart.destroy();
+                window.monthlySummaryChart = new Chart(document.getElementById('monthlyBarChart').getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: futureLabels,
+                        datasets: [
+                            {
+                                label: 'Hist Income',
+                                data: datasetHistInc,
+                                borderColor: successColor,
+                                backgroundColor: 'transparent',
+                                fill: false,
+                                tension: 0.3,
+                                borderWidth: 2
+                            },
+                            {
+                                label: 'FC Income',
+                                data: datasetFcInc,
+                                borderColor: successColor,
+                                borderDash: [5, 5],
+                                fill: false,
+                                tension: 0.3,
+                                borderWidth: 2,
+                                pointRadius: 4
+                            },
+                            {
+                                label: 'Hist Expense',
+                                data: datasetHistExp,
+                                borderColor: dangerColor,
+                                backgroundColor: 'transparent',
+                                fill: false,
+                                tension: 0.3,
+                                borderWidth: 2
+                            },
+                            {
+                                label: 'FC Expense',
+                                data: datasetFcExp,
+                                borderColor: dangerColor,
+                                borderDash: [5, 5],
+                                fill: false,
+                                tension: 0.3,
+                                borderWidth: 2,
+                                pointRadius: 4
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: true, labels: { color: textColor, font: fontOptions } }
+                        },
+                        scales: {
+                            x: { grid: { display: false }, ticks: { color: textColor, font: fontOptions } },
+                            y: { grid: { color: borderColor }, ticks: { color: textColor, font: fontOptions } }
+                        }
+                    }
+                });
+            } else {
+                btn.innerHTML = '<i class="fa-solid fa-chart-line"></i> Show Forecast';
+                btn.classList.remove('active');
+                
+                window.monthlySummaryChart.destroy();
+                window.monthlySummaryChart = new Chart(document.getElementById('monthlyBarChart').getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: window.histLabels,
+                        datasets: [
+                            {
+                                label: 'Income',
+                                data: window.histIncome,
+                                backgroundColor: successColor,
+                                borderRadius: 6,
+                                maxBarThickness: 15
+                            },
+                            {
+                                label: 'Expense',
+                                data: window.histExpense,
+                                backgroundColor: dangerColor,
+                                borderRadius: 6,
+                                maxBarThickness: 15
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { grid: { display: false }, ticks: { color: textColor, font: fontOptions } },
+                            y: { grid: { color: borderColor }, ticks: { color: textColor, font: fontOptions } }
+                        }
+                    }
+                });
+            }
         }
     </script>
 </body>

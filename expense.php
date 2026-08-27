@@ -399,6 +399,10 @@ $categories = ['Office Rent', 'Utilities (Electricity/Water)', 'Internet / Subsc
                                  <div class="form-group">
                                      <label class="form-label" for="attachment">Upload Receipt (PDF or Image)</label>
                                      <input type="file" id="attachment" name="attachment" class="form-control" accept="image/*,application/pdf" style="padding-left:15px;">
+                                     <button type="button" onclick="performOCR('attachment')" id="scanBtn" class="btn-secondary" style="margin-top: 8px; font-size: 0.75rem; padding: 4px 10px; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; border: 1px solid var(--border-color); background: transparent;">
+                                         <i class="fa-solid fa-expand"></i> Scan Receipt (OCR)
+                                     </button>
+                                     <span id="ocrStatus" style="font-size:0.75rem; color:var(--text-secondary); margin-left:8px;"></span>
                                      
                                      <input type="hidden" name="camera_photo" id="cameraPhotoInput">
                                      <button type="button" class="btn-secondary" id="startCameraBtn" style="margin-top: 8px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px; font-weight:600;">
@@ -469,7 +473,7 @@ $categories = ['Office Rent', 'Utilities (Electricity/Water)', 'Internet / Subsc
                 <div class="form-group">
                     <label class="form-label">Title / Purpose</label>
                     <div class="input-icon-wrapper">
-                        <input type="text" name="title" class="form-control" placeholder="e.g. Electricity Bill" required value="<?= $edit_mode ? clean($edit_expense['title']) : '' ?>">
+                        <input type="text" id="m_title" name="title" class="form-control" placeholder="e.g. Electricity Bill" required value="<?= $edit_mode ? clean($edit_expense['title']) : '' ?>">
                         <i class="fa-solid fa-file-invoice-dollar" style="left:14px;"></i>
                     </div>
                 </div>
@@ -487,7 +491,7 @@ $categories = ['Office Rent', 'Utilities (Electricity/Water)', 'Internet / Subsc
                 <div class="form-group">
                     <label class="form-label">Amount (₹)</label>
                     <div class="input-icon-wrapper">
-                        <input type="number" name="amount" class="form-control" placeholder="0.00" step="0.01" min="0.01" required value="<?= $edit_mode ? clean($edit_expense['amount']) : '' ?>">
+                        <input type="number" id="m_amount" name="amount" class="form-control" placeholder="0.00" step="0.01" min="0.01" required value="<?= $edit_mode ? clean($edit_expense['amount']) : '' ?>"> : '' ?>">
                         <i class="fa-solid fa-indian-rupee-sign" style="left:14px;"></i>
                     </div>
                 </div>
@@ -517,7 +521,7 @@ $categories = ['Office Rent', 'Utilities (Electricity/Water)', 'Internet / Subsc
                 <div class="form-group">
                     <label class="form-label">Expense Date</label>
                     <div class="input-icon-wrapper">
-                        <input type="date" name="expense_date" class="form-control" required value="<?= $edit_mode ? clean($edit_expense['expense_date']) : date('Y-m-d') ?>">
+                        <input type="date" id="m_expense_date" name="expense_date" class="form-control" required value="<?= $edit_mode ? clean($edit_expense['expense_date']) : date('Y-m-d') ?>">
                         <i class="fa-solid fa-calendar-days" style="left:14px;"></i>
                     </div>
                 </div>
@@ -537,7 +541,12 @@ $categories = ['Office Rent', 'Utilities (Electricity/Water)', 'Internet / Subsc
 
                 <div class="form-group">
                     <label class="form-label">Receipt (PDF / Image)</label>
-                    <input type="file" name="attachment" class="form-control" accept="image/*,application/pdf" style="padding-left:14px; height:auto; padding-top:10px; padding-bottom:10px;">
+                    <input type="file" id="m_attachment" name="attachment" class="form-control" accept="image/*,application/pdf" style="padding-left:14px; height:auto; padding-top:10px; padding-bottom:10px;">
+                    <button type="button" onclick="performOCR('m_attachment')" id="m_scanBtn" class="btn-secondary" style="margin-top: 8px; font-size: 0.75rem; padding: 4px 10px; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; border: 1px solid var(--border-color); background: transparent;">
+                        <i class="fa-solid fa-expand"></i> Scan Receipt (OCR)
+                    </button>
+                    <span id="m_ocrStatus" style="font-size:0.75rem; color:var(--text-secondary); margin-left:8px;"></span>
+
                     <input type="hidden" name="camera_photo" id="sheetCameraPhotoInput">
                     <button type="button" id="sheetCameraBtn" class="btn-secondary" style="margin-top:6px;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;font-weight:600;">
                         <i class="fa-solid fa-camera"></i> Live Photo Capture
@@ -749,6 +758,93 @@ $categories = ['Office Rent', 'Utilities (Electricity/Water)', 'Internet / Subsc
                     }
                 };
             } catch(err) { alert('Camera error: ' + err.message); }
+        });
+     }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
+    <script>
+    function performOCR(inputId) {
+        const fileInput = document.getElementById(inputId);
+        if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+            Swal.fire({ icon: 'warning', title: 'No File Selected', text: 'Please choose an image file first.' });
+            return;
+        }
+        
+        const file = fileInput.files[0];
+        if (!file.type.startsWith('image/')) {
+            Swal.fire({ icon: 'error', title: 'Invalid File', text: 'OCR scanner only supports image formats (PNG, JPG, JPEG).' });
+            return;
+        }
+        
+        const statusSpan = document.getElementById(inputId === 'attachment' ? 'ocrStatus' : 'm_ocrStatus');
+        statusSpan.textContent = 'Processing OCR...';
+        
+        Tesseract.recognize(
+            file,
+            'eng',
+            { logger: m => {
+                if (m.status === 'recognizing text') {
+                    statusSpan.textContent = `Scanning: ${Math.round(m.progress * 100)}%`;
+                }
+            }}
+        ).then(({ data: { text } }) => {
+            statusSpan.textContent = 'Completed!';
+            console.log("OCR Result Text:\n", text);
+            
+            // Amount regex matches e.g. "Total 1500" "Grand Total: 200.00" "Amount: ₹125" "INR 250" "$50.50"
+            const amountRegex = /(?:total|grand|net|due|paid|amount|rs|inr|usd|eur|gbp|₹|\$|€|£)\s*[:=]?\s*([0-9,]+\.[0-9]{2}|[0-9,]+)/i;
+            const amountMatches = text.match(amountRegex);
+            let extractedAmount = '';
+            if (amountMatches && amountMatches[1]) {
+                extractedAmount = amountMatches[1].replace(/,/g, '');
+            } else {
+                const allFloats = text.match(/\b\d+\.\d{2}\b/g);
+                if (allFloats) {
+                    const numbers = allFloats.map(f => parseFloat(f));
+                    extractedAmount = Math.max(...numbers);
+                }
+            }
+            
+            const dateRegex = /\b(\d{4}[-/]\d{2}[-/]\d{2}|\d{2}[-/]\d{2}[-/]\d{4})\b/;
+            const dateMatches = text.match(dateRegex);
+            let extractedDate = '';
+            if (dateMatches) {
+                let rawDate = dateMatches[0];
+                if (rawDate.includes('/') || rawDate.includes('-')) {
+                    const separator = rawDate.includes('/') ? '/' : '-';
+                    const parts = rawDate.split(separator);
+                    if (parts[0].length === 2) {
+                        extractedDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                    } else {
+                        extractedDate = rawDate;
+                    }
+                }
+            }
+            
+            const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 2);
+            let extractedTitle = '';
+            if (lines.length > 0) {
+                extractedTitle = lines[0].substring(0, 30);
+            }
+            
+            const prefix = inputId.startsWith('m_') ? 'm_' : '';
+            const titleField = document.getElementById(prefix + 'title');
+            const amountField = document.getElementById(prefix + 'amount');
+            const dateField = document.getElementById(prefix + 'income_date') || document.getElementById(prefix + 'expense_date');
+            
+            if (extractedTitle && titleField) titleField.value = extractedTitle;
+            if (extractedAmount && amountField) amountField.value = extractedAmount;
+            if (extractedDate && dateField) dateField.value = extractedDate;
+            
+            Swal.fire({
+                icon: 'success',
+                title: 'Scan Successful',
+                html: `Extracted Data:<br><b>Title:</b> ${extractedTitle || 'Not Found'}<br><b>Amount:</b> ${extractedAmount || 'Not Found'}<br><b>Date:</b> ${extractedDate || 'Not Found'}<br><br>Fields pre-filled automatically!`
+            });
+        }).catch(err => {
+            statusSpan.textContent = 'Failed';
+            console.error("OCR Error:", err);
+            Swal.fire({ icon: 'error', title: 'Scan Failed', text: err.message || err });
         });
     }
     </script>

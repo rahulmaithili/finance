@@ -64,6 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ifsc_code = clean($_POST['ifsc_code'] ?? '');
         $branch_name = clean($_POST['branch_name'] ?? '');
         $opening_balance = (float)($_POST['opening_balance'] ?? 0.00);
+        $currency = clean($_POST['currency'] ?? 'INR');
         $status = $_POST['status'] ?? 'active';
         
         if (empty($account_name) || empty($account_number) || empty($bank_name)) {
@@ -82,8 +83,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $bal_diff = $opening_balance - (float)$old_data['opening_balance'];
                         $new_current_balance = (float)$old_data['current_balance'] + $bal_diff;
                         
-                        $stmt = $pdo->prepare("UPDATE bank_accounts SET account_name = ?, account_number = ?, bank_name = ?, ifsc_code = ?, branch_name = ?, opening_balance = ?, current_balance = ?, status = ? WHERE id = ?");
-                        $stmt->execute([$account_name, $account_number, $bank_name, $ifsc_code, $branch_name, $opening_balance, $new_current_balance, $status, $acc_id]);
+                        $stmt = $pdo->prepare("UPDATE bank_accounts SET account_name = ?, account_number = ?, bank_name = ?, ifsc_code = ?, branch_name = ?, opening_balance = ?, current_balance = ?, status = ?, currency = ? WHERE id = ?");
+                        $stmt->execute([$account_name, $account_number, $bank_name, $ifsc_code, $branch_name, $opening_balance, $new_current_balance, $status, $currency, $acc_id]);
                         
                         log_activity("Updated Bank Account: {$account_name} (ID: {$acc_id})");
                         set_flash_message('success', 'Bank Account updated successfully.');
@@ -92,8 +93,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 } else {
                     // Create Mode
-                    $stmt = $pdo->prepare("INSERT INTO bank_accounts (account_name, account_number, bank_name, ifsc_code, branch_name, opening_balance, current_balance, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-                    $stmt->execute([$account_name, $account_number, $bank_name, $ifsc_code, $branch_name, $opening_balance, $opening_balance, $status]);
+                    $stmt = $pdo->prepare("INSERT INTO bank_accounts (account_name, account_number, bank_name, ifsc_code, branch_name, opening_balance, current_balance, status, currency) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    $stmt->execute([$account_name, $account_number, $bank_name, $ifsc_code, $branch_name, $opening_balance, $opening_balance, $status, $currency]);
                     
                     log_activity("Created Bank Account: {$account_name}");
                     set_flash_message('success', 'New Bank Account created successfully.');
@@ -203,13 +204,13 @@ $accounts = $pdo->query("SELECT * FROM bank_accounts ORDER BY id DESC")->fetchAl
                                         
                                         <div style="display:flex; justify-content:space-between; font-size:0.75rem; opacity:0.8; margin-top:-5px; margin-bottom:5px;">
                                             <span><i class="fa-solid fa-code-branch" style="margin-right:2px;"></i> <?= !empty($acc['branch_name']) ? clean($acc['branch_name']) : 'N/A' ?></span>
-                                            <span><i class="fa-solid fa-barcode" style="margin-right:2px;"></i> <?= !empty($acc['ifsc_code']) ? clean($acc['ifsc_code']) : 'N/A' ?></span>
+                                            <span><i class="fa-solid fa-money-bill-1" style="margin-right:2px;"></i> <?= strtoupper(clean($acc['currency'])) ?></span>
                                         </div>
                                         
                                         <div class="bank-balance-wrapper">
                                             <div>
                                                 <div class="bank-balance-label">Current Balance</div>
-                                                <div class="bank-balance"><?= format_currency($acc['current_balance']) ?></div>
+                                                <div class="bank-balance"><?= format_currency($acc['current_balance'], $acc['currency']) ?></div>
                                             </div>
                                             <div>
                                                 <span class="badge <?= ($acc['status'] === 'active') ? 'badge-success' : 'badge-danger' ?>" style="font-size: 0.65rem;">
@@ -283,10 +284,20 @@ $accounts = $pdo->query("SELECT * FROM bank_accounts ORDER BY id DESC")->fetchAl
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label class="form-label" for="opening_balance">Opening Balance (₹)</label>
+                                    <label class="form-label" for="currency">Currency</label>
+                                    <select id="currency" name="currency" class="form-control" style="padding-left: 15px;" required>
+                                        <option value="INR" <?= ($edit_mode && $edit_account['currency'] === 'INR') ? 'selected' : '' ?>>INR (₹)</option>
+                                        <option value="USD" <?= ($edit_mode && $edit_account['currency'] === 'USD') ? 'selected' : '' ?>>USD ($)</option>
+                                        <option value="EUR" <?= ($edit_mode && $edit_account['currency'] === 'EUR') ? 'selected' : '' ?>>EUR (€)</option>
+                                        <option value="GBP" <?= ($edit_mode && $edit_account['currency'] === 'GBP') ? 'selected' : '' ?>>GBP (£)</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label" for="opening_balance">Opening Balance</label>
                                     <div class="input-icon-wrapper">
                                         <input type="number" id="opening_balance" name="opening_balance" class="form-control" placeholder="0.00" step="0.01" min="0" required value="<?= $edit_mode ? clean($edit_account['opening_balance']) : '0.00' ?>">
-                                        <i class="fa-solid fa-indian-rupee-sign" style="left: 14px;"></i>
+                                        <i class="fa-solid fa-coins" style="left: 14px;"></i>
                                     </div>
                                     <?php if ($edit_mode): ?>
                                         <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:5px;">
@@ -380,10 +391,20 @@ $accounts = $pdo->query("SELECT * FROM bank_accounts ORDER BY id DESC")->fetchAl
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Opening Balance (₹)</label>
+                    <label class="form-label">Currency</label>
+                    <select name="currency" class="form-control" style="padding-left:14px;" required>
+                        <option value="INR" <?= ($edit_mode && $edit_account['currency'] === 'INR') ? 'selected' : '' ?>>INR (₹)</option>
+                        <option value="USD" <?= ($edit_mode && $edit_account['currency'] === 'USD') ? 'selected' : '' ?>>USD ($)</option>
+                        <option value="EUR" <?= ($edit_mode && $edit_account['currency'] === 'EUR') ? 'selected' : '' ?>>EUR (€)</option>
+                        <option value="GBP" <?= ($edit_mode && $edit_account['currency'] === 'GBP') ? 'selected' : '' ?>>GBP (£)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Opening Balance</label>
                     <div class="input-icon-wrapper">
                         <input type="number" name="opening_balance" class="form-control" placeholder="0.00" step="0.01" min="0" required value="<?= $edit_mode ? clean($edit_account['opening_balance']) : '0.00' ?>">
-                        <i class="fa-solid fa-indian-rupee-sign" style="left:14px;"></i>
+                        <i class="fa-solid fa-coins" style="left:14px;"></i>
                     </div>
                     <?php if ($edit_mode): ?>
                     <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:4px;">Updating balance will auto-adjust current balance.</div>

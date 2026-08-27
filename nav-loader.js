@@ -57,6 +57,14 @@ window.applyThemePalette = function(paletteId, isDark) {
     localStorage.setItem("theme-dark", isDark ? "true" : "false");
 };
 
+window.formatCurrency = function(amount, currencyCode = null) {
+    const currency = (currencyCode || 'INR').toUpperCase();
+    const symbols = { 'INR': '₹', 'USD': '$', 'EUR': '€', 'GBP': '£' };
+    const symbol = symbols[currency] || currency;
+    const formattedAmount = new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount || 0);
+    return symbol + formattedAmount;
+};
+
 // Immediately initialize theme on load to prevent flash
 (function() {
     const savedPalette = localStorage.getItem("theme-palette") || "ui_2";

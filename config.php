@@ -56,6 +56,12 @@ try {
     // Select the DB if it exists
     $pdo->exec("CREATE DATABASE IF NOT EXISTS `" . DB_NAME . "` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
     $pdo->exec("USE `" . DB_NAME . "`");
+
+    // Dynamic database migration checks
+    $cols = $pdo->query("SHOW COLUMNS FROM `bank_accounts` LIKE 'currency'")->fetchAll();
+    if (empty($cols)) {
+        $pdo->exec("ALTER TABLE `bank_accounts` ADD COLUMN `currency` VARCHAR(10) DEFAULT 'INR'");
+    }
 } catch (PDOException $e) {
     die("Database Connection Failed: " . $e->getMessage());
 }
@@ -168,7 +174,12 @@ function display_flash_message() {
 }
 
 // Format numbers as Currency
-function format_currency($amount) {
+function format_currency($amount, $currencyCode = null) {
+    if ($currencyCode !== null) {
+        $symbols = ['INR' => '₹', 'USD' => '$', 'EUR' => '€', 'GBP' => '£'];
+        $sym = $symbols[strtoupper($currencyCode)] ?? $currencyCode;
+        return $sym . number_format((float)$amount, 2);
+    }
     global $pdo;
     static $symbol = null;
     if ($symbol === null) {
@@ -183,6 +194,49 @@ function format_currency($amount) {
     }
     return $symbol . number_format((float)$amount, 2);
 }
+
+function get_exchange_rates() {
+    if (isset($_SESSION['exchange_rates']) && isset($_SESSION['exchange_rates_time']) && (time() - $_SESSION['exchange_rates_time'] < 3600)) {
+        return $_SESSION['exchange_rates'];
+    }
+    
+    $fallbackRates = ['INR' => 1.0, 'USD' => 0.012, 'EUR' => 0.011, 'GBP' => 0.0094];
+    
+    try {
+        $context = stream_context_create([
+            "http" => [
+                "timeout" => 3,
+                "ignore_errors" => true
+            ]
+        ]);
+        $json = @file_get_contents("https://open.er-api.com/v6/latest/INR", false, $context);
+        if ($json) {
+            $data = json_decode($json, true);
+            if (isset($data['rates'])) {
+                $_SESSION['exchange_rates'] = $data['rates'];
+                $_SESSION['exchange_rates_time'] = time();
+                return $data['rates'];
+            }
+        }
+    } catch (Exception $e) {
+        // use fallback
+    }
+    
+    return $fallbackRates;
+}
+
+function convert_currency($amount, $fromCurrency, $toCurrency = 'INR') {
+    $rates = get_exchange_rates();
+    $from = strtoupper($fromCurrency || 'INR');
+    $to = strtoupper($toCurrency || 'INR');
+    
+    $rateFrom = $rates[$from] ?? 1.0;
+    $rateTo = $rates[$to] ?? 1.0;
+    
+    if ($rateFrom == 0) return 0;
+    return $amount * ($rateTo / $rateFrom);
+}
+
 // Format Category Badges with custom colors
 function get_category_badge($category) {
     $colors = [

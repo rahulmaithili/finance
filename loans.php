@@ -510,14 +510,19 @@ $payments = $pdo->query("
                                     <?php endif; ?>
                                 </div>
 
-                                <div style="display:flex; gap:10px; margin-top:5px;">
-                                    <?php if ($l['status'] === 'active'): ?>
-                                        <button class="btn-primary" style="flex:1; justify-content:center; padding:8px 12px; font-size:0.82rem;" onclick="openPaymentModal(<?= $l['id'] ?>, '<?= clean($l['lender_name']) ?>', <?= $l['emi_amount'] ?>, <?= $total_payable - $l['total_paid'] ?>)">
-                                            <i class="fa-solid fa-receipt"></i> Mark Paid
+                                <div style="display:flex; flex-direction:column; gap:6px; margin-top:5px;">
+                                    <div style="display:flex; gap:6px;">
+                                        <?php if ($l['status'] === 'active'): ?>
+                                            <button class="btn-primary" style="flex:1; justify-content:center; padding:8px 12px; font-size:0.82rem;" onclick="openPaymentModal(<?= $l['id'] ?>, '<?= clean($l['lender_name']) ?>', <?= $l['emi_amount'] ?>, <?= $total_payable - $l['total_paid'] ?>)">
+                                                <i class="fa-solid fa-receipt"></i> Mark Paid
+                                            </button>
+                                        <?php endif; ?>
+                                        <button class="btn-secondary" style="flex:1; justify-content:center; padding:8px 12px; font-size:0.82rem;" onclick="showAmortizationModal(<?= $l['id'] ?>, '<?= clean($l['lender_name']) ?>', <?= $l['principal'] ?>, <?= $l['interest_rate'] ?>, <?= $l['tenure_months'] ?>, <?= $l['emi_amount'] ?>, <?= $l['emi_paid'] ?>, '<?= $l['start_date'] ?>')">
+                                            <i class="fa-solid fa-calendar-days"></i> Schedule
                                         </button>
-                                    <?php endif; ?>
-                                    <button class="btn-secondary" style="border: 1px solid rgba(239,68,68,0.2); color:#ef4444; background:transparent; padding:8px 12px; font-size:0.82rem;" onclick="confirmDeleteLoan(<?= $l['id'] ?>, '<?= clean($l['lender_name']) ?>')">
-                                        <i class="fa-solid fa-trash-can"></i> Delete
+                                    </div>
+                                    <button class="btn-secondary" style="border: 1px solid rgba(239,68,68,0.2); color:#ef4444; background:transparent; padding:8px 12px; font-size:0.82rem; width:100%;" onclick="confirmDeleteLoan(<?= $l['id'] ?>, '<?= clean($l['lender_name']) ?>')">
+                                        <i class="fa-solid fa-trash-can"></i> Delete Loan
                                     </button>
                                 </div>
                             </div>
@@ -721,6 +726,39 @@ $payments = $pdo->query("
         </div>
     </div>
 
+    <!-- Loan Amortization Modal -->
+    <div id="amortizationModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); z-index:99999; align-items:flex-start; justify-content:center; overflow-y:auto; padding:16px; margin:0 !important; box-sizing:border-box;">
+        <div class="modal-content" style="background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:14px; max-width:800px; width:100%; padding:24px; position:relative; margin-top:40px; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
+            <button type="button" onclick="closeAmortizationModal()" style="position: absolute; top: 22px; right: 22px; background: rgba(255,255,255,0.15); border: none; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; color: white; cursor: pointer;"><i class="fa-solid fa-xmark"></i></button>
+            
+            <h2 id="amortLenderName" style="color:var(--text-light); font-size:1.4rem; margin-top:0; margin-bottom:4px;">Loan Repayment Schedule</h2>
+            <p style="color:var(--text-secondary); font-size:0.85rem; margin-bottom:20px;">Detailed EMI principal & interest breakdown schedule.</p>
+            
+            <div style="overflow-x:auto;">
+                <table class="custom-table" style="width:100%;">
+                    <thead>
+                        <tr>
+                            <th style="padding:10px; font-size:0.8rem;">Month</th>
+                            <th style="padding:10px; font-size:0.8rem;">Date</th>
+                            <th style="padding:10px; font-size:0.8rem;">EMI Amount</th>
+                            <th style="padding:10px; font-size:0.8rem;">Principal</th>
+                            <th style="padding:10px; font-size:0.8rem;">Interest</th>
+                            <th style="padding:10px; font-size:0.8rem;">Remaining Bal</th>
+                            <th style="padding:10px; font-size:0.8rem;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="amortizationTableBody">
+                        <!-- Filled dynamically -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <div style="display:flex; justify-content:flex-end; margin-top:20px;">
+                <button type="button" class="btn-secondary" onclick="closeAmortizationModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         $(document).ready(function() {
             $('#paymentsTable').DataTable({
@@ -737,6 +775,55 @@ $payments = $pdo->query("
         }
         function closeLoanModal() {
             document.getElementById('loanModal').style.display = 'none';
+        }
+
+        function showAmortizationModal(loanId, lenderName, principal, rate, tenure, emi, emiPaid, startDate) {
+            document.getElementById('amortLenderName').textContent = "Schedule for: " + lenderName;
+            const tbody = document.getElementById('amortizationTableBody');
+            tbody.innerHTML = '';
+            
+            let balance = parseFloat(principal);
+            const monthlyRate = (parseFloat(rate) / 100) / 12;
+            const emiAmount = parseFloat(emi);
+            const paidCount = parseInt(emiPaid);
+            const start = new Date(startDate);
+            
+            for (let m = 1; m <= parseInt(tenure); m++) {
+                const interest = balance * monthlyRate;
+                const principalPortion = emiAmount - interest;
+                balance = balance - principalPortion;
+                
+                const instDate = new Date(start);
+                instDate.setMonth(start.getMonth() + (m - 1));
+                const dateStr = instDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+                
+                const isPaid = m <= paidCount;
+                let statusHTML = '';
+                if (isPaid) {
+                    statusHTML = '<span class="badge badge-success" style="font-size:0.7rem;"><i class="fa-solid fa-circle-check"></i> Paid</span>';
+                } else {
+                    statusHTML = `<button class="btn-primary" style="padding:4px 8px; font-size:0.7rem; margin:0;" onclick="closeAmortizationModal(); openPaymentModal(${loanId}, '${lenderName}', ${emiAmount}, ${balance + principalPortion})"><i class="fa-solid fa-receipt"></i> Pay EMI</button>`;
+                }
+                
+                const formatNum = (val) => "₹" + Math.max(0, val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                
+                tbody.innerHTML += `
+                <tr>
+                    <td style="padding:10px; font-size:0.8rem; font-weight:700;">Month ${m}</td>
+                    <td style="padding:10px; font-size:0.8rem;">${dateStr}</td>
+                    <td style="padding:10px; font-size:0.8rem; font-weight:700; color:#6366f1;">${formatNum(emiAmount)}</td>
+                    <td style="padding:10px; font-size:0.8rem;">${formatNum(principalPortion)}</td>
+                    <td style="padding:10px; font-size:0.8rem; color:var(--text-secondary);">${formatNum(interest)}</td>
+                    <td style="padding:10px; font-size:0.8rem; font-weight:600;">${formatNum(balance)}</td>
+                    <td style="padding:10px; font-size:0.8rem;">${statusHTML}</td>
+                </tr>`;
+            }
+            
+            document.getElementById('amortizationModal').style.display = 'flex';
+        }
+        
+        function closeAmortizationModal() {
+            document.getElementById('amortizationModal').style.display = 'none';
         }
 
         let currentOutstanding = 0;

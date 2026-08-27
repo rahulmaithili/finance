@@ -47,6 +47,7 @@ try {
         `branch_name` VARCHAR(100) DEFAULT NULL,
         `opening_balance` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
         `current_balance` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        `currency` VARCHAR(10) NOT NULL DEFAULT 'INR',
         `status` ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
         `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");

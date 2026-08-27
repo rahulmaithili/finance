@@ -7,21 +7,40 @@ $active_page = 'dashboard';
 
 // Fetch Current Month Income
 $current_month = date('Y-m');
-$stmt = $pdo->prepare("SELECT SUM(amount) as total FROM income WHERE DATE_FORMAT(income_date, '%Y-%m') = ?");
+$stmt = $pdo->prepare("
+    SELECT i.amount, a.currency 
+    FROM income i
+    JOIN bank_accounts a ON i.account_id = a.id
+    WHERE DATE_FORMAT(i.income_date, '%Y-%m') = ?
+");
 $stmt->execute([$current_month]);
-$total_income_this_month = $stmt->fetch()['total'] ?? 0.00;
+$total_income_this_month = 0.00;
+while ($row = $stmt->fetch()) {
+    $total_income_this_month += convert_currency($row['amount'], $row['currency'], 'INR');
+}
 
 // Fetch Current Month Expense
-$stmt = $pdo->prepare("SELECT SUM(amount) as total FROM expenses WHERE DATE_FORMAT(expense_date, '%Y-%m') = ?");
+$stmt = $pdo->prepare("
+    SELECT e.amount, a.currency 
+    FROM expenses e
+    JOIN bank_accounts a ON e.account_id = a.id
+    WHERE DATE_FORMAT(e.expense_date, '%Y-%m') = ?
+");
 $stmt->execute([$current_month]);
-$total_expense_this_month = $stmt->fetch()['total'] ?? 0.00;
+$total_expense_this_month = 0.00;
+while ($row = $stmt->fetch()) {
+    $total_expense_this_month += convert_currency($row['amount'], $row['currency'], 'INR');
+}
 
 // Net Profit / Loss
 $net_profit = $total_income_this_month - $total_expense_this_month;
 
 // Total Bank Balance
-$stmt = $pdo->query("SELECT SUM(current_balance) as total FROM bank_accounts WHERE status = 'active'");
-$total_bank_balance = $stmt->fetch()['total'] ?? 0.00;
+$stmt = $pdo->query("SELECT current_balance, currency FROM bank_accounts WHERE status = 'active'");
+$total_bank_balance = 0.00;
+while ($row = $stmt->fetch()) {
+    $total_bank_balance += convert_currency($row['current_balance'], $row['currency'], 'INR');
+}
 
 // Fetch total outstanding borrowed loans (Liability)
 $total_loans_outstanding = 0.00;
@@ -79,27 +98,29 @@ for ($i = 5; $i >= 0; $i--) {
 
 // Fetch 6-month income summary
 $stmt = $pdo->query("
-    SELECT DATE_FORMAT(income_date, '%Y-%m') as month_str, SUM(amount) as total 
-    FROM income 
-    WHERE income_date >= DATE_SUB(LAST_DAY(NOW()), INTERVAL 6 MONTH) 
-    GROUP BY month_str
+    SELECT DATE_FORMAT(i.income_date, '%Y-%m') as month_str, i.amount, a.currency 
+    FROM income i
+    JOIN bank_accounts a ON i.account_id = a.id
+    WHERE i.income_date >= DATE_SUB(LAST_DAY(NOW()), INTERVAL 6 MONTH)
 ");
 while ($row = $stmt->fetch()) {
-    if (isset($chart_months[$row['month_str']])) {
-        $chart_months[$row['month_str']]['income'] = (float)$row['total'];
+    $m = $row['month_str'];
+    if (isset($chart_months[$m])) {
+        $chart_months[$m]['income'] += convert_currency($row['amount'], $row['currency'], 'INR');
     }
 }
 
 // Fetch 6-month expense summary
 $stmt = $pdo->query("
-    SELECT DATE_FORMAT(expense_date, '%Y-%m') as month_str, SUM(amount) as total 
-    FROM expenses 
-    WHERE expense_date >= DATE_SUB(LAST_DAY(NOW()), INTERVAL 6 MONTH) 
-    GROUP BY month_str
+    SELECT DATE_FORMAT(e.expense_date, '%Y-%m') as month_str, e.amount, a.currency 
+    FROM expenses e
+    JOIN bank_accounts a ON e.account_id = a.id
+    WHERE e.expense_date >= DATE_SUB(LAST_DAY(NOW()), INTERVAL 6 MONTH)
 ");
 while ($row = $stmt->fetch()) {
-    if (isset($chart_months[$row['month_str']])) {
-        $chart_months[$row['month_str']]['expense'] = (float)$row['total'];
+    $m = $row['month_str'];
+    if (isset($chart_months[$m])) {
+        $chart_months[$m]['expense'] += convert_currency($row['amount'], $row['currency'], 'INR');
     }
 }
 
@@ -126,26 +147,26 @@ for ($d = 1; $d <= $days_in_month; $d++) {
 
 // Fetch daily income totals
 $stmt = $pdo->prepare("
-    SELECT DAY(income_date) as day_num, SUM(amount) as total 
-    FROM income 
-    WHERE DATE_FORMAT(income_date, '%Y-%m') = ?
-    GROUP BY day_num
+    SELECT DAY(i.income_date) as day_num, i.amount, a.currency 
+    FROM income i
+    JOIN bank_accounts a ON i.account_id = a.id
+    WHERE DATE_FORMAT(i.income_date, '%Y-%m') = ?
 ");
 $stmt->execute([$current_year_month]);
 while ($row = $stmt->fetch()) {
-    $daily_income[(int)$row['day_num']] = (float)$row['total'];
+    $daily_income[(int)$row['day_num']] += convert_currency($row['amount'], $row['currency'], 'INR');
 }
 
 // Fetch daily expense totals
 $stmt = $pdo->prepare("
-    SELECT DAY(expense_date) as day_num, SUM(amount) as total 
-    FROM expenses 
-    WHERE DATE_FORMAT(expense_date, '%Y-%m') = ?
-    GROUP BY day_num
+    SELECT DAY(e.expense_date) as day_num, e.amount, a.currency 
+    FROM expenses e
+    JOIN bank_accounts a ON e.account_id = a.id
+    WHERE DATE_FORMAT(e.expense_date, '%Y-%m') = ?
 ");
 $stmt->execute([$current_year_month]);
 while ($row = $stmt->fetch()) {
-    $daily_expense[(int)$row['day_num']] = (float)$row['total'];
+    $daily_expense[(int)$row['day_num']] += convert_currency($row['amount'], $row['currency'], 'INR');
 }
 
 $daily_income_data = array_values($daily_income);
@@ -172,18 +193,23 @@ $collection_pct = $total_collection_target > 0 ? round(($loan_given_collected / 
 // 3. Top Expense Categories
 $expense_categories = [];
 $stmt = $pdo->query("
-    SELECT category, SUM(amount) as total 
-    FROM expenses 
-    GROUP BY category 
-    ORDER BY total DESC 
-    LIMIT 5
+    SELECT e.category, e.amount, a.currency 
+    FROM expenses e
+    JOIN bank_accounts a ON e.account_id = a.id
 ");
-$cat_totals = [];
-$cat_labels = [];
+$cat_map = [];
 while ($row = $stmt->fetch()) {
-    $cat_labels[] = $row['category'];
-    $cat_totals[] = (float)$row['total'];
+    $cat = $row['category'];
+    $amt = convert_currency($row['amount'], $row['currency'], 'INR');
+    if (!isset($cat_map[$cat])) {
+        $cat_map[$cat] = 0.00;
+    }
+    $cat_map[$cat] += $amt;
 }
+arsort($cat_map);
+$cat_map = array_slice($cat_map, 0, 5, true);
+$cat_labels = array_keys($cat_map);
+$cat_totals = array_values($cat_map);
 
 // 4. Recent Activity Logs (Last 6)
 $recent_activities = [];
@@ -448,9 +474,11 @@ try {
                         <div style="display: flex; gap: 20px; flex-wrap: wrap;">
                             <!-- Monthly Bar Chart -->
                             <div class="dashboard-card" style="flex: 1; min-width: 200px; display: flex; flex-direction: column;">
-                                <div class="dashboard-card-header">
+                                <div class="dashboard-card-header" style="display:flex; justify-content:space-between; align-items:center;">
                                     <h2>Income vs Expense</h2>
-                                    <span class="header-action">Bar View</span>
+                                    <button onclick="toggleForecast()" id="forecastBtn" class="btn-secondary" style="font-size:0.75rem; padding:4px 8px; margin:0; border:1px solid var(--border-color); background:transparent; display:flex; align-items:center; gap:4px; cursor:pointer;">
+                                        <i class="fa-solid fa-chart-line"></i> Show Forecast
+                                    </button>
                                 </div>
                                 <div style="flex: 1; min-height: 200px; position: relative; padding: 10px 0;">
                                     <canvas id="monthlyBarChart"></canvas>
@@ -813,22 +841,27 @@ try {
 
         // 3. Monthly Summary Bar Chart
         const barCtx = document.getElementById('monthlyBarChart');
+        const histLabels = <?= json_encode($labels) ?>;
+        const histIncome = <?= json_encode($income_data) ?>;
+        const histExpense = <?= json_encode($expense_data) ?>;
+        let isForecastActive = false;
+
         if (barCtx) {
-            new Chart(barCtx.getContext('2d'), {
+            window.monthlySummaryChart = new Chart(barCtx.getContext('2d'), {
                 type: 'bar',
                 data: {
-                    labels: <?= json_encode($labels) ?>,
+                    labels: histLabels,
                     datasets: [
                         {
                             label: 'Income',
-                            data: <?= json_encode($income_data) ?>,
+                            data: histIncome,
                             backgroundColor: successColor,
                             borderRadius: 6,
                             maxBarThickness: 15
                         },
                         {
                             label: 'Expense',
-                            data: <?= json_encode($expense_data) ?>,
+                            data: histExpense,
                             backgroundColor: dangerColor,
                             borderRadius: 6,
                             maxBarThickness: 15
@@ -853,6 +886,180 @@ try {
                     }
                 }
             });
+        }
+
+        function toggleForecast() {
+            if (!barCtx) return;
+            isForecastActive = !isForecastActive;
+            
+            const btn = document.getElementById('forecastBtn');
+            if (isForecastActive) {
+                btn.innerHTML = '<i class="fa-solid fa-chart-bar"></i> Hide Forecast';
+                btn.classList.add('active');
+                
+                const N = histIncome.length;
+                const x = Array.from({length: N}, (_, i) => i);
+                const meanX = (N - 1) / 2;
+                
+                function linearForecast(data) {
+                    const meanY = data.reduce((a,b) => a+b, 0) / N;
+                    let num = 0;
+                    let den = 0;
+                    for (let i = 0; i < N; i++) {
+                        num += (x[i] - meanX) * (data[i] - meanY);
+                        den += Math.pow(x[i] - meanX, 2);
+                    }
+                    const m = den !== 0 ? num / den : 0;
+                    const c = meanY - m * meanX;
+                    
+                    const proj = [];
+                    for (let i = 6; i <= 8; i++) {
+                        proj.push(Math.max(0, m * i + c));
+                    }
+                    return proj;
+                }
+                
+                const fcIncome = linearForecast(histIncome);
+                const fcExpense = linearForecast(histExpense);
+                
+                const lastLabel = histLabels[histLabels.length - 1];
+                const parts = lastLabel.split(' ');
+                const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                let mIdx = monthNames.indexOf(parts[0]);
+                let year = parseInt(parts[1]);
+                const futureLabels = [...histLabels];
+                for (let i = 1; i <= 3; i++) {
+                    mIdx++;
+                    if (mIdx > 11) { mIdx = 0; year++; }
+                    futureLabels.push(monthNames[mIdx] + " " + year);
+                }
+                
+                const datasetHistInc = Array(9).fill(null);
+                const datasetHistExp = Array(9).fill(null);
+                const datasetFcInc = Array(9).fill(null);
+                const datasetFcExp = Array(9).fill(null);
+                
+                for (let i = 0; i < N; i++) {
+                    datasetHistInc[i] = histIncome[i];
+                    datasetHistExp[i] = histExpense[i];
+                }
+                datasetFcInc[N - 1] = histIncome[N - 1];
+                datasetFcExp[N - 1] = histExpense[N - 1];
+                
+                for (let i = 0; i < 3; i++) {
+                    datasetFcInc[N + i] = fcIncome[i];
+                    datasetFcExp[N + i] = fcExpense[i];
+                }
+                
+                window.monthlySummaryChart.destroy();
+                window.monthlySummaryChart = new Chart(barCtx.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: futureLabels,
+                        datasets: [
+                            {
+                                label: 'Hist Income',
+                                data: datasetHistInc,
+                                borderColor: successColor,
+                                backgroundColor: 'transparent',
+                                fill: false,
+                                tension: 0.3,
+                                borderWidth: 2
+                            },
+                            {
+                                label: 'FC Income',
+                                data: datasetFcInc,
+                                borderColor: successColor,
+                                borderDash: [5, 5],
+                                fill: false,
+                                tension: 0.3,
+                                borderWidth: 2,
+                                pointRadius: 4
+                            },
+                            {
+                                label: 'Hist Expense',
+                                data: datasetHistExp,
+                                borderColor: dangerColor,
+                                backgroundColor: 'transparent',
+                                fill: false,
+                                tension: 0.3,
+                                borderWidth: 2
+                            },
+                            {
+                                label: 'FC Expense',
+                                data: datasetFcExp,
+                                borderColor: dangerColor,
+                                borderDash: [5, 5],
+                                fill: false,
+                                tension: 0.3,
+                                borderWidth: 2,
+                                pointRadius: 4
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: true, labels: { color: textColor, font: fontOptions } }
+                        },
+                        scales: {
+                            x: {
+                                grid: { display: false },
+                                ticks: { color: textColor, font: fontOptions }
+                            },
+                            y: {
+                                grid: { color: borderColor },
+                                ticks: { color: textColor, font: fontOptions }
+                            }
+                        }
+                    }
+                });
+            } else {
+                btn.innerHTML = '<i class="fa-solid fa-chart-line"></i> Show Forecast';
+                btn.classList.remove('active');
+                
+                window.monthlySummaryChart.destroy();
+                window.monthlySummaryChart = new Chart(barCtx.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: histLabels,
+                        datasets: [
+                            {
+                                label: 'Income',
+                                data: histIncome,
+                                backgroundColor: successColor,
+                                borderRadius: 6,
+                                maxBarThickness: 15
+                            },
+                            {
+                                label: 'Expense',
+                                data: histExpense,
+                                backgroundColor: dangerColor,
+                                borderRadius: 6,
+                                maxBarThickness: 15
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            x: {
+                                grid: { display: false },
+                                ticks: { color: textColor, font: fontOptions }
+                            },
+                            y: {
+                                grid: { color: borderColor },
+                                ticks: { color: textColor, font: fontOptions }
+                            }
+                        }
+                    }
+                });
+            }
         }
 
         // 4. Category Pie Chart

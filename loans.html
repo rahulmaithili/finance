@@ -206,7 +206,42 @@
             <div id="paymentHistList" style="display:flex;flex-direction:column;gap:8px;"></div>
         </div>
     </div>
-</div>
+
+    <!-- Loan Amortization Modal -->
+    <div id="amortizationModal" style="display:none;position:fixed;inset:0;z-index:9150;background:rgba(0,0,0,0.85);align-items:center;justify-content:center;padding:16px;">
+        <div class="modal-content" style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:16px;max-width:800px;width:100%;padding:24px;position:relative;display:flex;flex-direction:column;gap:16px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                    <h3 id="amortLenderName" style="color:#fff;margin:0 0 4px;font-size:1.15rem;">Loan Repayment Schedule</h3>
+                    <p style="color:var(--text-secondary);font-size:0.8rem;margin:0;">Principal & interest payment amortization breakdown.</p>
+                </div>
+                <button onclick="closeAmortizationModal()" style="width:34px;height:34px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);color:#fff;border-radius:8px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background='rgba(255,255,255,0.25)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div style="overflow-x:auto;max-height:400px;">
+                <table style="width:100%;border-collapse:collapse;text-align:left;">
+                    <thead>
+                        <tr style="border-bottom:1px solid var(--border-color);">
+                            <th style="padding:10px;font-size:0.78rem;color:var(--text-secondary);font-weight:700;">Month</th>
+                            <th style="padding:10px;font-size:0.78rem;color:var(--text-secondary);font-weight:700;">Date</th>
+                            <th style="padding:10px;font-size:0.78rem;color:var(--text-secondary);font-weight:700;">EMI Amount</th>
+                            <th style="padding:10px;font-size:0.78rem;color:var(--text-secondary);font-weight:700;">Principal</th>
+                            <th style="padding:10px;font-size:0.78rem;color:var(--text-secondary);font-weight:700;">Interest</th>
+                            <th style="padding:10px;font-size:0.78rem;color:var(--text-secondary);font-weight:700;">Remaining Bal</th>
+                            <th style="padding:10px;font-size:0.78rem;color:var(--text-secondary);font-weight:700;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="amortizationTableBody" style="color:var(--text-light);">
+                        <!-- Filled dynamically -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <div style="display:flex;justify-content:flex-end;">
+                <button type="button" class="btn-secondary" style="margin:0;" onclick="closeAmortizationModal()">Close</button>
+            </div>
+        </div>
+    </div>
 
 <button class="mobile-fab" id="mobileLoanFab"><i class="fa-solid fa-plus"></i></button>
 
@@ -369,7 +404,10 @@
                             <div style="font-size:0.68rem;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;">Monthly EMI</div>
                             <div style="font-size:1.2rem;font-weight:900;color:#fff;">${formatCurrency(emi)}</div>
                         </div>
-                        ${!closed?`<button onclick="openPaymentModal('${l.id}')" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);color:#fff;padding:9px 16px;border-radius:10px;cursor:pointer;font-size:0.8rem;font-weight:700;display:flex;align-items:center;gap:6px;"><i class="fa-solid fa-check"></i>Mark Paid</button>`:`<span style="color:rgba(255,255,255,0.7);font-size:0.82rem;">✓ Loan Cleared</span>`}
+                        <div style="display:flex; gap:6px; align-items:center;">
+                            <button onclick="showAmortizationModal('${l.id}', '${l.lender_name.replace(/'/g, "\\'")}', ${l.principal}, ${l.interest_rate}, ${l.tenure_months}, ${emi}, ${l.emi_paid || 0}, '${l.start_date}')" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);color:#fff;padding:8px 12px;border-radius:10px;cursor:pointer;font-size:0.78rem;font-weight:700;display:flex;align-items:center;gap:4px;"><i class="fa-solid fa-calendar-days"></i>Schedule</button>
+                            ${!closed?`<button onclick="openPaymentModal('${l.id}')" style="background:rgba(255,255,255,0.25);border:1px solid rgba(255,255,255,0.35);color:#fff;padding:8px 12px;border-radius:10px;cursor:pointer;font-size:0.78rem;font-weight:700;display:flex;align-items:center;gap:4px;"><i class="fa-solid fa-check"></i>Pay</button>`:`<span style="color:rgba(255,255,255,0.85);font-size:0.8rem;font-weight:700;">Cleared</span>`}
+                        </div>
                     </div>
 
                     ${l.notes?`<div style="font-size:0.79rem;color:rgba(255,255,255,0.5);background:rgba(255,255,255,0.04);padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.07);"><i class="fa-solid fa-note-sticky" style="margin-right:6px;color:${c};"></i>${l.notes}</div>`:''}
@@ -558,6 +596,57 @@
     const fab=document.getElementById('mobileLoanFab');if(fab)fab.addEventListener('click',()=>openLoanModal());
     document.getElementById('loanModal').addEventListener('click',e=>{if(e.target===document.getElementById('loanModal'))closeLoanModal();});
     document.getElementById('paymentModal').addEventListener('click',e=>{if(e.target===document.getElementById('paymentModal'))closePaymentModal();});
+    
+    function showAmortizationModal(loanId, lenderName, principal, rate, tenure, emi, emiPaid, startDate) {
+        document.getElementById('amortLenderName').textContent = "Schedule for: " + lenderName;
+        const tbody = document.getElementById('amortizationTableBody');
+        tbody.innerHTML = '';
+        
+        let balance = parseFloat(principal);
+        const monthlyRate = (parseFloat(rate) / 100) / 12;
+        const emiAmount = parseFloat(emi);
+        const paidCount = parseInt(emiPaid);
+        const start = new Date(startDate);
+        
+        for (let m = 1; m <= parseInt(tenure); m++) {
+            const interest = balance * monthlyRate;
+            const principalPortion = emiAmount - interest;
+            balance = balance - principalPortion;
+            
+            const instDate = new Date(start);
+            instDate.setMonth(start.getMonth() + (m - 1));
+            const dateStr = instDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+            
+            const isPaid = m <= paidCount;
+            let statusHTML = '';
+            if (isPaid) {
+                statusHTML = '<span class="badge badge-success" style="font-size:0.7rem; color:#10b981; background:rgba(16,185,129,0.15); padding:4px 8px; border-radius:4px;"><i class="fa-solid fa-circle-check"></i> Paid</span>';
+            } else {
+                statusHTML = `<button class="btn-primary" style="padding:4px 8px; font-size:0.7rem; margin:0;" onclick="closeAmortizationModal(); openPaymentModal('${loanId}')"><i class="fa-solid fa-receipt"></i> Pay EMI</button>`;
+            }
+            
+            const formatNum = (val) => "₹" + Math.max(0, val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            
+            tbody.innerHTML += `
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                <td style="padding:10px; font-size:0.8rem; font-weight:700;">Month ${m}</td>
+                <td style="padding:10px; font-size:0.8rem;">${dateStr}</td>
+                <td style="padding:10px; font-size:0.8rem; font-weight:700; color:#6366f1;">${formatNum(emiAmount)}</td>
+                <td style="padding:10px; font-size:0.8rem;">${formatNum(principalPortion)}</td>
+                <td style="padding:10px; font-size:0.8rem; color:var(--text-secondary);">${formatNum(interest)}</td>
+                <td style="padding:10px; font-size:0.8rem; font-weight:600;">${formatNum(balance)}</td>
+                <td style="padding:10px; font-size:0.8rem;">${statusHTML}</td>
+            </tr>`;
+        }
+        
+        document.getElementById('amortizationModal').style.display = 'flex';
+    }
+    
+    function closeAmortizationModal() {
+        document.getElementById('amortizationModal').style.display = 'none';
+    }
+    
+    document.getElementById('amortizationModal').addEventListener('click',e=>{if(e.target===document.getElementById('amortizationModal'))closeAmortizationModal();});
 </script>
 </body>
 </html>

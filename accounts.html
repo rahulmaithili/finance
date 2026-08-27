@@ -102,11 +102,23 @@
                                     </div>
                                 </div>
                                 
+                                </div>
+                                
                                 <div class="form-group">
-                                    <label class="form-label">Opening Balance (₹)</label>
+                                    <label class="form-label">Currency</label>
+                                    <select id="currency" class="form-control" style="padding-left: 15px;" required>
+                                        <option value="INR" selected>INR (₹)</option>
+                                        <option value="USD">USD ($)</option>
+                                        <option value="EUR">EUR (€)</option>
+                                        <option value="GBP">GBP (£)</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Opening Balance</label>
                                     <div class="input-icon-wrapper">
                                         <input type="number" id="opening_balance" class="form-control" placeholder="0.00" step="0.01" min="0" required value="0.00">
-                                        <i class="fa-solid fa-indian-rupee-sign" style="left: 14px;"></i>
+                                        <i class="fa-solid fa-coins" style="left: 14px;"></i>
                                     </div>
                                     <div id="balanceHint" style="font-size:0.75rem; color:var(--text-secondary); margin-top:5px; display:none;">
                                         Updating opening balance will automatically adjust current balance.
@@ -192,10 +204,20 @@
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Opening Balance (₹)</label>
+                    <label class="form-label">Currency</label>
+                    <select id="m_currency" class="form-control" style="padding-left: 14px;" required>
+                        <option value="INR" selected>INR (₹)</option>
+                        <option value="USD">USD ($)</option>
+                        <option value="EUR">EUR (€)</option>
+                        <option value="GBP">GBP (£)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Opening Balance</label>
                     <div class="input-icon-wrapper">
                         <input type="number" id="m_opening_balance" class="form-control" placeholder="0.00" step="0.01" min="0" required value="0.00">
-                        <i class="fa-solid fa-indian-rupee-sign" style="left:14px;"></i>
+                        <i class="fa-solid fa-coins" style="left:14px;"></i>
                     </div>
                 </div>
 
@@ -293,13 +315,13 @@
                         
                         <div style="display:flex; justify-content:space-between; font-size:0.75rem; opacity:0.8; margin-top:-5px; margin-bottom:5px;">
                             <span><i class="fa-solid fa-code-branch" style="margin-right:2px;"></i> ${acc.branch_name || 'N/A'}</span>
-                            <span><i class="fa-solid fa-barcode" style="margin-right:2px;"></i> ${acc.ifsc_code || 'N/A'}</span>
+                            <span><i class="fa-solid fa-money-bill-1" style="margin-right:2px;"></i> ${acc.currency ? acc.currency.toUpperCase() : 'INR'}</span>
                         </div>
                         
                         <div class="bank-balance-wrapper">
                             <div>
                                 <div class="bank-balance-label">Current Balance</div>
-                                <div class="bank-balance">${formatCurrency(acc.current_balance)}</div>
+                                <div class="bank-balance">${formatCurrency(acc.current_balance, acc.currency)}</div>
                             </div>
                             <div>
                                 <span class="badge ${isInactive ? 'badge-danger' : 'badge-success'}" style="font-size: 0.65rem; text-transform:capitalize;">
@@ -340,6 +362,7 @@
             const ifsc = document.getElementById(prefix + 'ifsc_code').value.trim();
             const branch = document.getElementById(prefix + 'branch_name').value.trim();
             const opBal = parseFloat(document.getElementById(prefix + 'opening_balance').value || 0);
+            const currency = document.getElementById(prefix + 'currency').value;
             const status = document.getElementById(prefix + 'status').value;
 
             if (editMode) {
@@ -358,6 +381,7 @@
                             branch_name: branch,
                             opening_balance: opBal,
                             current_balance: newCurrentBalance,
+                            currency: currency,
                             status: status
                         });
                     }
@@ -376,6 +400,7 @@
                     branch_name: branch,
                     opening_balance: opBal,
                     current_balance: opBal,
+                    currency: currency,
                     status: status,
                     created_at: firebase.firestore.FieldValue.serverTimestamp()
                 }).then(() => {
@@ -400,6 +425,7 @@
                         document.getElementById(prefix + 'account_number').value = data.account_number;
                         document.getElementById(prefix + 'ifsc_code').value = data.ifsc_code || '';
                         document.getElementById(prefix + 'branch_name').value = data.branch_name || '';
+                        document.getElementById(prefix + 'currency').value = data.currency || 'INR';
                         document.getElementById(prefix + 'opening_balance').value = data.opening_balance;
                         document.getElementById(prefix + 'status').value = data.status;
                     });
@@ -465,6 +491,9 @@
             
             document.getElementById('accountForm').reset();
             document.getElementById('mobileAccountForm').reset();
+
+            document.getElementById('currency').value = 'INR';
+            document.getElementById('m_currency').value = 'INR';
 
             // Restore defaults
             document.getElementById('formTitle').textContent = 'Add Bank Account';
