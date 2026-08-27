@@ -457,11 +457,14 @@ window.formatCurrency = function(amount, currencyCode = null) {
                 btn.style.marginRight = "8px";
                 btn.innerHTML = '<i class="fa-solid fa-palette"></i>';
                 navActions.prepend(btn);
-                
-                // Popover layout
-                const popover = document.createElement("div");
+            }
+
+            // Check if themePickerPopover already exists in body
+            let popover = document.getElementById("themePickerPopover");
+            if (!popover) {
+                popover = document.createElement("div");
                 popover.id = "themePickerPopover";
-                popover.style.cssText = "display:none; position:absolute; top:55px; right:0; width:310px; background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:12px; box-shadow:var(--shadow-main); z-index:99999; padding:16px; box-sizing:border-box;";
+                popover.style.cssText = "display:none; position:fixed; z-index:99999; width:310px; background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:12px; box-shadow:var(--shadow-main); padding:16px; box-sizing:border-box;";
                 
                 popover.innerHTML = `
                     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid var(--border-color); color:var(--text-light);">
@@ -487,9 +490,7 @@ window.formatCurrency = function(amount, currencyCode = null) {
                         <button type="button" class="btn-primary" id="popoverThemeApply" style="flex:1.5; padding:6px; font-size:0.75rem; justify-content:center; margin:0; background:var(--primary); border-color:var(--primary);"><i class="fa-solid fa-check"></i> Apply</button>
                     </div>
                 `;
-                
-                navActions.style.position = "relative";
-                navActions.appendChild(popover);
+                document.body.appendChild(popover);
                 
                 // Add style rules
                 if (!document.getElementById("theme-switch-styles")) {
@@ -527,7 +528,8 @@ window.formatCurrency = function(amount, currencyCode = null) {
                         <span class="popover-palette-dot" style="background:${p.bgSidebar}; border:1px solid rgba(255,255,255,0.08);"></span>
                     `;
                     
-                    pItem.onclick = function() {
+                    pItem.onclick = function(e) {
+                        e.stopPropagation();
                         document.querySelectorAll(".popover-palette-item").forEach(el => el.classList.remove("active"));
                         pItem.classList.add("active");
                         tempPalette = p.id;
@@ -547,11 +549,27 @@ window.formatCurrency = function(amount, currencyCode = null) {
                     });
                 };
                 
-                // Toggle Popover visibility
-                btn.onclick = function(e) {
-                    e.stopPropagation();
-                    popover.style.display = popover.style.display === "none" ? "block" : "none";
-                };
+                // Trigger popover on PC click
+                const themeBtnPC = document.getElementById("themePickerBtn");
+                if (themeBtnPC) {
+                    themeBtnPC.onclick = function(e) {
+                        e.stopPropagation();
+                        popover.style.top = "55px";
+                        popover.style.right = "16px";
+                        popover.style.display = popover.style.display === "none" ? "block" : "none";
+                    };
+                }
+                
+                // Trigger popover on Mobile click
+                const themeBtnMobile = document.getElementById("themeToggleBtn");
+                if (themeBtnMobile) {
+                    themeBtnMobile.onclick = function(e) {
+                        e.stopPropagation();
+                        popover.style.top = "60px";
+                        popover.style.right = "10px";
+                        popover.style.display = popover.style.display === "none" ? "block" : "none";
+                    };
+                }
                 
                 document.getElementById("closeThemePopover").onclick = function(e) {
                     e.stopPropagation();

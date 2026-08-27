@@ -517,7 +517,7 @@ $payments = $pdo->query("
                                                 <i class="fa-solid fa-receipt"></i> Mark Paid
                                             </button>
                                         <?php endif; ?>
-                                        <button class="btn-secondary" style="flex:1; justify-content:center; padding:8px 12px; font-size:0.82rem;" onclick="showAmortizationModal(<?= $l['id'] ?>, '<?= clean($l['lender_name']) ?>', <?= $l['principal'] ?>, <?= $l['interest_rate'] ?>, <?= $l['tenure_months'] ?>, <?= $l['emi_amount'] ?>, <?= $l['emi_paid'] ?>, '<?= $l['start_date'] ?>')">
+                                        <button class="btn-secondary" style="flex:1; justify-content:center; padding:8px 12px; font-size:0.82rem;" onclick="showAmortizationModal('<?= $l['id'] ?>', '<?= clean($l['lender_name']) ?>', '<?= $l['principal'] ?>', '<?= $l['interest_rate'] ?>', '<?= $l['tenure_months'] ?>', '<?= $l['emi_amount'] ?>', '<?= $l['emi_paid'] ?>', '<?= $l['start_date'] ?>')">
                                             <i class="fa-solid fa-calendar-days"></i> Schedule
                                         </button>
                                     </div>
