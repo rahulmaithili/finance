@@ -100,6 +100,29 @@ function require_login() {
     }
 }
 
+if (!function_exists('getSetting')) {
+    function getSetting($key, $default = '') {
+        global $pdo;
+        try {
+            $stmt = $pdo->prepare("SELECT setting_value FROM system_settings WHERE setting_key = ?");
+            $stmt->execute([$key]);
+            $row = $stmt->fetch();
+            return $row ? $row['setting_value'] : $default;
+        } catch (PDOException $e) { return $default; }
+    }
+}
+
+if (!function_exists('saveSetting')) {
+    function saveSetting($key, $value) {
+        global $pdo;
+        try {
+            $stmt = $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value)
+                VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?");
+            $stmt->execute([$key, $value, $value]);
+        } catch (PDOException $e) { }
+    }
+}
+
 // Role authorization guard
 function require_role($allowed_roles = []) {
     require_login();
