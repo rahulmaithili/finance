@@ -191,6 +191,15 @@ $users = $pdo->query("SELECT * FROM users ORDER BY id DESC")->fetchAll();
             transition: all 0.2s;
             text-decoration: none;
         }
+        .btn-view {
+            background: rgba(16, 185, 129, 0.12);
+            color: #34d399;
+            border-color: rgba(16, 185, 129, 0.25);
+        }
+        .btn-view:hover {
+            background: rgba(16, 185, 129, 0.25);
+            color: #6ee7b7;
+        }
         .btn-edit {
             background: rgba(99, 102, 241, 0.15);
             color: #818cf8;
@@ -312,15 +321,32 @@ $users = $pdo->query("SELECT * FROM users ORDER BY id DESC")->fetchAll();
                                             </td>
                                             <td><?= clean(date('d M Y', strtotime($u['created_at']))) ?></td>
                                             <td class="actions-cell">
-                                                <!-- Admins cannot edit/delete Super Admins -->
+                                                <!-- View button always visible -->
+                                                <button class="btn-icon btn-view"
+                                                    title="View Profile"
+                                                    onclick='viewUser(<?= htmlspecialchars(json_encode([
+                                                        "id"         => $u["id"],
+                                                        "full_name"  => $u["full_name"],
+                                                        "email"      => $u["email"],
+                                                        "role"       => $u["role"],
+                                                        "status"     => $u["status"],
+                                                        "created_at" => date("d M Y, H:i", strtotime($u["created_at"])),
+                                                        "updated_at" => !empty($u["updated_at"]) ? date("d M Y, H:i", strtotime($u["updated_at"])) : "—",
+                                                        "is_you"     => ($u["id"] === (int)$_SESSION["user_id"])
+                                                    ]), ENT_QUOTES) ?>)'>
+                                                    <i class="fa-solid fa-eye"></i>
+                                                </button>
+
+                                                <!-- Edit & Delete only for permitted roles -->
                                                 <?php if ($_SESSION['user_role'] === 'super_admin' || $u['role'] !== 'super_admin'): ?>
-                                                    <a href="?edit=<?= $u['id'] ?>" class="btn-icon btn-edit" title="Edit">
-                                                        <i class="fa-solid fa-pen"></i>
+                                                    <a href="?edit=<?= $u['id'] ?>" class="btn-icon btn-edit" title="Edit User">
+                                                        <i class="fa-solid fa-user-pen"></i>
                                                     </a>
                                                     <?php if ($u['id'] !== (int)$_SESSION['user_id']): ?>
-                                                        <a href="?delete=<?= $u['id'] ?>" class="btn-icon btn-delete" title="Delete" onclick="return confirm('Are you sure you want to delete or deactivate this user?');">
+                                                        <button class="btn-icon btn-delete" title="Delete / Deactivate"
+                                                            onclick="confirmDelete(<?= $u['id'] ?>, '<?= addslashes(htmlspecialchars($u['full_name'])) ?>')">
                                                             <i class="fa-solid fa-trash"></i>
-                                                        </a>
+                                                        </button>
                                                     <?php endif; ?>
                                                 <?php endif; ?>
                                             </td>
@@ -330,11 +356,11 @@ $users = $pdo->query("SELECT * FROM users ORDER BY id DESC")->fetchAll();
                             </table>
                         </div>
                     </div>
-                    
+
                     <!-- Right: Add / Edit User Form -->
                     <div class="form-card">
                         <div class="form-card-title">
-                            <span><?= $edit_mode ? 'Edit User details' : 'Register User' ?></span>
+                            <span><?= $edit_mode ? 'Edit User details' : 'Add User / Define Role' ?></span>
                             <?php if ($edit_mode): ?>
                                 <a href="users.php" class="btn-icon" style="border: none;" title="Cancel Edit">
                                     <i class="fa-solid fa-xmark"></i>
@@ -350,7 +376,7 @@ $users = $pdo->query("SELECT * FROM users ORDER BY id DESC")->fetchAll();
                             <?php endif; ?>
                             
                             <div class="form-group">
-                                <label class="form-label" for="full_name">Full Name</label>
+                                <label class="form-label" style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.5px;">Full Name</label>
                                 <div class="input-icon-wrapper">
                                     <input type="text" id="full_name" name="full_name" class="form-control" placeholder="e.g. John Doe" required value="<?= $edit_mode ? clean($edit_user['full_name']) : '' ?>">
                                     <i class="fa-solid fa-user" style="left: 14px;"></i>
@@ -358,15 +384,15 @@ $users = $pdo->query("SELECT * FROM users ORDER BY id DESC")->fetchAll();
                             </div>
                             
                             <div class="form-group">
-                                <label class="form-label" for="email">Email Address</label>
+                                <label class="form-label" style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.5px;">Email Address</label>
                                 <div class="input-icon-wrapper">
-                                    <input type="email" id="email" name="email" class="form-control" placeholder="e.g. john@domain.com" required value="<?= $edit_mode ? clean($edit_user['email']) : '' ?>">
+                                    <input type="email" id="email" name="email" class="form-control" placeholder="e.g. john@company.com" required value="<?= $edit_mode ? clean($edit_user['email']) : '' ?>">
                                     <i class="fa-solid fa-envelope" style="left: 14px;"></i>
                                 </div>
                             </div>
                             
                             <div class="form-group">
-                                <label class="form-label" for="password">Password <?= $edit_mode ? '(Leave blank to keep same)' : '' ?></label>
+                                <label class="form-label" style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.5px;">Password <?= $edit_mode ? '(Leave blank to keep same)' : '' ?></label>
                                 <div class="input-icon-wrapper">
                                     <input type="password" id="password" name="password" class="form-control" placeholder="••••••••" <?= $edit_mode ? '' : 'required' ?>>
                                     <i class="fa-solid fa-lock" style="left: 14px;"></i>
@@ -374,32 +400,30 @@ $users = $pdo->query("SELECT * FROM users ORDER BY id DESC")->fetchAll();
                             </div>
                             
                             <div class="form-group">
-                                <label class="form-label" for="role">User Role</label>
+                                <label class="form-label" style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.5px;">User Role</label>
                                 <select id="role" name="role" class="form-control" style="padding-left: 15px;" required>
-                                    <!-- Only Super Admin can promote/demote other Super Admins -->
                                     <?php if ($_SESSION['user_role'] === 'super_admin'): ?>
                                         <option value="super_admin" <?= ($edit_mode && $edit_user['role'] === 'super_admin') ? 'selected' : '' ?>>Super Admin</option>
                                     <?php endif; ?>
                                     <option value="admin" <?= ($edit_mode && $edit_user['role'] === 'admin') ? 'selected' : '' ?>>Admin (Full Access)</option>
-                                    <option value="staff" <?= ($edit_mode && $edit_user['role'] === 'staff') ? 'selected' : '' ?>>Entry Staff (Log Transactions, No Edit/Delete)</option>
-                                    <option value="viewer" <?= ($edit_mode && $edit_user['role'] === 'viewer') ? 'selected' : '' ?>>Viewer (Read-Only Reports)</option>
+                                    <option value="staff" <?= ($edit_mode && $edit_user['role'] === 'staff') ? 'selected' : '' ?>>Entry Staff (Log Transactions)</option>
+                                    <option value="viewer" <?= ($edit_mode && $edit_user['role'] === 'viewer') ? 'selected' : '' ?>>Viewer (Read-Only Reports Access)</option>
                                 </select>
                             </div>
                             
                             <div class="form-group">
-                                <label class="form-label" for="status">Account Status</label>
+                                <label class="form-label" style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.5px;">Account Status</label>
                                 <select id="status" name="status" class="form-control" style="padding-left: 15px;" required>
                                     <option value="active" <?= ($edit_mode && $edit_user['status'] === 'active') ? 'selected' : '' ?>>Active</option>
-                                    <!-- Logged in user cannot deactivate themselves -->
                                     <?php if (!$edit_mode || (int)$edit_user['id'] !== (int)$_SESSION['user_id']): ?>
                                         <option value="inactive" <?= ($edit_mode && $edit_user['status'] === 'inactive') ? 'selected' : '' ?>>Inactive</option>
                                     <?php endif; ?>
                                 </select>
                             </div>
                             
-                            <button type="submit" class="btn-primary" style="margin-top: 10px;">
+                            <button type="submit" class="btn-primary" style="margin-top: 10px; width: 100%; justify-content: center;">
                                 <i class="fa-solid <?= $edit_mode ? 'fa-user-pen' : 'fa-user-plus' ?>"></i>
-                                <span><?= $edit_mode ? 'Save Changes' : 'Create User' ?></span>
+                                <span><?= $edit_mode ? 'Save Changes' : '+ Save User Access' ?></span>
                             </button>
                         </form>
                     </div>
@@ -408,13 +432,103 @@ $users = $pdo->query("SELECT * FROM users ORDER BY id DESC")->fetchAll();
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
     $(document).ready(function() {
         $('#usersTable').DataTable({
-            order: [[0, 'asc']],
-            responsive: true
+            order: [[4, 'desc']],
+            responsive: true,
+            columnDefs: [{ orderable: false, targets: 5 }]
         });
     });
+
+    function viewUser(u) {
+        const roleColors = {
+            super_admin: '#ef4444',
+            admin: '#f59e0b',
+            staff: '#3b82f6',
+            viewer: '#10b981'
+        };
+        const roleColor = roleColors[u.role] || '#6366f1';
+        const roleLabel = u.role.replace(/_/g,' ').replace(/\b\w/g, c=>c.toUpperCase());
+        const statusColor = u.status === 'active' ? '#10b981' : '#ef4444';
+        const initials = u.full_name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+
+        Swal.fire({
+            title: '',
+            html: `
+                <div style="text-align:left;">
+                    <!-- Profile Header -->
+                    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;padding:16px;background:linear-gradient(135deg,rgba(99,102,241,0.15),rgba(139,92,246,0.08));border-radius:12px;border:1px solid rgba(99,102,241,0.2);">
+                        <div style="width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:800;color:white;flex-shrink:0;">
+                            ${initials}
+                        </div>
+                        <div>
+                            <div style="font-size:1.1rem;font-weight:800;color:var(--text-light);">${u.full_name} ${u.is_you ? '<span style="font-size:0.7rem;color:#6366f1;background:rgba(99,102,241,0.15);padding:2px 8px;border-radius:20px;margin-left:6px;">You</span>' : ''}</div>
+                            <div style="font-size:0.82rem;color:var(--text-secondary);margin-top:2px;"><i class="fa-solid fa-envelope" style="margin-right:5px;color:#6366f1;"></i>${u.email}</div>
+                        </div>
+                    </div>
+
+                    <!-- Details Grid -->
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+                        <div style="padding:12px;background:rgba(255,255,255,0.03);border-radius:10px;border:1px solid rgba(255,255,255,0.06);">
+                            <div style="font-size:0.68rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;"><i class="fa-solid fa-shield-halved" style="margin-right:4px;"></i>Role</div>
+                            <span style="background:${roleColor}22;color:${roleColor};border:1px solid ${roleColor}44;padding:3px 10px;border-radius:20px;font-size:0.78rem;font-weight:700;">${roleLabel}</span>
+                        </div>
+                        <div style="padding:12px;background:rgba(255,255,255,0.03);border-radius:10px;border:1px solid rgba(255,255,255,0.06);">
+                            <div style="font-size:0.68rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;"><i class="fa-solid fa-circle-dot" style="margin-right:4px;"></i>Status</div>
+                            <span style="background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}44;padding:3px 10px;border-radius:20px;font-size:0.78rem;font-weight:700;">${u.status.charAt(0).toUpperCase()+u.status.slice(1)}</span>
+                        </div>
+                        <div style="padding:12px;background:rgba(255,255,255,0.03);border-radius:10px;border:1px solid rgba(255,255,255,0.06);">
+                            <div style="font-size:0.68rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;"><i class="fa-solid fa-calendar-plus" style="margin-right:4px;"></i>Registered</div>
+                            <div style="font-weight:600;color:var(--text-light);font-size:0.85rem;">${u.created_at}</div>
+                        </div>
+                        <div style="padding:12px;background:rgba(255,255,255,0.03);border-radius:10px;border:1px solid rgba(255,255,255,0.06);">
+                            <div style="font-size:0.68rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;"><i class="fa-solid fa-clock-rotate-left" style="margin-right:4px;"></i>Last Updated</div>
+                            <div style="font-weight:600;color:var(--text-light);font-size:0.85rem;">${u.updated_at}</div>
+                        </div>
+                    </div>
+
+                    <!-- User ID -->
+                    <div style="font-size:0.72rem;color:#64748b;text-align:center;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06);">
+                        User ID: #${u.id} &nbsp;·&nbsp; Access governed by the <strong style="color:#6366f1;">${roleLabel}</strong> role
+                    </div>
+                </div>
+            `,
+            showConfirmButton: true,
+            confirmButtonText: '<i class="fa-solid fa-pen"></i> Edit User',
+            confirmButtonColor: '#6366f1',
+            showCancelButton: true,
+            cancelButtonText: 'Close',
+            background: 'var(--bg-card)',
+            color: 'var(--text-light)',
+            customClass: { popup: 'swal-wide' },
+            width: '480px'
+        }).then(result => {
+            if (result.isConfirmed) {
+                window.location.href = '?edit=' + u.id;
+            }
+        });
+    }
+
+    function confirmDelete(userId, userName) {
+        Swal.fire({
+            title: 'Delete / Deactivate User?',
+            html: `<div style="font-size:0.9rem;color:var(--text-secondary);">You are about to remove <strong style="color:var(--text-light);">${userName}</strong>.<br>If they have recorded transactions, the account will be <strong style="color:#f59e0b;">deactivated</strong> instead of deleted to preserve logs.</div>`,
+            icon: 'warning',
+            iconColor: '#ef4444',
+            showCancelButton: true,
+            confirmButtonText: '<i class="fa-solid fa-trash"></i> Yes, Delete',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#ef4444',
+            background: 'var(--bg-card)',
+            color: 'var(--text-light)'
+        }).then(result => {
+            if (result.isConfirmed) {
+                window.location.href = '?delete=' + userId;
+            }
+        });
+    }
     </script>
 </body>
 </html>
