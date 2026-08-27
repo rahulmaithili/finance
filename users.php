@@ -177,6 +177,55 @@ $users = $pdo->query("SELECT * FROM users ORDER BY id DESC")->fetchAll();
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <style>
+        .btn-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            border: 1px solid transparent;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+        .btn-edit {
+            background: rgba(99, 102, 241, 0.15);
+            color: #818cf8;
+            border-color: rgba(99, 102, 241, 0.3);
+        }
+        .btn-edit:hover {
+            background: rgba(99, 102, 241, 0.3);
+            color: #a5b4fc;
+        }
+        .btn-delete {
+            background: rgba(239, 68, 68, 0.12);
+            color: #f87171;
+            border-color: rgba(239, 68, 68, 0.25);
+        }
+        .btn-delete:hover {
+            background: rgba(239, 68, 68, 0.25);
+            color: #fca5a5;
+        }
+        .actions-cell {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .module-grid {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 24px;
+            align-items: flex-start;
+        }
+        @media (max-width: 900px) {
+            .module-grid { grid-template-columns: 1fr; }
+        }
+        .form-card { background: var(--bg-card); border-radius: 16px; border: 1px solid var(--border-color); padding: 24px; }
+        .form-card-title { font-size: 1rem; font-weight: 700; color: var(--text-light); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+    </style>
 </head>
 <body>
 
