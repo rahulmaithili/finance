@@ -248,6 +248,19 @@
 <script>
     let currentUser=null,currentUserData=null,activePaymentLoanId=null,loansCache={},activeAccountsMap={};
     window.onNavigationLoaded=function(user,userData){
+        const role = userData.role || 'staff';
+        if (role !== 'super_admin' && role !== 'admin') {
+            Swal.fire({
+                icon: 'error',
+                title: 'Access Denied',
+                text: 'Authorized accounts only. Redirecting...',
+                timer: 2000,
+                showConfirmButton: false
+            }).then(() => {
+                window.location.href = 'index.html';
+            });
+            return;
+        }
         currentUser=user;
         currentUserData=userData;
         loadAccountsList().then(() => {

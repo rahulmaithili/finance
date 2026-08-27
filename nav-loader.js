@@ -181,12 +181,15 @@ window.formatCurrency = function(amount, currencyCode = null) {
                         <span>Dashboard</span>
                     </a>
                 </li>
+                ${(user.role === 'super_admin' || user.role === 'admin') ? `
                 <li class="menu-item ${activePage === 'accounts' ? 'active' : ''}">
                     <a href="accounts.html">
                         <i class="fa-solid fa-building-columns" style="color: #10b981;"></i>
                         <span>Bank Accounts</span>
                     </a>
                 </li>
+                ` : ''}
+                ${(user.role !== 'viewer') ? `
                 <li class="menu-item ${activePage === 'income' ? 'active' : ''}">
                     <a href="income.html">
                         <i class="fa-solid fa-circle-arrow-down" style="color: #059669;"></i>
@@ -205,12 +208,14 @@ window.formatCurrency = function(amount, currencyCode = null) {
                         <span>Transfers</span>
                     </a>
                 </li>
+                ` : ''}
                 <li class="menu-item ${activePage === 'reports' ? 'active' : ''}">
                     <a href="reports.html">
                         <i class="fa-solid fa-file-invoice-dollar" style="color: #6366f1;"></i>
                         <span>Reports</span>
                     </a>
                 </li>
+                ${(user.role === 'super_admin' || user.role === 'admin') ? `
                 <li class="menu-item ${activePage === 'loans' ? 'active' : ''}">
                     <a href="loans.html">
                         <i class="fa-solid fa-hand-holding-dollar" style="color: #f59e0b;"></i>
@@ -229,23 +234,19 @@ window.formatCurrency = function(amount, currencyCode = null) {
                         <span>Quick Collect</span>
                     </a>
                 </li>
-                
-                ${(user.role === 'super_admin' || user.role === 'admin') ? `
                 <li class="menu-item ${activePage === 'users' ? 'active' : ''}">
                     <a href="users.html">
                         <i class="fa-solid fa-users-gear" style="color: #ec4899;"></i>
                         <span>Users Control</span>
                     </a>
                 </li>
-                ` : ''}
-                
                 <li class="menu-item ${activePage === 'activity_logs' ? 'active' : ''}">
                     <a href="activity_logs.html">
                         <i class="fa-solid fa-clipboard-list" style="color: #06b6d4;"></i>
                         <span>Activity Logs</span>
                     </a>
                 </li>
-                
+                ` : ''}
                 ${user.role === 'super_admin' ? `
                 <li class="menu-item ${activePage === 'settings' ? 'active' : ''}">
                     <a href="settings.html">
@@ -318,12 +319,15 @@ window.formatCurrency = function(amount, currencyCode = null) {
                         <span>Dashboard</span>
                     </a>
                 </li>
+                ${(user.role === 'super_admin' || user.role === 'admin') ? `
                 <li class="menu-item ${activePage === 'accounts' ? 'active' : ''}">
                     <a href="accounts.html">
                         <i class="fa-solid fa-building-columns" style="color: #10b981;"></i>
                         <span>Bank Accounts</span>
                     </a>
                 </li>
+                ` : ''}
+                ${(user.role !== 'viewer') ? `
                 <li class="menu-item ${activePage === 'income' ? 'active' : ''}">
                     <a href="income.html">
                         <i class="fa-solid fa-circle-arrow-down" style="color: #059669;"></i>
@@ -342,12 +346,14 @@ window.formatCurrency = function(amount, currencyCode = null) {
                         <span>Transfers</span>
                     </a>
                 </li>
+                ` : ''}
                 <li class="menu-item ${activePage === 'reports' ? 'active' : ''}">
                     <a href="reports.html">
                         <i class="fa-solid fa-file-invoice-dollar" style="color: #6366f1;"></i>
                         <span>Reports</span>
                     </a>
                 </li>
+                ${(user.role === 'super_admin' || user.role === 'admin') ? `
                 <li class="menu-item ${activePage === 'loans' ? 'active' : ''}">
                     <a href="loans.html">
                         <i class="fa-solid fa-hand-holding-dollar" style="color: #f59e0b;"></i>
@@ -366,20 +372,19 @@ window.formatCurrency = function(amount, currencyCode = null) {
                         <span>Quick Collect</span>
                     </a>
                 </li>
-                ${(user.role === 'super_admin' || user.role === 'admin') ? `
                 <li class="menu-item ${activePage === 'users' ? 'active' : ''}">
                     <a href="users.html">
                         <i class="fa-solid fa-users-gear" style="color: #ec4899;"></i>
                         <span>Users Control</span>
                     </a>
                 </li>
-                ` : ''}
                 <li class="menu-item ${activePage === 'activity_logs' ? 'active' : ''}">
                     <a href="activity_logs.html">
                         <i class="fa-solid fa-clipboard-list" style="color: #06b6d4;"></i>
                         <span>Activity Logs</span>
                     </a>
                 </li>
+                ` : ''}
                 ${user.role === 'super_admin' ? `
                 <li class="menu-item ${activePage === 'settings' ? 'active' : ''}">
                     <a href="settings.html">
@@ -403,6 +408,7 @@ window.formatCurrency = function(amount, currencyCode = null) {
                 <i class="fa-solid fa-chart-pie" style="color: #3b82f6;"></i>
                 <span>Home</span>
             </a>
+            ${user.role !== 'viewer' ? `
             <a href="income.html" class="nav-item ${activePage === 'income' ? 'active' : ''}">
                 <i class="fa-solid fa-circle-plus" style="color: #10b981;"></i>
                 <span>Income</span>
@@ -411,6 +417,7 @@ window.formatCurrency = function(amount, currencyCode = null) {
                 <i class="fa-solid fa-circle-minus" style="color: #ef4444;"></i>
                 <span>Expense</span>
             </a>
+            ` : ''}
             <a href="reports.html" class="nav-item ${activePage === 'reports' ? 'active' : ''}">
                 <i class="fa-solid fa-chart-column" style="color: #8b5cf6;"></i>
                 <span>Reports</span>

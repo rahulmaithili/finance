@@ -250,6 +250,9 @@ if (!empty($statement_acc_id)) {
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/responsive/2.4.1/js/dataTables.responsive.min.js"></script>
+    <!-- jsPDF and jsPDF-AutoTable CDNs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
     <style>
         .tabs {
             display: flex;
@@ -400,10 +403,13 @@ if (!empty($statement_acc_id)) {
                     <div class="table-card">
                         <div class="dashboard-card-header" style="border:none; margin-bottom:10px;">
                             <h2>Consolidated General Ledger</h2>
-                            <div>
-                                <a href="?export=csv&start_date=<?= $start_date ?>&end_date=<?= $end_date ?>&account_id=<?= $filter_account ?>&type=<?= $filter_type ?>" class="btn-primary" style="padding: 8px 16px; font-size: 0.85rem;">
-                                    <i class="fa-solid fa-file-csv"></i> Export to CSV
+                            <div style="display:flex; gap:8px;">
+                                <a href="?export=csv&start_date=<?= $start_date ?>&end_date=<?= $end_date ?>&account_id=<?= $filter_account ?>&type=<?= $filter_type ?>" class="btn-primary" style="padding: 8px 16px; font-size: 0.85rem; margin:0;">
+                                    <i class="fa-solid fa-file-csv"></i> Export CSV
                                 </a>
+                                <button type="button" onclick="exportToPDF()" class="btn-primary" style="padding: 8px 16px; font-size: 0.85rem; margin:0; background:#ef4444; border-color:#ef4444;">
+                                    <i class="fa-solid fa-file-pdf"></i> Export PDF
+                                </button>
                             </div>
                         </div>
                         
@@ -710,6 +716,33 @@ if (!empty($statement_acc_id)) {
         window.history.pushState({}, '', url);
     }
     
+    function exportToPDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('p', 'pt', 'a4');
+        
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(20);
+        doc.setTextColor(99, 102, 241);
+        doc.text("IEMS ERP - Consolidated General Ledger", 40, 50);
+        
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(100, 116, 139);
+        doc.text("Generated on: " + new Date().toLocaleString(), 40, 68);
+        doc.text("Period: <?= date('d M Y', strtotime($start_date)) ?> to <?= date('d M Y', strtotime($end_date)) ?>", 40, 80);
+        
+        doc.autoTable({
+            html: '#generalLedgerTable',
+            startY: 100,
+            theme: 'grid',
+            headStyles: { fillColor: [99, 102, 241], fontStyle: 'bold' },
+            styles: { fontSize: 8, cellPadding: 6 },
+            columns: [0, 1, 2, 3, 4, 5, 6]
+        });
+        
+        doc.save("IEMS_Ledger_Report_" + new Date().toISOString().slice(0,10) + ".pdf");
+    }
+
     $(document).ready(function() {
         // Load active tab on page load
         const urlParams = new URLSearchParams(window.location.search);

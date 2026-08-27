@@ -1,7 +1,7 @@
 <?php
 // Bank Accounts management module for Income & Expense Management System (IEMS)
 require_once 'config.php';
-require_login();
+require_role(['super_admin', 'admin']);
 
 $active_page = 'accounts';
 $error = '';

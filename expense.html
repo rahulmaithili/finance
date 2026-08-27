@@ -342,6 +342,8 @@
         let cameraStream = null;
         let currentCameraTarget = 'desktop';
 
+        let userRole = 'staff';
+
         // Set default date
         document.getElementById('expense_date').value = new Date().toISOString().split('T')[0];
         document.getElementById('m_expense_date').value = new Date().toISOString().split('T')[0];
@@ -372,6 +374,19 @@
 
         // Load Accounts Callback from Auth loader
         window.onNavigationLoaded = function (user, userData) {
+            userRole = userData.role || 'staff';
+            if (userRole === 'viewer') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Access Denied',
+                    text: 'Viewer accounts are restricted to reports and read-only actions.',
+                    timer: 2000,
+                    showConfirmButton: false
+                }).then(() => {
+                    window.location.href = 'reports.html';
+                });
+                return;
+            }
             loadAccountsList().then(() => {
                 loadExpenseTable(userData);
             });
@@ -427,8 +442,10 @@
                         <td>
                             <div style="display:flex; gap:6px;">
                                 <button class="btn-icon btn-view" onclick="viewExpense('${id}')" title="View Details"><i class="fa-solid fa-eye"></i></button>
+                                ${userRole !== 'staff' ? `
                                 <button class="btn-icon btn-edit" onclick="editExpense('${id}')" title="Edit Entry"><i class="fa-solid fa-pen"></i></button>
                                 <button class="btn-icon btn-delete" onclick="deleteExpense('${id}')" title="Delete Entry"><i class="fa-solid fa-trash"></i></button>
+                                ` : ''}
                             </div>
                         </td>
                     </tr>`;

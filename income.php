@@ -3,6 +3,21 @@
 require_once 'config.php';
 require_login();
 
+// Role guards: Viewer cannot access this page. Staff cannot edit or delete.
+if ($_SESSION['user_role'] === 'viewer') {
+    set_flash_message('error', 'Viewer accounts are restricted to reports and read-only actions.');
+    header("Location: reports.php");
+    exit;
+}
+
+if ($_SESSION['user_role'] === 'staff') {
+    if (isset($_GET['edit']) || isset($_GET['delete'])) {
+        set_flash_message('error', 'Access denied. Entry staff members cannot edit or delete transactions.');
+        header("Location: income.php");
+        exit;
+    }
+}
+
 $active_page = 'income';
 $error = '';
 $success = '';
@@ -93,6 +108,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->beginTransaction();
                 
                 if (isset($_POST['action']) && $_POST['action'] === 'update') {
+                    if ($_SESSION['user_role'] === 'staff') {
+                        throw new Exception("Access denied. Entry staff members cannot modify transactions.");
+                    }
                     // UPDATE MODE
                     $inc_id = (int)$_POST['income_id'];
                     
@@ -267,12 +285,14 @@ $categories = ['Salary', 'Freelance / Projects', 'Investments', 'Sales', 'Rent /
                                                 <a href="invoice.php?type=income&id=<?= $inc['id'] ?>" class="btn-icon btn-print" title="Print Invoice" target="_blank">
                                                     <i class="fa-solid fa-print"></i>
                                                 </a>
-                                                <a href="?edit=<?= $inc['id'] ?>" class="btn-icon btn-edit" title="Edit">
-                                                    <i class="fa-solid fa-pen"></i>
-                                                </a>
-                                                <a href="?delete=<?= $inc['id'] ?>" class="btn-icon btn-delete" title="Delete" onclick="return confirm('Are you sure you want to delete this income? The amount will be deducted from the associated bank account.');">
-                                                    <i class="fa-solid fa-trash"></i>
-                                                </a>
+                                                <?php if ($_SESSION['user_role'] !== 'staff'): ?>
+                                                    <a href="?edit=<?= $inc['id'] ?>" class="btn-icon btn-edit" title="Edit">
+                                                        <i class="fa-solid fa-pen"></i>
+                                                    </a>
+                                                    <a href="?delete=<?= $inc['id'] ?>" class="btn-icon btn-delete" title="Delete" onclick="return confirm('Are you sure you want to delete this income? The amount will be deducted from the associated bank account.');">
+                                                        <i class="fa-solid fa-trash"></i>
+                                                    </a>
+                                                <?php endif; ?>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>

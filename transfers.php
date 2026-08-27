@@ -3,6 +3,21 @@
 require_once 'config.php';
 require_login();
 
+// Role guards: Viewer cannot access this page. Staff cannot delete transfers.
+if ($_SESSION['user_role'] === 'viewer') {
+    set_flash_message('error', 'Viewer accounts are restricted to reports and read-only actions.');
+    header("Location: reports.php");
+    exit;
+}
+
+if ($_SESSION['user_role'] === 'staff') {
+    if (isset($_GET['delete']) || isset($_GET['edit'])) {
+        set_flash_message('error', 'Access denied. Entry staff members cannot edit or delete transactions.');
+        header("Location: transfers.php");
+        exit;
+    }
+}
+
 $active_page = 'transfers';
 $error = '';
 $success = '';
@@ -95,6 +110,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $src_balance = (float)($src_account['current_balance'] ?? 0);
                 
                 if (isset($_POST['action']) && $_POST['action'] === 'update') {
+                    if ($_SESSION['user_role'] === 'staff') {
+                        throw new Exception("Access denied. Entry staff members cannot modify transactions.");
+                    }
                     // UPDATE MODE
                     $tf_id = (int)$_POST['transfer_id'];
                     
@@ -283,12 +301,14 @@ $transfers = $pdo->query("
                                             <td><?= clean($tf['remarks']) ?></td>
                                             <td><?= clean($tf['recorder_name']) ?></td>
                                             <td class="actions-cell">
-                                                <a href="?edit=<?= $tf['id'] ?>" class="btn-icon btn-edit" title="Edit">
-                                                    <i class="fa-solid fa-pen"></i>
-                                                </a>
-                                                <a href="?delete=<?= $tf['id'] ?>" class="btn-icon btn-delete" title="Delete" onclick="return confirm('Are you sure you want to delete this transfer? The balances will be reversed back to original accounts.');">
-                                                    <i class="fa-solid fa-trash"></i>
-                                                </a>
+                                                <?php if ($_SESSION['user_role'] !== 'staff'): ?>
+                                                    <a href="?edit=<?= $tf['id'] ?>" class="btn-icon btn-edit" title="Edit">
+                                                        <i class="fa-solid fa-pen"></i>
+                                                    </a>
+                                                    <a href="?delete=<?= $tf['id'] ?>" class="btn-icon btn-delete" title="Delete" onclick="return confirm('Are you sure you want to delete this transfer? The balances will be reversed back to original accounts.');">
+                                                        <i class="fa-solid fa-trash"></i>
+                                                    </a>
+                                                <?php endif; ?>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>

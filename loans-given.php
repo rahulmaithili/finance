@@ -1,7 +1,7 @@
 <?php
 // Lent Loans (Given Loans) Management Module for Income & Expense Management System (IEMS)
 require_once 'config.php';
-require_login();
+require_role(['super_admin', 'admin']);
 
 $active_page = 'loans_given';
 $error = '';

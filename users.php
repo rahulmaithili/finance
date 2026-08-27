@@ -331,8 +331,9 @@ $users = $pdo->query("SELECT * FROM users ORDER BY id DESC")->fetchAll();
                                     <?php if ($_SESSION['user_role'] === 'super_admin'): ?>
                                         <option value="super_admin" <?= ($edit_mode && $edit_user['role'] === 'super_admin') ? 'selected' : '' ?>>Super Admin</option>
                                     <?php endif; ?>
-                                    <option value="admin" <?= ($edit_mode && $edit_user['role'] === 'admin') ? 'selected' : '' ?>>Admin</option>
-                                    <option value="staff" <?= ($edit_mode && $edit_user['role'] === 'staff') ? 'selected' : '' ?>>Staff</option>
+                                    <option value="admin" <?= ($edit_mode && $edit_user['role'] === 'admin') ? 'selected' : '' ?>>Admin (Full Access)</option>
+                                    <option value="staff" <?= ($edit_mode && $edit_user['role'] === 'staff') ? 'selected' : '' ?>>Entry Staff (Log Transactions, No Edit/Delete)</option>
+                                    <option value="viewer" <?= ($edit_mode && $edit_user['role'] === 'viewer') ? 'selected' : '' ?>>Viewer (Read-Only Reports)</option>
                                 </select>
                             </div>
                             

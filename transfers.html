@@ -190,6 +190,7 @@
         let editMode = false;
         let activeEditId = null;
         let activeAccountsMap = {};
+        let userRole = 'staff';
 
         // Default Date
         document.getElementById('transfer_date').value = new Date().toISOString().split('T')[0];
@@ -221,6 +222,19 @@
 
         // Fetch Accounts Callback from Auth loader
         window.onNavigationLoaded = function (user, userData) {
+            userRole = userData.role || 'staff';
+            if (userRole === 'viewer') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Access Denied',
+                    text: 'Viewer accounts are restricted to reports and read-only actions.',
+                    timer: 2000,
+                    showConfirmButton: false
+                }).then(() => {
+                    window.location.href = 'reports.html';
+                });
+                return;
+            }
             loadAccountsList().then(() => {
                 loadTransfersTable(userData);
             });
@@ -272,8 +286,10 @@
                         <td>${tf.recorded_by_name || 'System'}</td>
                         <td>
                             <div style="display:flex; gap:6px;">
+                                ${userRole !== 'staff' ? `
                                 <button class="bank-btn" onclick="editTransfer('${id}')" title="Edit Entry"><i class="fa-solid fa-pen"></i></button>
                                 <button class="bank-btn" onclick="deleteTransfer('${id}')" title="Delete Entry"><i class="fa-solid fa-trash"></i></button>
+                                ` : '<span style="color:var(--text-secondary); font-size:0.75rem;">—</span>'}
                             </div>
                         </td>
                     </tr>`;

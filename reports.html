@@ -19,6 +19,9 @@
     <!-- jQuery & SweetAlert2 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- jsPDF and jsPDF-AutoTable CDNs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
     
     <style>
     .filter-bar {
@@ -159,12 +162,17 @@
                 <div class="table-card single-col" style="margin-top:20px;">
                     <div class="dashboard-card-header" style="display:flex; justify-content:space-between; align-items:center;">
                         <h2>Detailed Statement Ledger</h2>
-                        <button class="btn-secondary" onclick="exportReportToCSV()" style="font-size:0.85rem; padding:8px 16px; display:inline-flex; align-items:center; gap:8px;">
-                            <i class="fa-solid fa-file-excel"></i> Export CSV
-                        </button>
+                        <div style="display:flex; gap:8px;">
+                            <button class="btn-secondary" onclick="exportReportToCSV()" style="font-size:0.85rem; padding:8px 16px; display:inline-flex; align-items:center; gap:8px; margin:0;">
+                                <i class="fa-solid fa-file-excel"></i> Export CSV
+                            </button>
+                            <button class="btn-primary" onclick="exportToPDF()" style="font-size:0.85rem; padding:8px 16px; display:inline-flex; align-items:center; gap:8px; margin:0; background:#ef4444; border-color:#ef4444;">
+                                <i class="fa-solid fa-file-pdf"></i> Export PDF
+                            </button>
+                        </div>
                     </div>
                     <div class="table-responsive">
-                        <table class="custom-table" style="width:100%;">
+                        <table class="custom-table" id="generalLedgerTable" style="width:100%;">
                             <thead>
                                 <tr>
                                     <th>Date</th>
@@ -378,6 +386,37 @@
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+        }
+
+        function exportToPDF() {
+            if (generatedRecords.length === 0) {
+                Swal.fire({ icon: 'warning', title: 'Empty Ledger', text: 'No transactions found to export.' });
+                return;
+            }
+            
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('p', 'pt', 'a4');
+            
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(20);
+            doc.setTextColor(99, 102, 241);
+            doc.text("IEMS ERP - Consolidated General Ledger", 40, 50);
+            
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(9);
+            doc.setTextColor(100, 116, 139);
+            doc.text("Generated on: " + new Date().toLocaleString(), 40, 68);
+            
+            doc.autoTable({
+                html: '#generalLedgerTable',
+                startY: 90,
+                theme: 'grid',
+                headStyles: { fillColor: [99, 102, 241], fontStyle: 'bold' },
+                styles: { fontSize: 8, cellPadding: 6 },
+                columns: [0, 1, 2, 3, 4]
+            });
+            
+            doc.save("IEMS_Ledger_Report_" + new Date().toISOString().slice(0,10) + ".pdf");
         }
     </script>
 </body>
