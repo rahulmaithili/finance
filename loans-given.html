@@ -742,18 +742,131 @@
             list.innerHTML=snap.docs.map(d=>{
                 const p=d.data();
                 const ds=new Date(p.payment_date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+                const loanData = loansCache[loanId] || {};
                 return `
                 <div class="payment-hist-item">
-                    <div>
+                    <div style="flex:1;">
                         <div style="font-weight:600;color:var(--text-light);">${formatCurrency(p.amount)}</div>
                         <div style="color:var(--text-secondary);font-size:0.76rem;">${p.note||'EMI Collected'} (${p.account_name||'Account'})</div>
                     </div>
-                    <div style="text-align:right;">
+                    <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
                         <div style="color:var(--success);font-size:0.8rem;">${ds}</div>
-                        <button onclick="deletePayment('${loanId}','${d.id}',${p.amount})" style="background:transparent;border:none;color:var(--danger);cursor:pointer;font-size:0.75rem;margin-top:2px;" title="Delete Payment Log"><i class="fa-solid fa-trash"></i></button>
+                        <div style="display:flex;gap:6px;align-items:center;">
+                            <button onclick="printPaymentReceipt('${d.id}', ${JSON.stringify(p).replace(/'/g,"\\'")} , '${loanData.debtor_name||''}', '${loanId}')" style="background:rgba(59,130,246,0.2);border:1px solid rgba(59,130,246,0.4);color:#60a5fa;cursor:pointer;font-size:0.72rem;padding:3px 8px;border-radius:5px;margin-top:2px;" title="Print Receipt"><i class="fa-solid fa-print"></i></button>
+                            <button onclick="deletePayment('${loanId}','${d.id}',${p.amount})" style="background:transparent;border:none;color:var(--danger);cursor:pointer;font-size:0.75rem;margin-top:2px;" title="Delete Payment Log"><i class="fa-solid fa-trash"></i></button>
+                        </div>
                     </div>
                 </div>`;
             }).join('');
+        });
+    }
+
+    function printPaymentReceipt(pmtId, pmtData, debtorName, loanId) {
+        db.collection('system_settings').doc('company').get().then(doc => {
+            const co = doc.exists ? doc.data() : {};
+            const companyName = co.company_name || 'IEMS ERP System';
+            const companyAddr = co.address || '';
+            const companyPhone = co.phone || '';
+            const companyEmail = co.email || '';
+            const logoUrl = co.logo_url || '';
+            const gst = co.gst_number || co.vat_number || '';
+
+            const vouNum = 'LGR-' + pmtId.substring(0, 8).toUpperCase();
+            const pmtDate = pmtData.payment_date
+                ? new Date(pmtData.payment_date).toLocaleDateString('en-IN', {day:'2-digit', month:'long', year:'numeric'})
+                : new Date().toLocaleDateString('en-IN', {day:'2-digit', month:'long', year:'numeric'});
+            const amount = parseFloat(pmtData.amount || 0);
+            const method = (pmtData.payment_method || pmtData.method || 'Cash').toUpperCase();
+            const note = pmtData.note || 'EMI Recovery Collected';
+            const account = pmtData.account_name || '';
+
+            const logoHtml = logoUrl
+                ? `<img src="${logoUrl}" alt="Logo" style="max-height:60px;max-width:150px;object-fit:contain;border-radius:4px;">`
+                : `<div style="font-size:2.2rem;">🏢</div>`;
+
+            const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Recovery Receipt - ${debtorName}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:Arial,sans-serif;background:#fff;color:#1e293b;padding:30px;font-size:14px;}
+.header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #8b5cf6;padding-bottom:18px;margin-bottom:22px;}
+.co-block{display:flex;gap:14px;align-items:center;}
+.co-name{font-size:1.35rem;font-weight:900;color:#0f172a;}
+.co-info{font-size:0.76rem;color:#64748b;margin-top:4px;line-height:1.5;}
+.v-block{text-align:right;}
+.v-title{font-size:1rem;font-weight:800;color:#8b5cf6;text-transform:uppercase;letter-spacing:0.5px;}
+.v-num{font-weight:700;margin-top:4px;font-size:0.88rem;}
+.v-date{color:#64748b;font-size:0.8rem;margin-top:2px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-bottom:24px;}
+.sec-lbl{font-size:0.68rem;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;font-weight:700;margin-bottom:6px;border-bottom:1px solid #e2e8f0;padding-bottom:4px;}
+.sec-val{font-weight:700;font-size:1rem;color:#0f172a;}
+.sec-sub{font-size:0.78rem;color:#64748b;margin-top:3px;}
+table{width:100%;border-collapse:collapse;margin-bottom:26px;}
+thead tr{background:#8b5cf6;color:white;}
+th{padding:10px 14px;text-align:left;font-size:0.78rem;text-transform:uppercase;}
+td{padding:12px 14px;border-bottom:1px solid #e2e8f0;}
+.amt{font-weight:900;font-size:1.1rem;color:#0f172a;text-align:right;}
+.badge{background:rgba(139,92,246,0.1);color:#8b5cf6;border:1px solid rgba(139,92,246,0.3);padding:3px 10px;border-radius:20px;font-size:0.73rem;font-weight:700;}
+.sigs{display:flex;justify-content:space-between;margin-top:50px;}
+.sig{text-align:center;width:180px;border-top:1px solid #94a3b8;padding-top:8px;font-size:0.8rem;color:#64748b;}
+.foot{text-align:center;margin-top:26px;font-size:0.7rem;color:#cbd5e1;border-top:1px dashed #e2e8f0;padding-top:10px;}
+@media print{body{padding:15px;}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="co-block">
+    ${logoHtml}
+    <div>
+      <div class="co-name">${companyName}</div>
+      <div class="co-info">${companyAddr ? companyAddr+'<br>' : ''}${companyPhone ? 'Ph: '+companyPhone : ''}${companyEmail ? ' | '+companyEmail : ''}${gst ? '<br>GST/VAT: '+gst : ''}</div>
+    </div>
+  </div>
+  <div class="v-block">
+    <div class="v-title">Loan Recovery Receipt</div>
+    <div class="v-num">Voucher #: ${vouNum}</div>
+    <div class="v-date">Date: ${pmtDate}</div>
+  </div>
+</div>
+<div class="grid2">
+  <div>
+    <div class="sec-lbl">Received From (Borrower)</div>
+    <div class="sec-val">${debtorName || 'N/A'}</div>
+    <div class="sec-sub">EMI / Loan Recovery Collection</div>
+  </div>
+  <div>
+    <div class="sec-lbl">Credited Into Account</div>
+    <div class="sec-val">${account || 'N/A'}</div>
+    <div class="sec-sub">Method: ${method}</div>
+  </div>
+</div>
+<table>
+  <thead><tr><th>Description</th><th>Payment Method</th><th style="text-align:right;">Amount</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><div style="font-weight:700;">${note}</div><div style="font-size:0.78rem;color:#64748b;margin-top:4px;">Recovery from: ${debtorName}</div></td>
+      <td><span class="badge">${method}</span></td>
+      <td class="amt">Rs. ${amount.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+    </tr>
+  </tbody>
+</table>
+<div class="sigs">
+  <div class="sig">Borrower Signature</div>
+  <div class="sig">Authorized Signatory</div>
+</div>
+<div class="foot">Computer generated receipt. | ${companyName} | Printed: ${new Date().toLocaleDateString('en-IN')}</div>
+<script>window.onload=function(){window.print();}<\/script>
+</body></html>`;
+
+            const w = window.open('', '_blank', 'width=820,height=680');
+            if (w) { w.document.write(html); w.document.close(); }
+            else { Swal.fire({icon:'warning',title:'Popup Blocked',text:'Please allow popups for this site to print receipts.'}); }
+        }).catch(err => {
+            console.error('Company fetch error:', err);
+            Swal.fire({icon:'error',title:'Print Error',text:'Could not load company details. Check console.'});
         });
     }
 
