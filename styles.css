@@ -1817,3 +1817,46 @@ select.form-control option {
     }
 }
 
+/* Sidebar High-Contrast Text Fix for light/dark mode */
+.sidebar .logo-text,
+.sidebar .profile-name {
+    color: #ffffff !important;
+}
+.sidebar .profile-role {
+    color: rgba(255, 255, 255, 0.55) !important;
+}
+.sidebar .menu-item a {
+    color: rgba(255, 255, 255, 0.72) !important;
+}
+.sidebar .menu-item.active a {
+    color: #ffffff !important;
+    background-color: var(--primary) !important;
+}
+.sidebar .menu-item a:hover {
+    color: #ffffff !important;
+    background-color: rgba(255, 255, 255, 0.08) !important;
+}
+.sidebar .dropdown-arrow {
+    color: rgba(255, 255, 255, 0.72) !important;
+}
+.sidebar .submenu-item a {
+    color: rgba(255, 255, 255, 0.65) !important;
+    background: transparent !important;
+}
+.sidebar .submenu-item a:hover {
+    color: #ffffff !important;
+    background-color: rgba(255, 255, 255, 0.08) !important;
+}
+.sidebar .submenu-item.active a,
+.sidebar .submenu-item a[style*="background: var(--primary)"],
+.sidebar .submenu-item a[style*="background-color: var(--primary)"] {
+    color: #ffffff !important;
+    background-color: var(--primary) !important;
+}
+.sidebar .sidebar-toggle-btn {
+    color: rgba(255, 255, 255, 0.72) !important;
+}
+.sidebar .sidebar-toggle-btn:hover {
+    color: #ffffff !important;
+}
+
