@@ -339,6 +339,10 @@
                         </div>
                         <div class="settings-card-body">
                             <div class="sform-group">
+                                <label><i class="fa-solid fa-building"></i> Company Name *</label>
+                                <input type="text" id="companyName" placeholder="My Company Ltd">
+                            </div>
+                            <div class="sform-group">
                                 <label><i class="fa-solid fa-envelope"></i> Email *</label>
                                 <input type="email" id="companyEmail" placeholder="info@company.com">
                             </div>
@@ -636,6 +640,7 @@
         db.collection('system_settings').doc('company').get().then(doc => {
             if (doc.exists) {
                 const d = doc.data();
+                document.getElementById('companyName').value = d.company_name || '';
                 document.getElementById('companyEmail').value = d.email || '';
                 document.getElementById('companyPhone').value = d.phone || '';
                 document.getElementById('companyAddress').value = d.address || '';
@@ -658,16 +663,22 @@
     }
 
     function saveCompanySettings() {
+        const company_name = document.getElementById('companyName').value.trim();
         const email = document.getElementById('companyEmail').value.trim();
         const phone = document.getElementById('companyPhone').value.trim();
         const address = document.getElementById('companyAddress').value.trim();
 
-        if (!email || !phone || !address) {
-            Swal.fire({ icon: 'warning', title: 'Missing Info', text: 'Email, Phone and Address are required.' });
+        if (!company_name || !email || !phone || !address) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Missing Info',
+                text: 'Company Name, Email, Phone and Address are required.'
+            });
             return;
         }
 
         db.collection('system_settings').doc('company').set({
+            company_name: company_name,
             email: email,
             phone: phone,
             address: address,

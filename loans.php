@@ -560,8 +560,11 @@ $payments = $pdo->query("
                                         <td><span style="font-size:0.82rem; color:var(--text-secondary);"><?= clean($pmt['note'] ?: '-') ?></span></td>
                                         <td style="font-weight:700; color:var(--danger);"><?= format_currency($pmt['amount']) ?></td>
                                         <td><span style="font-size:0.82rem; color:var(--text-secondary);"><?= clean($pmt['recorder_name']) ?></span></td>
-                                        <td>
-                                            <button class="action-btn delete-btn" onclick="confirmDeletePayment(<?= $pmt['id'] ?>, <?= $pmt['amount'] ?>)" title="Revert Payment">
+                                        <td style="display:flex; gap:6px; align-items:center;">
+                                            <a href="print-repayment.php?type=borrowed&id=<?= $pmt['id'] ?>" target="_blank" class="action-btn view-btn" style="background:rgba(59,130,246,0.15); color:#3b82f6; border:1px solid rgba(59,130,246,0.3); padding:5px 8px; border-radius:6px; font-size:0.85rem;" title="Print Receipt">
+                                                <i class="fa-solid fa-print"></i>
+                                            </a>
+                                            <button class="action-btn delete-btn" onclick="confirmDeletePayment(<?= $pmt['id'] ?>, <?= $pmt['amount'] ?>)" title="Revert Payment" style="margin:0;">
                                                 <i class="fa-solid fa-trash-can"></i>
                                             </button>
                                         </td>
@@ -753,8 +756,11 @@ $payments = $pdo->query("
                 </table>
             </div>
             
-            <div style="display:flex; justify-content:flex-end; margin-top:20px;">
-                <button type="button" class="btn-secondary" onclick="closeAmortizationModal()">Close</button>
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                <a href="#" id="printLoanScheduleBtn" target="_blank" class="btn-primary" style="background:#3b82f6; border-color:#3b82f6; text-decoration:none; display:inline-flex; align-items:center; gap:6px; margin:0; padding:10px 20px;">
+                    <i class="fa-solid fa-print"></i> Print Schedule
+                </a>
+                <button type="button" class="btn-secondary" onclick="closeAmortizationModal()" style="margin:0;">Close</button>
             </div>
         </div>
     </div>
@@ -778,6 +784,7 @@ $payments = $pdo->query("
         }
 
         function showAmortizationModal(loanId, lenderName, principal, rate, tenure, emi, emiPaid, startDate) {
+            document.getElementById('printLoanScheduleBtn').href = 'print-loan.php?type=borrowed&id=' + loanId;
             document.getElementById('amortLenderName').textContent = "Schedule for: " + lenderName;
             const tbody = document.getElementById('amortizationTableBody');
             tbody.innerHTML = '';

@@ -44,6 +44,14 @@ if (!$txn) {
     die("Transaction entry not found.");
 }
 
+$company = null;
+try {
+    $c_stmt = $pdo->query("SELECT * FROM company_settings LIMIT 1");
+    $company = $c_stmt->fetch();
+} catch (PDOException $e) {
+    // Ignore database error
+}
+
 $voucher_no = strtoupper(substr($type, 0, 3)) . "-" . str_pad($txn['id'], 6, '0', STR_PAD_LEFT);
 $txn_date = $type === 'income' ? $txn['income_date'] : $txn['expense_date'];
 ?>
@@ -103,11 +111,24 @@ $txn_date = $type === 'income' ? $txn['income_date'] : $txn['expense_date'];
     <!-- Printable Receipt Layout -->
     <div class="print-container">
         <div class="invoice-header">
-            <div class="invoice-logo">
-                <h2>IEMS ERP SYSTEM</h2>
-                <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 5px;">
-                    Income & Expense Management System
-                </p>
+            <div class="invoice-logo" style="display:flex; align-items:center; gap:15px;">
+                <?php if ($company && !empty($company['logo']) && file_exists(__DIR__ . '/' . $company['logo'])): ?>
+                    <img src="<?= $company['logo'] ?>" alt="Company Logo" style="max-height:60px; max-width:150px; object-fit:contain; border-radius: 4px;">
+                <?php endif; ?>
+                <div>
+                    <h2 style="font-size: 1.5rem; color: #0f172a;"><?= ($company && !empty($company['company_name'])) ? clean($company['company_name']) : 'IEMS ERP SYSTEM' ?></h2>
+                    <?php if ($company && !empty($company['address'])): ?>
+                        <p style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 3px; line-height: 1.3;">
+                            <?= clean($company['address']) ?><br>
+                            Phone: <?= clean($company['phone']) ?> | Email: <?= clean($company['email']) ?>
+                            <?php if (!empty($company['vat_number'])): ?> | GSTIN: <?= clean($company['vat_number']) ?><?php endif; ?>
+                        </p>
+                    <?php else: ?>
+                        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 5px;">
+                            Income & Expense Management System
+                        </p>
+                    <?php endif; ?>
+                </div>
             </div>
             <div class="invoice-details">
                 <h3 style="text-transform: uppercase; color: <?= $type === 'income' ? 'var(--success)' : 'var(--danger)' ?>;">

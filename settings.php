@@ -130,11 +130,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
     // ── saveCompanySettings ────────────────────────────────
     if ($action === 'saveCompanySettings') {
+        $company_name = clean($_POST['company_name'] ?? '');
         $email    = clean($_POST['email'] ?? '');
         $phone    = clean($_POST['phone'] ?? '');
         $address  = clean($_POST['address'] ?? '');
-        if (empty($email) || empty($phone) || empty($address)) {
-            echo json_encode(['success' => false, 'message' => 'Email, Phone, and Address are required.']);
+        if (empty($company_name) || empty($email) || empty($phone) || empty($address)) {
+            echo json_encode(['success' => false, 'message' => 'Company Name, Email, Phone, and Address are required.']);
             exit;
         }
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -151,11 +152,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         try {
             $exists = $pdo->query("SELECT id FROM company_settings LIMIT 1")->fetch();
             if ($exists) {
-                $stmt = $pdo->prepare("UPDATE company_settings SET email=?,phone=?,address=?,vat_number=?,tin_number=?,facebook_url=?,twitter_url=?,linkedin_url=?,youtube_url=? WHERE id=?");
-                $stmt->execute([$email,$phone,$address,$vat,$tin,$fb,$tw,$li,$yt,$exists['id']]);
+                $stmt = $pdo->prepare("UPDATE company_settings SET company_name=?,email=?,phone=?,address=?,vat_number=?,tin_number=?,facebook_url=?,twitter_url=?,linkedin_url=?,youtube_url=? WHERE id=?");
+                $stmt->execute([$company_name,$email,$phone,$address,$vat,$tin,$fb,$tw,$li,$yt,$exists['id']]);
             } else {
-                $stmt = $pdo->prepare("INSERT INTO company_settings (company_name,email,phone,address,vat_number,tin_number,facebook_url,twitter_url,linkedin_url,youtube_url) VALUES ('My Company',?,?,?,?,?,?,?,?,?)");
-                $stmt->execute([$email,$phone,$address,$vat,$tin,$fb,$tw,$li,$yt]);
+                $stmt = $pdo->prepare("INSERT INTO company_settings (company_name,email,phone,address,vat_number,tin_number,facebook_url,twitter_url,linkedin_url,youtube_url) VALUES (?,?,?,?,?,?,?,?,?,?)");
+                $stmt->execute([$company_name,$email,$phone,$address,$vat,$tin,$fb,$tw,$li,$yt]);
             }
             log_activity('Company Settings Updated');
             echo json_encode(['success' => true, 'message' => 'Company settings saved!']);
@@ -917,6 +918,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         </div>
                         <div class="settings-card-body">
                             <div class="sform-group">
+                                <label><i class="fa-solid fa-building"></i> Company Name *</label>
+                                <input type="text" id="companyName" placeholder="My Company Ltd">
+                            </div>
+                            <div class="sform-group">
                                 <label><i class="fa-solid fa-envelope"></i> Email *</label>
                                 <input type="email" id="companyEmail" placeholder="info@company.com">
                             </div>
@@ -1342,6 +1347,7 @@ function loadCompanySettings() {
     $.post('settings.php', {action:'getCompanySettings'}, function(r) {
         if (r.success && r.data) {
             const d = r.data;
+            document.getElementById('companyName').value     = d.company_name || '';
             document.getElementById('companyEmail').value    = d.email || '';
             document.getElementById('companyPhone').value    = d.phone || '';
             document.getElementById('companyAddress').value  = d.address || '';
@@ -1362,19 +1368,20 @@ function loadCompanySettings() {
 
 // ── Save Company Settings ──────────────────────────────────
 function saveCompanySettings() {
+    const company_name = document.getElementById('companyName').value.trim();
     const email   = document.getElementById('companyEmail').value.trim();
     const phone   = document.getElementById('companyPhone').value.trim();
     const address = document.getElementById('companyAddress').value.trim();
 
-    if (!email || !phone || !address) {
-        showToast(false, 'Email, Phone & Address are required!');
+    if (!company_name || !email || !phone || !address) {
+        showToast(false, 'Company Name, Email, Phone & Address are required!');
         return;
     }
 
     $.post('settings.php', {
         action:       'saveCompanySettings',
         csrf_token:   CSRF,
-        email,  phone,  address,
+        company_name, email,  phone,  address,
         vat_number:   document.getElementById('companyVat').value.trim(),
         tin_number:   document.getElementById('companyTin').value.trim(),
         facebook_url: document.getElementById('socialFacebook').value.trim(),

@@ -538,14 +538,19 @@ $payments = $pdo->query("
                                     <?php endif; ?>
                                 </div>
 
-                                <div style="display:flex; gap:10px; margin-top:5px;">
-                                    <?php if ($l['status'] === 'active'): ?>
-                                        <button class="btn-primary" style="flex:1; justify-content:center; padding:8px 12px; font-size:0.82rem; background: #8b5cf6; border-color: #8b5cf6;" onclick="openPaymentModal(<?= $l['id'] ?>, '<?= clean($l['debtor_name']) ?>', <?= $l['emi_amount'] ?>, <?= $total_payable - $l['total_paid'] ?>, '<?= clean($l['repayment_upi']) ?>')">
-                                            <i class="fa-solid fa-qrcode"></i> Collect EMI
-                                        </button>
-                                    <?php endif; ?>
-                                    <button class="btn-secondary" style="border: 1px solid rgba(239,68,68,0.2); color:#ef4444; background:transparent; padding:8px 12px; font-size:0.82rem;" onclick="confirmDeleteLoan(<?= $l['id'] ?>, '<?= clean($l['debtor_name']) ?>')">
-                                        <i class="fa-solid fa-trash-can"></i> Delete
+                                <div style="display:flex; flex-direction:column; gap:8px; margin-top:5px;">
+                                    <div style="display:flex; gap:10px;">
+                                        <?php if ($l['status'] === 'active'): ?>
+                                            <button class="btn-primary" style="flex:1; justify-content:center; padding:8px 12px; font-size:0.82rem; background: #8b5cf6; border-color: #8b5cf6; margin:0;" onclick="openPaymentModal(<?= $l['id'] ?>, '<?= clean($l['debtor_name']) ?>', <?= $l['emi_amount'] ?>, <?= $total_payable - $l['total_paid'] ?>, '<?= clean($l['repayment_upi']) ?>')">
+                                                <i class="fa-solid fa-qrcode"></i> Collect EMI
+                                            </button>
+                                        <?php endif; ?>
+                                        <a href="print-loan.php?type=given&id=<?= $l['id'] ?>" target="_blank" class="btn-secondary" style="flex:1; justify-content:center; padding:8px 12px; font-size:0.82rem; display:inline-flex; align-items:center; gap:6px; text-decoration:none; margin:0; border-color:#3b82f6; color:#3b82f6; background:transparent;">
+                                            <i class="fa-solid fa-print"></i> Print Schedule
+                                        </a>
+                                    </div>
+                                    <button class="btn-secondary" style="border: 1px solid rgba(239,68,68,0.2); color:#ef4444; background:transparent; padding:8px 12px; font-size:0.82rem; width:100%; margin:0;" onclick="confirmDeleteLoan(<?= $l['id'] ?>, '<?= clean($l['debtor_name']) ?>')">
+                                        <i class="fa-solid fa-trash-can"></i> Delete Loan
                                     </button>
                                 </div>
                             </div>
@@ -583,8 +588,11 @@ $payments = $pdo->query("
                                         <td><span style="font-size:0.82rem; color:var(--text-secondary);"><?= clean($pmt['note'] ?: '-') ?></span></td>
                                         <td style="font-weight:700; color:var(--success);"><?= format_currency($pmt['amount']) ?></td>
                                         <td><span style="font-size:0.82rem; color:var(--text-secondary);"><?= clean($pmt['recorder_name']) ?></span></td>
-                                        <td>
-                                            <button class="action-btn delete-btn" onclick="confirmDeletePayment(<?= $pmt['id'] ?>, <?= $pmt['amount'] ?>)" title="Revert Payment">
+                                        <td style="display:flex; gap:6px; align-items:center;">
+                                            <a href="print-repayment.php?type=given&id=<?= $pmt['id'] ?>" target="_blank" class="action-btn view-btn" style="background:rgba(59,130,246,0.15); color:#3b82f6; border:1px solid rgba(59,130,246,0.3); padding:5px 8px; border-radius:6px; font-size:0.85rem;" title="Print Receipt">
+                                                <i class="fa-solid fa-print"></i>
+                                            </a>
+                                            <button class="action-btn delete-btn" onclick="confirmDeletePayment(<?= $pmt['id'] ?>, <?= $pmt['amount'] ?>)" title="Revert Payment" style="margin:0;">
                                                 <i class="fa-solid fa-trash-can"></i>
                                             </button>
                                         </td>
