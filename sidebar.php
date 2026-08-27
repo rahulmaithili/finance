@@ -160,9 +160,6 @@ window.toggleSettingsDropdown = function(event) {
     }
 };
 
-    }
-};
-
 // Predefined Color Palettes definition
 window.THEME_PALETTES = [
     { id: "ui_1", name: "Enterprise Navy", primary: "#3b82f6", primaryHover: "#2563eb", bgSidebar: "#0f172a", bgPrimary: "#f8fafc", bgSecondary: "#ffffff", border: "#e2e8f0", darkBgPrimary: "#0b0f19", darkBgSecondary: "#131a26", darkBgSidebar: "#0f1520", darkBorder: "#222d3d" },
