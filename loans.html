@@ -426,7 +426,7 @@
                             <div style="font-size:1.2rem;font-weight:900;color:#fff;">${formatCurrency(emi)}</div>
                         </div>
                         <div style="display:flex; gap:6px; align-items:center;">
-                            <button onclick="showAmortizationModal('${l.id}', '${(l.lender_name || 'Loan').replace(/'/g, "\\'")}', '${l.principal}', '${l.interest_rate}', '${l.tenure_months}', '${emi}', '${l.emi_paid || 0}', '${l.start_date}')" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);color:#fff;padding:8px 12px;border-radius:10px;cursor:pointer;font-size:0.78rem;font-weight:700;display:flex;align-items:center;gap:4px;"><i class="fa-solid fa-calendar-days"></i>Schedule</button>
+                            <button onclick="showAmortizationModal('${l.id}')" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);color:#fff;padding:8px 12px;border-radius:10px;cursor:pointer;font-size:0.78rem;font-weight:700;display:flex;align-items:center;gap:4px;"><i class="fa-solid fa-calendar-days"></i>Schedule</button>
                             ${!closed?`<button onclick="openPaymentModal('${l.id}')" style="background:rgba(255,255,255,0.25);border:1px solid rgba(255,255,255,0.35);color:#fff;padding:8px 12px;border-radius:10px;cursor:pointer;font-size:0.78rem;font-weight:700;display:flex;align-items:center;gap:4px;"><i class="fa-solid fa-check"></i>Pay</button>`:`<span style="color:rgba(255,255,255,0.85);font-size:0.8rem;font-weight:700;">Cleared</span>`}
                         </div>
                     </div>
@@ -693,18 +693,21 @@
     document.getElementById('loanModal').addEventListener('click',e=>{if(e.target===document.getElementById('loanModal'))closeLoanModal();});
     document.getElementById('paymentModal').addEventListener('click',e=>{if(e.target===document.getElementById('paymentModal'))closePaymentModal();});
     
-    function showAmortizationModal(loanId, lenderName, principal, rate, tenure, emi, emiPaid, startDate) {
-        document.getElementById('amortLenderName').textContent = "Schedule for: " + lenderName;
+    function showAmortizationModal(loanId) {
+        const l = loansCache[loanId];
+        if (!l) return;
+
+        document.getElementById('amortLenderName').textContent = "Schedule for: " + l.lender_name;
         const tbody = document.getElementById('amortizationTableBody');
         tbody.innerHTML = '';
         
-        let balance = parseFloat(principal);
-        const monthlyRate = (parseFloat(rate) / 100) / 12;
-        const emiAmount = parseFloat(emi);
-        const paidCount = parseInt(emiPaid);
-        const start = new Date(startDate);
+        let balance = parseFloat(l.principal);
+        const monthlyRate = (parseFloat(l.interest_rate) / 100) / 12;
+        const emiAmount = computeEMI(l.principal, l.interest_rate, l.tenure_months);
+        const paidCount = parseInt(l.emi_paid || 0);
+        const start = new Date(l.start_date);
         
-        for (let m = 1; m <= parseInt(tenure); m++) {
+        for (let m = 1; m <= parseInt(l.tenure_months); m++) {
             const interest = balance * monthlyRate;
             const principalPortion = emiAmount - interest;
             balance = balance - principalPortion;
