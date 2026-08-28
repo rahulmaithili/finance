@@ -1733,6 +1733,10 @@ select.form-control option {
     padding-left: 14px;
 }
 
+.bottom-sheet-body .input-icon-wrapper .form-control {
+    padding-left: 42px;
+}
+
 .bottom-sheet-body textarea.form-control {
     height: 70px;
     padding-top: 10px;
