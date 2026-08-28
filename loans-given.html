@@ -203,6 +203,8 @@
                 <div class="form-group"><label class="form-label">Disbursed Date *</label><input type="date" id="start_date" class="form-control" required></div>
                 <div class="form-group"><label class="form-label">EMI Collection Day (1-28)</label><input type="number" id="emi_day" class="form-control" placeholder="e.g. 5" min="1" max="28" value="5"></div>
                 <div class="form-group"><label class="form-label">Disburse From Bank Account *</label><select id="disbursement_account" class="form-control" style="padding-left:14px;" required><option value="" disabled selected>Select Account</option></select></div>
+                <div class="form-group"><label class="form-label">EMIs Already Collected (Historical)</label><input type="number" id="init_emi_paid" class="form-control" placeholder="e.g. 5" min="0" value="0"></div>
+                <div class="form-group"><label class="form-label">Total Amount Already Collected (Rs)</label><input type="number" id="init_total_paid" class="form-control" placeholder="e.g. 50000" min="0" value="0"></div>
             </div>
 
             <h4 style="color:#a855f7;margin:0 0 14px;border-bottom:1px solid rgba(168,85,247,0.2);padding-bottom:6px;font-size:0.88rem;"><i class="fa-solid fa-money-bill-transfer" style="margin-right:6px;"></i>Repayment Instructions (To Debtor)</h4>
@@ -271,11 +273,17 @@
                 <p id="modalUpiIdText" style="font-size:0.85rem; font-weight:700; color:#a855f7; margin-top:8px; margin-bottom:0;"></p>
             </div>
 
-            <div class="form-group">
+            <div class="form-group" id="accountGroup">
                 <label class="form-label">Deposit In Bank Account *</label>
                 <select id="paymentAccount" class="form-control" style="padding-left:14px;" required>
                     <option value="" disabled selected>Select Account</option>
                 </select>
+            </div>
+            <div class="form-group" style="display:flex;align-items:center;gap:8px;margin-top:10px;margin-bottom:15px;background:rgba(245,158,11,0.05);padding:10px;border-radius:8px;border:1px dashed rgba(245,158,11,0.2);">
+                <input type="checkbox" id="skipAccountImpact" style="width:16px;height:16px;cursor:pointer;" onchange="toggleAccountField()">
+                <label for="skipAccountImpact" style="font-size:0.8rem;color:#f59e0b;cursor:pointer;user-select:none;font-weight:600;">
+                    Skip Wallet/Account Impact (Historical Entry)
+                </label>
             </div>
             <div class="form-group"><label class="form-label">Remarks / Collection Note</label><input type="text" id="paymentNote" class="form-control" placeholder="e.g. EMI Month 2 recovery"></div>
             <button class="btn-primary" onclick="savePayment()" style="width:100%;height:48px;border-radius:12px;font-size:1rem;font-weight:700;margin-bottom:20px;background:linear-gradient(135deg,#064e3b,#059669);border:none;"><i class="fa-solid fa-check-circle"></i> Log Payment</button>
@@ -513,6 +521,8 @@
             document.getElementById('tenure_months').value=l.tenure_months;
             document.getElementById('start_date').value=l.start_date;
             document.getElementById('emi_day').value=l.emi_day||5;
+            document.getElementById('init_emi_paid').value=l.emi_paid||0;
+            document.getElementById('init_total_paid').value=l.total_paid||0;
             
             document.getElementById('disbursement_account').value=l.disbursement_account_id||'';
             document.getElementById('disbursement_account').disabled=true; // Block account changes on edit to prevent balance leaks
@@ -521,6 +531,8 @@
             calcEMI();
         }else{
             document.getElementById('loanModalTitle').textContent='Record New Given Loan';
+            document.getElementById('init_emi_paid').value=0;
+            document.getElementById('init_total_paid').value=0;
         }
         document.getElementById('loanModal').style.display='flex';
     }
@@ -572,6 +584,8 @@
         }
 
         uploadPromise.then(attachmentUrl => {
+            const initEmiPaid=parseInt(document.getElementById('init_emi_paid').value)||0;
+            const initTotalPaid=parseFloat(document.getElementById('init_total_paid').value)||0;
             const data={
                 debtor_name: debtorName,
                 debtor_phone: debtorPhone,
@@ -586,12 +600,15 @@
                 repayment_account_id: repaymentAccountId,
                 repayment_upi: repaymentUpi,
                 emi_amount: emiVal,
+                emi_paid: initEmiPaid,
+                total_paid: initTotalPaid,
                 updated_at: firebase.firestore.FieldValue.serverTimestamp()
             };
             if(attachmentUrl) data.attachment_url = attachmentUrl;
 
             if (id) {
                 // Edit mode
+                data.status = (initTotalPaid >= (emiVal * n)) ? 'closed' : 'active';
                 db.collection('loans_given').doc(id).update(data).then(()=>{
                     closeLoanModal();
                     document.getElementById('loanSaveText').textContent='Save Loan Contract';
@@ -618,9 +635,7 @@
                         // Set given loan contract
                         transaction.set(lDocRef, {
                             ...data,
-                            status: 'active',
-                            total_paid: 0,
-                            emi_paid: 0,
+                            status: (initTotalPaid >= (emiVal * n)) ? 'closed' : 'active',
                             created_at: firebase.firestore.FieldValue.serverTimestamp(),
                             created_by: currentUser.uid
                         });
@@ -683,6 +698,9 @@
         
         document.getElementById('paymentMethod').value='cash';
         document.getElementById('modalUpiQrContainer').style.display='none';
+        document.getElementById('skipAccountImpact').checked=false;
+        document.getElementById('accountGroup').style.display='block';
+        document.getElementById('paymentAccount').required=true;
         
         if (paymentConfig && paymentConfig.razorpay_enabled) {
             document.getElementById('razorpayBtn').style.display = 'block';
@@ -692,6 +710,19 @@
 
         loadPaymentHistory(loanId);
         document.getElementById('paymentModal').style.display='flex';
+    }
+
+    function toggleAccountField() {
+        const isChecked = document.getElementById('skipAccountImpact').checked;
+        const accountGroup = document.getElementById('accountGroup');
+        const paymentAccount = document.getElementById('paymentAccount');
+        if (isChecked) {
+            accountGroup.style.display = 'none';
+            paymentAccount.required = false;
+        } else {
+            accountGroup.style.display = 'block';
+            paymentAccount.required = true;
+        }
     }
 
     function updateModalQrCode() {
@@ -902,68 +933,97 @@ td{padding:12px 14px;border-bottom:1px solid #e2e8f0;}
         const amount=parseFloat(document.getElementById('paymentAmount').value);
         const date=document.getElementById('paymentDate').value;
         const note=document.getElementById('paymentNote').value.trim();
+        const skipImpact=document.getElementById('skipAccountImpact').checked;
         const accountId=document.getElementById('paymentAccount').value;
         const method=document.getElementById('paymentMethod').value;
-        if(!amount||!date||!accountId){
+        
+        if(!amount||!date||(!skipImpact&&!accountId)){
             Swal.fire({icon:'warning',title:'Required Fields',text:'Please enter recovery amount, collection date and deposit account.'});
             return;
         }
 
         const lRef=db.collection('loans_given').doc(activePaymentLoanId);
         const pRef=lRef.collection('payments').doc();
-        const accRef=db.collection('bank_accounts').doc(accountId);
-        const incRef=db.collection('income').doc(); // Auto log income
 
-        db.runTransaction(tx=>tx.get(lRef).then(doc=>{
-            const l=doc.data();
-            return tx.get(accRef).then(accDoc => {
-                if(!accDoc.exists) throw new Error("Selected account does not exist!");
-                const currentBal = parseFloat(accDoc.data().current_balance || 0);
-                const accountName = accDoc.data().account_name;
-
+        if (skipImpact) {
+            db.runTransaction(tx=>tx.get(lRef).then(doc=>{
+                const l=doc.data();
                 const nPaid=(l.total_paid||0)+amount;
                 const tot=l.emi_amount*l.tenure_months;
                 const status=nPaid>=tot?'closed':'active';
                 const nEmi=status==='closed'?l.tenure_months:(l.emi_paid||0)+1;
 
-                tx.update(accRef, {current_balance: currentBal + amount});
                 tx.update(lRef, {total_paid:nPaid,emi_paid:nEmi,status,updated_at:firebase.firestore.FieldValue.serverTimestamp()});
                 
-                // Set payment sub-doc
                 tx.set(pRef,{
                     amount,
                     payment_date:date,
                     payment_method:method,
-                    note: note || `EMI Recovery Payment from ${l.debtor_name}`,
-                    account_id: accountId,
-                    account_name: accountName,
-                    income_id: incRef.id,
+                    note: note || 'Historical Entry (No Account Impact)',
+                    account_id: '',
+                    account_name: 'None (Historical)',
+                    income_id: '',
                     recorded_by:currentUser.uid,
                     recorded_at:firebase.firestore.FieldValue.serverTimestamp()
                 });
+            })).then(()=>{
+                Swal.fire({icon:'success',title:'Historical Collection Logged!',timer:1500,showConfirmButton:false});
+                logActivity('Logged historical collection of '+formatCurrency(amount)+' (no balance impact)');
+                loadPaymentHistory(activePaymentLoanId);
+            }).catch(err=>Swal.fire({icon:'error',title:'Failed to Log Payment',text:err.message}));
+        } else {
+            const accRef=db.collection('bank_accounts').doc(accountId);
+            const incRef=db.collection('income').doc(); // Auto log income
 
-                // Add to income collection
-                tx.set(incRef, {
-                    title: `EMI Collection - ${l.debtor_name}`,
-                    category: 'Loan EMI Recovery',
-                    amount: amount,
-                    account_id: accountId,
-                    payment_method: method === 'upi' ? 'UPI' : 'Cash',
-                    income_date: date,
-                    reference_no: '',
-                    description: note || `EMI month ${nEmi} recovery payment`,
-                    attachment_url: '',
-                    recorded_by_uid: currentUser.uid,
-                    recorded_by_name: currentUserData ? currentUserData.full_name : currentUser.email.split('@')[0],
-                    created_at: firebase.firestore.FieldValue.serverTimestamp()
+            db.runTransaction(tx=>tx.get(lRef).then(doc=>{
+                const l=doc.data();
+                return tx.get(accRef).then(accDoc => {
+                    if(!accDoc.exists) throw new Error("Selected account does not exist!");
+                    const currentBal = parseFloat(accDoc.data().current_balance || 0);
+                    const accountName = accDoc.data().account_name;
+
+                    const nPaid=(l.total_paid||0)+amount;
+                    const tot=l.emi_amount*l.tenure_months;
+                    const status=nPaid>=tot?'closed':'active';
+                    const nEmi=status==='closed'?l.tenure_months:(l.emi_paid||0)+1;
+
+                    tx.update(accRef, {current_balance: currentBal + amount});
+                    tx.update(lRef, {total_paid:nPaid,emi_paid:nEmi,status,updated_at:firebase.firestore.FieldValue.serverTimestamp()});
+                    
+                    tx.set(pRef,{
+                        amount,
+                        payment_date:date,
+                        payment_method:method,
+                        note: note || `EMI Recovery Payment from ${l.debtor_name}`,
+                        account_id: accountId,
+                        account_name: accountName,
+                        income_id: incRef.id,
+                        recorded_by:currentUser.uid,
+                        recorded_at:firebase.firestore.FieldValue.serverTimestamp()
+                    });
+
+                    tx.set(incRef, {
+                        title: `EMI Collection - ${l.debtor_name}`,
+                        category: 'Loan EMI Recovery',
+                        amount: amount,
+                        account_id: accountId,
+                        payment_method: method === 'upi' ? 'UPI' : 'Cash',
+                        income_date: date,
+                        reference_no: '',
+                        description: note || `EMI month ${nEmi} recovery payment`,
+                        attachment_url: '',
+                        recorded_by_uid: currentUser.uid,
+                        recorded_by_name: currentUserData ? currentUserData.full_name : currentUser.email.split('@')[0],
+                        created_at: firebase.firestore.FieldValue.serverTimestamp()
+                    });
                 });
-            });
-        })).then(()=>{
-            Swal.fire({icon:'success',title:'EMI Recovery Logged!',timer:1500,showConfirmButton:false});
-            logActivity('Recovered EMI payment of '+formatCurrency(amount)+' from debtor: '+loansCache[activePaymentLoanId].debtor_name);
-            loadPaymentHistory(activePaymentLoanId);
-            loadAccountsList(); // Refresh balances
-        }).catch(err=>Swal.fire({icon:'error',title:'Failed to Log Payment',text:err.message}));
+            })).then(()=>{
+                Swal.fire({icon:'success',title:'EMI Recovery Logged!',timer:1500,showConfirmButton:false});
+                logActivity('Recovered EMI payment of '+formatCurrency(amount)+' from debtor: '+loansCache[activePaymentLoanId].debtor_name);
+                loadPaymentHistory(activePaymentLoanId);
+                loadAccountsList();
+            }).catch(err=>Swal.fire({icon:'error',title:'Failed to Log Payment',text:err.message}));
+        }
     }
 
     function payViaRazorpay() {
