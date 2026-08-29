@@ -30,74 +30,152 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     // Header Row
     fputcsv($output, ['Date', 'Transaction Type', 'Title', 'Category', 'Account', 'Bank', 'Payment Method', 'Ref No', 'Amount (INR)', 'Description']);
     
-    // Build parameters and query
-    $params = [$start_date, $end_date];
-    
-    $income_q = "SELECT 'Income' as type, i.income_date as txn_date, i.title, i.category, a.account_name, a.bank_name, i.payment_method, i.reference_no, i.amount, i.description, i.created_at FROM income i JOIN bank_accounts a ON i.account_id = a.id WHERE i.income_date BETWEEN ? AND ?";
-    if ($filter_account !== 'all') {
-        $income_q .= " AND i.account_id = ?";
-    }
-    
-    $expense_q = "SELECT 'Expense' as type, e.expense_date as txn_date, e.title, e.category, a.account_name, a.bank_name, e.payment_method, e.reference_no, e.amount, e.description, e.created_at FROM expenses e JOIN bank_accounts a ON e.account_id = a.id WHERE e.expense_date BETWEEN ? AND ?";
-    if ($filter_account !== 'all') {
-        $expense_q .= " AND e.account_id = ?";
-    }
-    
-    $transfer_q = "SELECT 'Transfer' as type, t.transfer_date as txn_date, CONCAT('Transfer to ', a_to.account_name) as title, 'Transfer' as category, a_from.account_name, a_from.bank_name, 'Bank' as payment_method, '' as reference_no, t.amount, t.remarks as description, t.created_at FROM transfers t JOIN bank_accounts a_from ON t.from_account = a_from.id JOIN bank_accounts a_to ON t.to_account = a_to.id WHERE t.transfer_date BETWEEN ? AND ?";
-    if ($filter_account !== 'all') {
-        $transfer_q .= " AND (t.from_account = ? OR t.to_account = ?)";
-    }
-    
-    $queries = [];
-    $income_params = $params;
-    $expense_params = $params;
-    $transfer_params = $params;
-    
-    if ($filter_account !== 'all') {
-        $income_params[] = $filter_account;
-        $expense_params[] = $filter_account;
-        $transfer_params[] = $filter_account;
-        $transfer_params[] = $filter_account;
-    }
-    
-    if ($filter_type === 'all' || $filter_type === 'income') {
-        $queries[] = ["sql" => $income_q, "params" => $income_params];
-    }
-    if ($filter_type === 'all' || $filter_type === 'expense') {
-        $queries[] = ["sql" => $expense_q, "params" => $expense_params];
-    }
-    if ($filter_type === 'all' || $filter_type === 'transfer') {
-        $queries[] = ["sql" => $transfer_q, "params" => $transfer_params];
-    }
-    
-    // Combine SQLs using UNION ALL
-    $sql_parts = [];
-    $final_params = [];
-    foreach ($queries as $q) {
-        $sql_parts[] = "(" . $q['sql'] . ")";
-        foreach ($q['params'] as $p) {
-            $final_params[] = $p;
+    if ($filter_type === 'loan_interest') {
+        $all_loans = $pdo->query("SELECT * FROM loans_given")->fetchAll();
+        $loan_interest_entries = [];
+        
+        foreach ($all_loans as $l) {
+            $stmt = $pdo->prepare("
+                SELECT p.*, a.account_name, a.bank_name 
+                FROM loan_given_payments p
+                JOIN bank_accounts a ON p.account_id = a.id
+                WHERE p.loan_given_id = ?
+                ORDER BY p.payment_date ASC, p.id ASC
+            ");
+            $stmt->execute([$l['id']]);
+            $pmts = $stmt->fetchAll();
+            
+            if (empty($pmts)) continue;
+            
+            $principal = (float)$l['principal'];
+            $rate = (float)$l['interest_rate'];
+            $tenure = (int)$l['tenure_months'];
+            $emiVal = (float)$l['emi_amount'];
+            $monthlyRate = ($rate / 100) / 12;
+            
+            $balance = $principal;
+            $schedule = [];
+            for ($m = 1; $m <= $tenure; $m++) {
+                $interest = $balance * $monthlyRate;
+                $principalPortion = $emiVal - $interest;
+                $balance = $balance - $principalPortion;
+                $schedule[] = [
+                    'month' => $m,
+                    'interest' => $interest,
+                    'principal' => $principalPortion
+                ];
+            }
+            
+            foreach ($pmts as $idx => $pmt) {
+                $sched = $schedule[$idx] ?? ['interest' => 0.00, 'principal' => (float)$pmt['amount']];
+                
+                if ($pmt['payment_date'] >= $start_date && $pmt['payment_date'] <= $end_date) {
+                    if ($filter_account === 'all' || $pmt['account_id'] == $filter_account) {
+                        $loan_interest_entries[] = [
+                            'txn_date' => $pmt['payment_date'],
+                            'type' => 'Income',
+                            'title' => "Loan Interest - {$l['debtor_name']} (EMI #" . ($idx + 1) . ")",
+                            'category' => 'Given Loan Interest',
+                            'account_name' => $pmt['account_name'],
+                            'bank_name' => $pmt['bank_name'],
+                            'payment_method' => $pmt['payment_method'],
+                            'reference_no' => '',
+                            'amount' => $sched['interest'],
+                            'description' => $pmt['note'] ?? ''
+                        ];
+                    }
+                }
+            }
         }
-    }
-    
-    $union_sql = implode(" UNION ALL ", $sql_parts) . " ORDER BY txn_date DESC, created_at DESC";
-    
-    $stmt = $pdo->prepare($union_sql);
-    $stmt->execute($final_params);
-    
-    while ($row = $stmt->fetch()) {
-        fputcsv($output, [
-            $row['txn_date'],
-            $row['type'],
-            $row['title'],
-            $row['category'],
-            $row['account_name'],
-            $row['bank_name'],
-            $row['payment_method'],
-            $row['reference_no'],
-            $row['amount'],
-            $row['description']
-        ]);
+        
+        usort($loan_interest_entries, function($a, $b) {
+            return strtotime($b['txn_date']) - strtotime($a['txn_date']);
+        });
+        
+        foreach ($loan_interest_entries as $row) {
+            fputcsv($output, [
+                $row['txn_date'],
+                $row['type'],
+                $row['title'],
+                $row['category'],
+                $row['account_name'],
+                $row['bank_name'],
+                $row['payment_method'],
+                $row['reference_no'],
+                $row['amount'],
+                $row['description']
+            ]);
+        }
+    } else {
+        // Build parameters and query
+        $params = [$start_date, $end_date];
+        
+        $income_q = "SELECT 'Income' as type, i.income_date as txn_date, i.title, i.category, a.account_name, a.bank_name, i.payment_method, i.reference_no, i.amount, i.description, i.created_at FROM income i JOIN bank_accounts a ON i.account_id = a.id WHERE i.income_date BETWEEN ? AND ?";
+        if ($filter_account !== 'all') {
+            $income_q .= " AND i.account_id = ?";
+        }
+        
+        $expense_q = "SELECT 'Expense' as type, e.expense_date as txn_date, e.title, e.category, a.account_name, a.bank_name, e.payment_method, e.reference_no, e.amount, e.description, e.created_at FROM expenses e JOIN bank_accounts a ON e.account_id = a.id WHERE e.expense_date BETWEEN ? AND ?";
+        if ($filter_account !== 'all') {
+            $expense_q .= " AND e.account_id = ?";
+        }
+        
+        $transfer_q = "SELECT 'Transfer' as type, t.transfer_date as txn_date, CONCAT('Transfer to ', a_to.account_name) as title, 'Transfer' as category, a_from.account_name, a_from.bank_name, 'Bank' as payment_method, '' as reference_no, t.amount, t.remarks as description, t.created_at FROM transfers t JOIN bank_accounts a_from ON t.from_account = a_from.id JOIN bank_accounts a_to ON t.to_account = a_to.id WHERE t.transfer_date BETWEEN ? AND ?";
+        if ($filter_account !== 'all') {
+            $transfer_q .= " AND (t.from_account = ? OR t.to_account = ?)";
+        }
+        
+        $queries = [];
+        $income_params = $params;
+        $expense_params = $params;
+        $transfer_params = $params;
+        
+        if ($filter_account !== 'all') {
+            $income_params[] = $filter_account;
+            $expense_params[] = $filter_account;
+            $transfer_params[] = $filter_account;
+            $transfer_params[] = $filter_account;
+        }
+        
+        if ($filter_type === 'all' || $filter_type === 'income') {
+            $queries[] = ["sql" => $income_q, "params" => $income_params];
+        }
+        if ($filter_type === 'all' || $filter_type === 'expense') {
+            $queries[] = ["sql" => $expense_q, "params" => $expense_params];
+        }
+        if ($filter_type === 'all' || $filter_type === 'transfer') {
+            $queries[] = ["sql" => $transfer_q, "params" => $transfer_params];
+        }
+        
+        // Combine SQLs using UNION ALL
+        $sql_parts = [];
+        $final_params = [];
+        foreach ($queries as $q) {
+            $sql_parts[] = "(" . $q['sql'] . ")";
+            foreach ($q['params'] as $p) {
+                $final_params[] = $p;
+            }
+        }
+        
+        $union_sql = implode(" UNION ALL ", $sql_parts) . " ORDER BY txn_date DESC, created_at DESC";
+        
+        $stmt = $pdo->prepare($union_sql);
+        $stmt->execute($final_params);
+        
+        while ($row = $stmt->fetch()) {
+            fputcsv($output, [
+                $row['txn_date'],
+                $row['type'],
+                $row['title'],
+                $row['category'],
+                $row['account_name'],
+                $row['bank_name'],
+                $row['payment_method'],
+                $row['reference_no'],
+                $row['amount'],
+                $row['description']
+            ]);
+        }
     }
     
     fclose($output);
@@ -107,64 +185,141 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
 // ==========================================================================
 // P&L AND AGGREGATE CALCULATIONS FOR CURRENT FILTER
 // ==========================================================================
-// Total Income Filtered
-$inc_sql = "SELECT SUM(amount) FROM income WHERE income_date BETWEEN ? AND ?";
-$inc_params = [$start_date, $end_date];
-if ($filter_account !== 'all') {
-    $inc_sql .= " AND account_id = ?";
-    $inc_params[] = $filter_account;
-}
-$stmt = $pdo->prepare($inc_sql);
-$stmt->execute($inc_params);
-$total_income = (float)$stmt->fetchColumn();
+$loan_interest_entries = [];
+$total_loan_interest = 0.00;
 
-// Total Expense Filtered
-$exp_sql = "SELECT SUM(amount) FROM expenses WHERE expense_date BETWEEN ? AND ?";
-$exp_params = [$start_date, $end_date];
-if ($filter_account !== 'all') {
-    $exp_sql .= " AND account_id = ?";
-    $exp_params[] = $filter_account;
-}
-$stmt = $pdo->prepare($exp_sql);
-$stmt->execute($exp_params);
-$total_expense = (float)$stmt->fetchColumn();
+if ($filter_type === 'loan_interest') {
+    $all_loans = $pdo->query("SELECT * FROM loans_given")->fetchAll();
+    foreach ($all_loans as $l) {
+        $stmt = $pdo->prepare("
+            SELECT p.*, a.account_name, a.bank_name 
+            FROM loan_given_payments p
+            JOIN bank_accounts a ON p.account_id = a.id
+            WHERE p.loan_given_id = ?
+            ORDER BY p.payment_date ASC, p.id ASC
+        ");
+        $stmt->execute([$l['id']]);
+        $pmts = $stmt->fetchAll();
+        
+        if (empty($pmts)) continue;
+        
+        $principal = (float)$l['principal'];
+        $rate = (float)$l['interest_rate'];
+        $tenure = (int)$l['tenure_months'];
+        $emiVal = (float)$l['emi_amount'];
+        $monthlyRate = ($rate / 100) / 12;
+        
+        $balance = $principal;
+        $schedule = [];
+        for ($m = 1; $m <= $tenure; $m++) {
+            $interest = $balance * $monthlyRate;
+            $principalPortion = $emiVal - $interest;
+            $balance = $balance - $principalPortion;
+            $schedule[] = [
+                'month' => $m,
+                'interest' => $interest,
+                'principal' => $principalPortion
+            ];
+        }
+        
+        foreach ($pmts as $idx => $pmt) {
+            $sched = $schedule[$idx] ?? ['interest' => 0.00, 'principal' => (float)$pmt['amount']];
+            
+            if ($pmt['payment_date'] >= $start_date && $pmt['payment_date'] <= $end_date) {
+                if ($filter_account === 'all' || $pmt['account_id'] == $filter_account) {
+                    $total_loan_interest += (float)$sched['interest'];
+                    
+                    $loan_interest_entries[] = [
+                        'type' => 'income',
+                        'txn_date' => $pmt['payment_date'],
+                        'title' => "Loan Interest - {$l['debtor_name']} (EMI #" . ($idx + 1) . ")",
+                        'category' => 'Given Loan Interest',
+                        'account_name' => $pmt['account_name'],
+                        'bank_name' => $pmt['bank_name'],
+                        'payment_method' => $pmt['payment_method'],
+                        'reference_no' => '',
+                        'amount' => $sched['interest'],
+                        'description' => $pmt['note'] ?? '',
+                        'created_at' => $pmt['created_at'] ?? $pmt['payment_date']
+                    ];
+                }
+            }
+        }
+    }
+    
+    usort($loan_interest_entries, function($a, $b) {
+        return strtotime($b['txn_date']) - strtotime($a['txn_date']);
+    });
+    
+    $total_income = $total_loan_interest;
+    $total_expense = 0.00;
+    $total_transfers = 0.00;
+    $net_balance = $total_loan_interest;
+    
+    $income_categories = [
+        ['category' => 'Given Loan Interest', 'total' => $total_loan_interest, 'count' => count($loan_interest_entries)]
+    ];
+    $expense_categories = [];
+} else {
+    // Total Income Filtered
+    $inc_sql = "SELECT SUM(amount) FROM income WHERE income_date BETWEEN ? AND ?";
+    $inc_params = [$start_date, $end_date];
+    if ($filter_account !== 'all') {
+        $inc_sql .= " AND account_id = ?";
+        $inc_params[] = $filter_account;
+    }
+    $stmt = $pdo->prepare($inc_sql);
+    $stmt->execute($inc_params);
+    $total_income = (float)$stmt->fetchColumn();
 
-// Total Transfers Filtered
-$tf_sql = "SELECT SUM(amount) FROM transfers WHERE transfer_date BETWEEN ? AND ?";
-$tf_params = [$start_date, $end_date];
-if ($filter_account !== 'all') {
-    $tf_sql .= " AND (from_account = ? OR to_account = ?)";
-    $tf_params[] = $filter_account;
-    $tf_params[] = $filter_account;
-}
-$stmt = $pdo->prepare($tf_sql);
-$stmt->execute($tf_params);
-$total_transfers = (float)$stmt->fetchColumn();
+    // Total Expense Filtered
+    $exp_sql = "SELECT SUM(amount) FROM expenses WHERE expense_date BETWEEN ? AND ?";
+    $exp_params = [$start_date, $end_date];
+    if ($filter_account !== 'all') {
+        $exp_sql .= " AND account_id = ?";
+        $exp_params[] = $filter_account;
+    }
+    $stmt = $pdo->prepare($exp_sql);
+    $stmt->execute($exp_params);
+    $total_expense = (float)$stmt->fetchColumn();
 
-$net_balance = $total_income - $total_expense;
+    // Total Transfers Filtered
+    $tf_sql = "SELECT SUM(amount) FROM transfers WHERE transfer_date BETWEEN ? AND ?";
+    $tf_params = [$start_date, $end_date];
+    if ($filter_account !== 'all') {
+        $tf_sql .= " AND (from_account = ? OR to_account = ?)";
+        $tf_params[] = $filter_account;
+        $tf_params[] = $filter_account;
+    }
+    $stmt = $pdo->prepare($tf_sql);
+    $stmt->execute($tf_params);
+    $total_transfers = (float)$stmt->fetchColumn();
 
-// Category Wise Breakdown
-$cat_inc_sql = "SELECT category, SUM(amount) as total, COUNT(*) as count FROM income WHERE income_date BETWEEN ? AND ?";
-$cat_inc_params = [$start_date, $end_date];
-if ($filter_account !== 'all') {
-    $cat_inc_sql .= " AND account_id = ?";
-    $cat_inc_params[] = $filter_account;
-}
-$cat_inc_sql .= " GROUP BY category ORDER BY total DESC";
-$stmt = $pdo->prepare($cat_inc_sql);
-$stmt->execute($cat_inc_params);
-$income_categories = $stmt->fetchAll();
+    $net_balance = $total_income - $total_expense;
 
-$cat_exp_sql = "SELECT category, SUM(amount) as total, COUNT(*) as count FROM expenses WHERE expense_date BETWEEN ? AND ?";
-$cat_exp_params = [$start_date, $end_date];
-if ($filter_account !== 'all') {
-    $cat_exp_sql .= " AND account_id = ?";
-    $cat_exp_params[] = $filter_account;
+    // Category Wise Breakdown
+    $cat_inc_sql = "SELECT category, SUM(amount) as total, COUNT(*) as count FROM income WHERE income_date BETWEEN ? AND ?";
+    $cat_inc_params = [$start_date, $end_date];
+    if ($filter_account !== 'all') {
+        $cat_inc_sql .= " AND account_id = ?";
+        $cat_inc_params[] = $filter_account;
+    }
+    $cat_inc_sql .= " GROUP BY category ORDER BY total DESC";
+    $stmt = $pdo->prepare($cat_inc_sql);
+    $stmt->execute($cat_inc_params);
+    $income_categories = $stmt->fetchAll();
+
+    $cat_exp_sql = "SELECT category, SUM(amount) as total, COUNT(*) as count FROM expenses WHERE expense_date BETWEEN ? AND ?";
+    $cat_exp_params = [$start_date, $end_date];
+    if ($filter_account !== 'all') {
+        $cat_exp_sql .= " AND account_id = ?";
+        $cat_exp_params[] = $filter_account;
+    }
+    $cat_exp_sql .= " GROUP BY category ORDER BY total DESC";
+    $stmt = $pdo->prepare($cat_exp_sql);
+    $stmt->execute($cat_exp_params);
+    $expense_categories = $stmt->fetchAll();
 }
-$cat_exp_sql .= " GROUP BY category ORDER BY total DESC";
-$stmt = $pdo->prepare($cat_exp_sql);
-$stmt->execute($cat_exp_params);
-$expense_categories = $stmt->fetchAll();
 
 
 // ==========================================================================
@@ -352,6 +507,7 @@ if (!empty($statement_acc_id)) {
                                     <option value="income" <?= ($filter_type === 'income') ? 'selected' : '' ?>>Income only</option>
                                     <option value="expense" <?= ($filter_type === 'expense') ? 'selected' : '' ?>>Expenses only</option>
                                     <option value="transfer" <?= ($filter_type === 'transfer') ? 'selected' : '' ?>>Transfers only</option>
+                                    <option value="loan_interest" <?= ($filter_type === 'loan_interest') ? 'selected' : '' ?>>Given Loan Interest Earnings</option>
                                 </select>
                             </div>
                             
@@ -453,18 +609,24 @@ if (!empty($statement_acc_id)) {
                                     if ($filter_type === 'all' || $filter_type === 'expense') { $queries[] = ["sql" => $expense_q, "params" => $exp_p]; }
                                     if ($filter_type === 'all' || $filter_type === 'transfer') { $queries[] = ["sql" => $transfer_q, "params" => $tf_p]; }
                                     
-                                    if (count($queries) > 0) {
-                                        $union_parts = [];
-                                        $union_params = [];
-                                        foreach ($queries as $q) {
-                                            $union_parts[] = "(" . $q['sql'] . ")";
-                                            foreach ($q['params'] as $p) { $union_params[] = $p; }
+                                    if ($filter_type === 'loan_interest') {
+                                        $ledger_entries = $loan_interest_entries;
+                                    } else {
+                                        $ledger_entries = [];
+                                        if (count($queries) > 0) {
+                                            $union_parts = [];
+                                            $union_params = [];
+                                            foreach ($queries as $q) {
+                                                $union_parts[] = "(" . $q['sql'] . ")";
+                                                foreach ($q['params'] as $p) { $union_params[] = $p; }
+                                            }
+                                            $union_sql = implode(" UNION ALL ", $union_parts) . " ORDER BY txn_date DESC, created_at DESC";
+                                            
+                                            $stmt = $pdo->prepare($union_sql);
+                                            $stmt->execute($union_params);
+                                            $ledger_entries = $stmt->fetchAll();
                                         }
-                                        $union_sql = implode(" UNION ALL ", $union_parts) . " ORDER BY txn_date DESC, created_at DESC";
-                                        
-                                        $stmt = $pdo->prepare($union_sql);
-                                        $stmt->execute($union_params);
-                                        $ledger_entries = $stmt->fetchAll();
+                                    }
                                         
                                         foreach ($ledger_entries as $row) {
                                             $badgeClass = 'badge-success';

@@ -19,6 +19,30 @@ if (!function_exists('getSetting')) {
     }
 }
 
+if (!function_exists('get_interest_collected_so_far_php')) {
+    function get_interest_collected_so_far_php($l) {
+        $principal = (float)$l['principal'];
+        $rate = (float)$l['interest_rate'];
+        $tenure = (int)$l['tenure_months'];
+        $emi = (float)$l['emi_amount'];
+        $paidCount = (int)$l['emi_paid'];
+
+        if ($principal <= 0 || $rate <= 0 || $tenure <= 0 || $emi <= 0) return 0.00;
+
+        $balance = $principal;
+        $monthlyRate = ($rate / 100) / 12;
+        $interestCollected = 0.00;
+
+        for ($m = 1; $m <= min($paidCount, $tenure); $m++) {
+            $interest = $balance * $monthlyRate;
+            $principalPortion = $emi - $interest;
+            $balance = $balance - $principalPortion;
+            $interestCollected += $interest;
+        }
+        return $interestCollected;
+    }
+}
+
 $currency_symbol = getSetting('currency_symbol', '₹');
 $system_upi_id = getSetting('upi_id', '');
 $system_upi_name = getSetting('upi_name', '');
@@ -276,6 +300,8 @@ $kpi = [
     'total_recovered' => 0.00,
     'outstanding' => 0.00,
     'monthly_recovery' => 0.00,
+    'total_interest_earned' => 0.00,
+    'total_interest_expected' => 0.00,
     'loan_count' => count($loans),
     'active_count' => 0
 ];
@@ -284,6 +310,9 @@ foreach ($loans as $l) {
     $total_payable = (float)$l['emi_amount'] * (int)$l['tenure_months'];
     $kpi['total_lent'] += (float)$l['principal'];
     $kpi['total_recovered'] += (float)$l['total_paid'];
+    
+    $kpi['total_interest_expected'] += ($total_payable - (float)$l['principal']);
+    $kpi['total_interest_earned'] += get_interest_collected_so_far_php($l);
     
     if ($l['status'] === 'active') {
         $kpi['active_count']++;
@@ -320,7 +349,7 @@ $payments = $pdo->query("
     <style>
         .loan-stats-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(5, 1fr);
             gap: 16px;
             margin-bottom: 28px;
         }
@@ -338,6 +367,7 @@ $payments = $pdo->query("
         }
         .loan-stat-card.blue { background: linear-gradient(135deg, #1e3a8a, #0284c7); }
         .loan-stat-card.green { background: linear-gradient(135deg, #064e3b, #10b981); }
+        .loan-stat-card.indigo { background: linear-gradient(135deg, #3730a3, #6366f1); }
         .loan-stat-card.red { background: linear-gradient(135deg, #78350f, #d97706); }
         .loan-stat-card.amber { background: linear-gradient(135deg, #581c87, #8b5cf6); }
         .loan-stat-icon { font-size: 1.5rem; opacity: 0.9; }
@@ -453,6 +483,12 @@ $payments = $pdo->query("
                         <div class="loan-stat-value"><?= format_currency($kpi['total_recovered']) ?></div>
                         <div class="loan-stat-sub"><?= $kpi['total_lent'] > 0 ? round(($kpi['total_recovered'] / ($kpi['total_lent'] * 1.15)) * 100, 1) : 0 ?>% recovered</div>
                     </div>
+                    <div class="loan-stat-card indigo">
+                        <div class="loan-stat-icon"><i class="fa-solid fa-coins"></i></div>
+                        <div class="loan-stat-label">Interest Earned</div>
+                        <div class="loan-stat-value"><?= format_currency($kpi['total_interest_earned']) ?></div>
+                        <div class="loan-stat-sub">Expected: <?= format_currency($kpi['total_interest_expected']) ?></div>
+                    </div>
                     <div class="loan-stat-card red">
                         <div class="loan-stat-icon"><i class="fa-solid fa-hourglass-half"></i></div>
                         <div class="loan-stat-label">Total Outstanding Recovery</div>
@@ -521,6 +557,18 @@ $payments = $pdo->query("
                                     <div class="loan-detail-row">
                                         <span class="loan-detail-label"><i class="fa-solid fa-sack-dollar"></i> Monthly EMI</span>
                                         <span class="loan-detail-value" style="color: #8b5cf6;"><?= format_currency($l['emi_amount']) ?></span>
+                                    </div>
+                                    <?php 
+                                    $exp_int = ((float)$l['emi_amount'] * (int)$l['tenure_months']) - (float)$l['principal'];
+                                    $rec_int = get_interest_collected_so_far_php($l);
+                                    ?>
+                                    <div class="loan-detail-row">
+                                        <span class="loan-detail-label"><i class="fa-solid fa-coins"></i> Expected Interest</span>
+                                        <span class="loan-detail-value" style="color: #f59e0b;"><?= format_currency($exp_int) ?></span>
+                                    </div>
+                                    <div class="loan-detail-row">
+                                        <span class="loan-detail-label"><i class="fa-solid fa-money-bill-trend-up"></i> Interest Recovered</span>
+                                        <span class="loan-detail-value" style="color: #10b981;"><?= format_currency($rec_int) ?></span>
                                     </div>
                                     <div class="loan-detail-row">
                                         <span class="loan-detail-label"><i class="fa-solid fa-money-bill-transfer"></i> Total Recovered</span>

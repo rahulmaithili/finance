@@ -15,7 +15,7 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         /* ── Premium KPI Stat Cards ── */
-        .loan-stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px;}
+        .loan-stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:28px;}
         @media(max-width:900px){.loan-stats-grid{grid-template-columns:repeat(2,1fr);}}
         @media(max-width:480px){.loan-stats-grid{grid-template-columns:1fr 1fr;}}
 
@@ -31,6 +31,7 @@
         .loan-stat-card::after{content:'';position:absolute;bottom:-20px;left:-20px;width:60px;height:60px;border-radius:50%;opacity:0.08;background:rgba(255,255,255,0.5);}
         .loan-stat-card.blue{background:linear-gradient(135deg,#5b21b6,#a855f7);}
         .loan-stat-card.green{background:linear-gradient(135deg,#064e3b,#10b981);}
+        .loan-stat-card.indigo{background:linear-gradient(135deg,#3730a3,#6366f1);}
         .loan-stat-card.red{background:linear-gradient(135deg,#7f1d1d,#ef4444);}
         .loan-stat-card.amber{background:linear-gradient(135deg,#78350f,#f59e0b);}
         .loan-stat-icon{font-size:1.5rem;opacity:0.9;z-index:1;}
@@ -143,14 +144,21 @@
                     <div class="loan-stat-value" id="statTotalPaid">&#8377;0</div>
                     <div class="loan-stat-sub" id="statPaidPct">0% recovered</div>
                 </div>
-                <!-- Card 3: Outstanding (Red) -->
+                <!-- Card 3: Interest Earnings (Indigo) -->
+                <div class="loan-stat-card indigo">
+                    <div class="loan-stat-icon"><i class="fa-solid fa-coins"></i></div>
+                    <div class="loan-stat-label">Interest Earned</div>
+                    <div class="loan-stat-value" id="statInterestEarned">&#8377;0</div>
+                    <div class="loan-stat-sub" id="statInterestExpected">Expected: &#8377;0</div>
+                </div>
+                <!-- Card 4: Outstanding (Red) -->
                 <div class="loan-stat-card red">
                     <div class="loan-stat-icon"><i class="fa-solid fa-hourglass-half"></i></div>
                     <div class="loan-stat-label">Outstanding Recoveries</div>
                     <div class="loan-stat-value" id="statOutstanding">&#8377;0</div>
                     <div class="loan-stat-sub" id="statActiveCount">0 active debtors</div>
                 </div>
-                <!-- Card 4: Monthly Collection (Amber) -->
+                <!-- Card 5: Monthly Collection (Amber) -->
                 <div class="loan-stat-card amber">
                     <div class="loan-stat-icon"><i class="fa-solid fa-calendar-check"></i></div>
                     <div class="loan-stat-label">Expected Monthly Collection</div>
@@ -385,8 +393,31 @@
         });
     }
 
+    function getInterestCollectedSoFar(l) {
+        const principal = parseFloat(l.principal || 0);
+        const rate = parseFloat(l.interest_rate || 0);
+        const tenure = parseInt(l.tenure_months || 0);
+        const emi = parseFloat(l.emi_amount || 0);
+        const paidCount = parseInt(l.emi_paid || 0);
+
+        if (principal <= 0 || rate <= 0 || tenure <= 0 || emi <= 0) return 0;
+
+        let balance = principal;
+        const monthlyRate = (rate / 100) / 12;
+        let interestCollected = 0;
+
+        for (let m = 1; m <= Math.min(paidCount, tenure); m++) {
+            const interest = balance * monthlyRate;
+            const principalPortion = emi - interest;
+            balance = balance - principalPortion;
+            interestCollected += interest;
+        }
+        return interestCollected;
+    }
+
     function updateStats(loans){
         let out=0,paid=0,tp=0,emi=0,ac=0;
+        let totalInterestExpected=0, totalInterestEarned=0;
         loans.forEach(l=>{
             const isAct=l.status==='active';
             const tot=l.emi_amount*l.tenure_months;
@@ -394,9 +425,13 @@
             paid+=l.total_paid||0;
             out+=Math.max(0,tot-(l.total_paid||0));
             if(isAct){emi+=l.emi_amount;ac++;}
+            totalInterestExpected += (tot - l.principal);
+            totalInterestEarned += getInterestCollectedSoFar(l);
         });
         document.getElementById('statTotalLoans').textContent=formatCurrency(tp);
         document.getElementById('statTotalPaid').textContent=formatCurrency(paid);
+        document.getElementById('statInterestEarned').textContent=formatCurrency(totalInterestEarned);
+        document.getElementById('statInterestExpected').textContent='Expected: ' + formatCurrency(totalInterestExpected);
         document.getElementById('statOutstanding').textContent=formatCurrency(out);
         document.getElementById('statMonthlyEmi').textContent=formatCurrency(emi);
         document.getElementById('statLoanCount').textContent=loans.length+' debtors total';
@@ -473,6 +508,10 @@
                     <div style="display:flex;justify-content:space-between;padding:9px 14px;border-bottom:1px solid rgba(255,255,255,0.05);">
                         <span style="color:rgba(255,255,255,0.5);font-size:0.8rem;display:flex;align-items:center;gap:7px;"><i class="fa-solid fa-coins" style="color:#f59e0b;width:14px;"></i>Interest Earnings</span>
                         <span style="font-weight:700;color:#f59e0b;font-size:0.85rem;">${formatCurrency(totInt)}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:9px 14px;border-bottom:1px solid rgba(255,255,255,0.05);">
+                        <span style="color:rgba(255,255,255,0.5);font-size:0.8rem;display:flex;align-items:center;gap:7px;"><i class="fa-solid fa-money-bill-trend-up" style="color:#10b981;width:14px;"></i>Interest Recovered</span>
+                        <span style="font-weight:700;color:#10b981;font-size:0.85rem;">${formatCurrency(getInterestCollectedSoFar(l))}</span>
                     </div>
                     <div style="display:flex;justify-content:space-between;padding:9px 14px;${!closed?'border-bottom:1px solid rgba(255,255,255,0.05);':''}">
                         <span style="color:rgba(255,255,255,0.5);font-size:0.8rem;display:flex;align-items:center;gap:7px;"><i class="fa-solid fa-calendar" style="color:${c};width:14px;"></i>Start Date</span>

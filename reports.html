@@ -86,6 +86,7 @@
                             <option value="income">Income Only</option>
                             <option value="expense">Expenses Only</option>
                             <option value="transfer">Transfers Only</option>
+                            <option value="loan_interest">Given Loan Interest Earnings</option>
                         </select>
                     </div>
                     <div class="filter-group">
@@ -228,6 +229,88 @@
             const acc = document.getElementById('accountFilter').value;
 
             generatedRecords = [];
+
+            if (type === 'loan_interest') {
+                db.collection('loans_given').get().then(loansSnap => {
+                    const promises = [];
+                    loansSnap.forEach(loanDoc => {
+                        const l = loanDoc.data();
+                        l.id = loanDoc.id;
+                        const p = db.collection('loans_given').doc(l.id).collection('payments').get().then(pmtsSnap => {
+                            return { loan: l, pmtsSnap: pmtsSnap };
+                        });
+                        promises.push(p);
+                    });
+                    
+                    Promise.all(promises).then(results => {
+                        let totalInterestFiltered = 0;
+                        
+                        results.forEach(res => {
+                            const l = res.loan;
+                            const pmtsSnap = res.pmtsSnap;
+                            if (pmtsSnap.empty) return;
+                            
+                            const pmts = [];
+                            pmtsSnap.forEach(pDoc => {
+                                pmts.push({ id: pDoc.id, ...pDoc.data() });
+                            });
+                            pmts.sort((a, b) => new Date(a.payment_date) - new Date(b.payment_date));
+                            
+                            const principal = parseFloat(l.principal || 0);
+                            const rate = parseFloat(l.interest_rate || 0);
+                            const tenure = parseInt(l.tenure_months || 0);
+                            const emiVal = parseFloat(l.emi_amount || 0);
+                            const monthlyRate = (rate / 100) / 12;
+                            
+                            let balance = principal;
+                            const schedule = [];
+                            for (let m = 1; m <= tenure; m++) {
+                                const interest = balance * monthlyRate;
+                                const principalPortion = emiVal - interest;
+                                balance = balance - principalPortion;
+                                schedule.push({
+                                    month: m,
+                                    interest: interest,
+                                    principal: principalPortion
+                                });
+                            }
+                            
+                            pmts.forEach((pmt, idx) => {
+                                const sched = schedule[idx] || { interest: 0, principal: pmt.amount };
+                                
+                                if (pmt.payment_date >= start && pmt.payment_date <= end) {
+                                    if (acc === 'all' || pmt.account_id === acc) {
+                                        totalInterestFiltered += sched.interest;
+                                        
+                                        generatedRecords.push({
+                                            date: pmt.payment_date,
+                                            type: 'income',
+                                            title: `Loan Interest - ${l.debtor_name} (EMI #${idx + 1})`,
+                                            category: 'Given Loan Interest',
+                                            amount: sched.interest
+                                        });
+                                    }
+                                }
+                            });
+                        });
+                        
+                        document.getElementById('totalIncome').textContent = formatCurrency(totalInterestFiltered);
+                        document.getElementById('totalExpense').textContent = formatCurrency(0);
+                        document.getElementById('totalTransfers').textContent = formatCurrency(0);
+                        
+                        const marginEl = document.getElementById('netProfit');
+                        marginEl.textContent = formatCurrency(totalInterestFiltered);
+                        marginEl.style.color = 'var(--success)';
+                        
+                        const incCats = { 'Given Loan Interest': totalInterestFiltered };
+                        renderCategoryBreakdowns(incCats, totalInterestFiltered, 'incomeCategoriesBreakdown', 'var(--success)');
+                        renderCategoryBreakdowns({}, 0, 'expenseCategoriesBreakdown', 'var(--danger)');
+                        
+                        renderStatementLedger();
+                    });
+                }).catch(err => Swal.fire({ icon: 'error', title: 'Load Error', text: err.message }));
+                return;
+            }
 
             const p1 = db.collection('income').where('income_date', '>=', start).where('income_date', '<=', end).get();
             const p2 = db.collection('expenses').where('expense_date', '>=', start).where('expense_date', '<=', end).get();
