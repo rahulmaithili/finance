@@ -370,7 +370,7 @@ $payments = $pdo->query("
         .loan-stat-card.indigo { background: linear-gradient(135deg, #3730a3, #6366f1); }
         .loan-stat-card.red { background: linear-gradient(135deg, #78350f, #d97706); }
         .loan-stat-card.amber { background: linear-gradient(135deg, #581c87, #8b5cf6); }
-        .loan-stat-icon { font-size: 1.5rem; opacity: 0.9; }
+        .loan-stat-icon { font-size: 1.5rem; opacity: 0.9; color: #fff; }
         .loan-stat-label { font-size: 0.72rem; color: rgba(255,255,255,0.75); text-transform: uppercase; letter-spacing: 0.07em; font-weight: 600; }
         .loan-stat-value { font-size: 1.55rem; font-weight: 900; color: #ffffff; letter-spacing: -0.02em; }
         .loan-stat-sub { font-size: 0.73rem; color: rgba(255,255,255,0.65); }
