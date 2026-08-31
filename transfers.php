@@ -301,14 +301,21 @@ $transfers = $pdo->query("
                                             <td><?= clean($tf['remarks']) ?></td>
                                             <td><?= clean($tf['recorder_name']) ?></td>
                                             <td class="actions-cell">
-                                                <?php if ($_SESSION['user_role'] !== 'staff'): ?>
+                                                <div style="display:flex; gap:6px; align-items:center;">
+                                                    <button class="btn-icon btn-view" title="View Details"
+                                                        onclick="viewTransfer(<?= $tf['id'] ?>, '<?= addslashes(date('d M Y', strtotime($tf['transfer_date']))) ?>', '<?= addslashes($tf['from_account_name']) ?>', '<?= addslashes($tf['to_account_name']) ?>', '<?= addslashes($tf['amount']) ?>', '<?= addslashes($tf['remarks'] ?? '') ?>', '<?= addslashes($tf['recorder_name'] ?? 'System') ?>')">
+                                                        <i class="fa-solid fa-eye"></i>
+                                                    </button>
+                                                    <?php if ($_SESSION['user_role'] !== 'staff'): ?>
                                                     <a href="?edit=<?= $tf['id'] ?>" class="btn-icon btn-edit" title="Edit">
                                                         <i class="fa-solid fa-pen"></i>
                                                     </a>
-                                                    <a href="?delete=<?= $tf['id'] ?>" class="btn-icon btn-delete" title="Delete" onclick="return confirm('Are you sure you want to delete this transfer? The balances will be reversed back to original accounts.');">
+                                                    <button class="btn-icon btn-delete" title="Delete"
+                                                        onclick="confirmDelete(<?= $tf['id'] ?>)">
                                                         <i class="fa-solid fa-trash"></i>
-                                                    </a>
-                                                <?php endif; ?>
+                                                    </button>
+                                                    <?php endif; ?>
+                                                </div>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
@@ -405,6 +412,83 @@ $transfers = $pdo->query("
             responsive: true
         });
     });
+    </script>
+
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- View Transfer Modal -->
+    <div id="viewModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.82); align-items:center; justify-content:center; padding:16px;">
+        <div style="background:#1a1d2e; border-radius:20px; max-width:480px; width:100%; max-height:90vh; overflow:hidden; position:relative; box-shadow:0 30px 80px rgba(0,0,0,0.7); border:1px solid rgba(255,255,255,0.08); display:flex; flex-direction:column;">
+            <div style="background:linear-gradient(135deg,#3730a3,#6366f1); padding:20px 24px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div style="width:40px; height:40px; background:rgba(255,255,255,0.2); border-radius:10px; display:flex; align-items:center; justify-content:center;">
+                        <i class="fa-solid fa-right-left" style="color:#fff; font-size:1.1rem;"></i>
+                    </div>
+                    <div>
+                        <h3 style="margin:0; color:#fff; font-size:1.05rem; font-weight:700;">Transfer Details</h3>
+                        <p style="margin:0; color:rgba(255,255,255,0.65); font-size:0.75rem;">Fund movement record</p>
+                    </div>
+                </div>
+                <button onclick="closeViewModal()" style="width:34px; height:34px; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.2); color:#fff; border-radius:8px; cursor:pointer; font-size:1rem; display:flex; align-items:center; justify-content:center;" onmouseover="this.style.background='rgba(255,255,255,0.25)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div id="viewModalBody" style="padding:20px; display:flex; flex-direction:column; gap:10px; overflow-y:auto;"></div>
+        </div>
+    </div>
+
+    <script>
+    function row(icon, label, value, color, accent) {
+        return `<div style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:rgba(255,255,255,0.04); border-radius:12px; border:1px solid rgba(255,255,255,0.07); gap:12px;">
+            <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
+                <div style="width:32px; height:32px; background:${accent || 'rgba(99,102,241,0.15)'}; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                    <i class="fa-solid fa-${icon}" style="font-size:0.85rem; color:${accent ? '#fff' : '#6366f1'};"></i>
+                </div>
+                <span style="color:rgba(255,255,255,0.55); font-size:0.8rem; font-weight:500;">${label}</span>
+            </div>
+            <span style="font-weight:700; color:${color || '#fff'}; font-size:0.92rem; text-align:right;">${value}</span>
+        </div>`;
+    }
+
+    function viewTransfer(id, date, fromAcc, toAcc, amount, remarks, recorder) {
+        const fmt = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount);
+        document.getElementById('viewModalBody').innerHTML =
+            row('indian-rupee', 'Amount', fmt, '#6366f1', 'rgba(99,102,241,0.3)') +
+            row('calendar-days', 'Transfer Date', date) +
+            row('arrow-right-from-bracket', 'From Account (Debit)', fromAcc, '#f87171', 'rgba(239,68,68,0.25)') +
+            row('arrow-right-to-bracket', 'To Account (Credit)', toAcc, '#34d399', 'rgba(16,185,129,0.25)') +
+            (remarks ? row('note-sticky', 'Remarks', remarks) : '') +
+            row('user', 'Recorded By', recorder) +
+            `<div style="padding:10px 16px; background:rgba(255,255,255,0.03); border-radius:10px; border:1px solid rgba(255,255,255,0.06); text-align:center;">
+                <span style="color:rgba(255,255,255,0.35); font-size:0.7rem; font-family:monospace;">ID: ${id}</span>
+            </div>`;
+
+        const modal = document.getElementById('viewModal');
+        modal.style.display = 'flex';
+        modal.addEventListener('click', function(e) { if (e.target === modal) closeViewModal(); }, { once: true });
+    }
+
+    function closeViewModal() {
+        document.getElementById('viewModal').style.display = 'none';
+    }
+
+    function confirmDelete(id) {
+        Swal.fire({
+            title: 'Delete Transfer?',
+            html: 'This transfer record will be <strong>permanently deleted</strong> and account balances will be <strong>reversed</strong> back to their original values.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#e11d48',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: '<i class="fa-solid fa-trash"></i> Yes, Delete & Reverse',
+            cancelButtonText: 'Cancel'
+        }).then(result => {
+            if (result.isConfirmed) {
+                window.location.href = '?delete=' + id;
+            }
+        });
+    }
     </script>
 </body>
 </html>
